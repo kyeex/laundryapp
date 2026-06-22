@@ -1,3 +1,4 @@
+import { Redirect } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
@@ -58,7 +59,7 @@ function StatCard({
 }
 
 export default function DemoControlCenterScreen() {
-  const { isConfigured, startDemoSession } = useAuth();
+  const { currentUser, isConfigured, startDemoSession } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
   const [message, setMessage] = useState("");
@@ -67,6 +68,10 @@ export default function DemoControlCenterScreen() {
   const [isSaving, setIsSaving] = useState(false);
 
   const loadDemoSummary = useCallback(async () => {
+    if (currentUser?.role !== "admin") {
+      return;
+    }
+
     setError("");
     setIsLoading(true);
 
@@ -87,7 +92,7 @@ export default function DemoControlCenterScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [currentUser]);
 
   useEffect(() => {
     void loadDemoSummary();
@@ -114,6 +119,10 @@ export default function DemoControlCenterScreen() {
   );
 
   async function handleResetDemoData() {
+    if (currentUser?.role !== "admin") {
+      return;
+    }
+
     setError("");
     setMessage("");
     setIsSaving(true);
@@ -134,6 +143,10 @@ export default function DemoControlCenterScreen() {
   }
 
   async function handleSeedFreshOrders() {
+    if (currentUser?.role !== "admin") {
+      return;
+    }
+
     setError("");
     setMessage("");
     setIsSaving(true);
@@ -153,6 +166,10 @@ export default function DemoControlCenterScreen() {
     } finally {
       setIsSaving(false);
     }
+  }
+
+  if (currentUser?.role !== "admin") {
+    return <Redirect href="/(admin)" />;
   }
 
   return (
