@@ -135,9 +135,6 @@ export default function AdminHomeScreen() {
         <Link href="/(admin)/orders" style={styles.link}>
           Incoming orders
         </Link>
-        <Link href="/(admin)/demo-control" style={styles.link}>
-          Demo control center
-        </Link>
         <Link href="/(admin)/driver-tracking" style={styles.link}>
           Driver tracking
         </Link>
