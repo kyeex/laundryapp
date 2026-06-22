@@ -1,0 +1,51 @@
+{
+  "expo": {
+    "name": "LaundryApp",
+    "slug": "laundryapp",
+    "scheme": "laundryapp",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "bundleIdentifier": "com.laundryapp.mobile",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.laundryapp.mobile",
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "REPLACE_WITH_EAS_PROJECT_ID"
+      }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-splash-screen",
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "",
+          "enableGooglePay": false
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#0F766E",
+          "defaultChannel": "default"
+        }
+      ]
+    ]
+  }
+}

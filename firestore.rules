@@ -1,0 +1,219 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc(userId) {
+      return get(/databases/$(database)/documents/users/$(userId));
+    }
+
+    function currentUser() {
+      return userDoc(request.auth.uid);
+    }
+
+    function hasRole(role) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && currentUser().data.role == role
+        && currentUser().data.active == true;
+    }
+
+    function isOwner() {
+      return hasRole("owner");
+    }
+
+    function isAdmin() {
+      return hasRole("admin");
+    }
+
+    function isCustomer() {
+      return hasRole("customer");
+    }
+
+    function isDriver() {
+      return hasRole("driver");
+    }
+
+    function ownsUserDoc(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function isOwnOrder(order) {
+      return signedIn() && order.customerId == request.auth.uid;
+    }
+
+    function isAssignedDriver(order) {
+      return signedIn()
+        && (
+          order.assignedPickupDriverId == request.auth.uid
+          || order.assignedDeliveryDriverId == request.auth.uid
+        );
+    }
+
+    function validCustomerOrderCreate() {
+      return isCustomer()
+        && request.resource.data.customerId == request.auth.uid
+        && request.resource.data.status == "requested"
+        && request.resource.data.paymentStatus == "unpaid"
+        && request.resource.data.finalPrice == null;
+    }
+
+    function customerCanMarkOwnOrderPaid() {
+      return isCustomer()
+        && resource.data.customerId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(["paymentStatus", "status", "updatedAt"])
+        && request.resource.data.paymentStatus == "paid"
+        && request.resource.data.status == "paid";
+    }
+
+    function driverCanUpdateAssignedOrderStatus() {
+      return isDriver()
+        && isAssignedDriver(resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(["status", "updatedAt"])
+        && request.resource.data.status in [
+          "pickup_assigned",
+          "picked_up",
+          "failed_pickup",
+          "delivery_assigned",
+          "delivered",
+          "failed_delivery"
+        ];
+    }
+
+    function driverCanSubmitRoute() {
+      return isDriver()
+        && resource.data.driverId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(["status", "updatedAt"])
+        && request.resource.data.status == "completed";
+    }
+
+    match /users/{userId} {
+      allow read: if ownsUserDoc(userId) || isOwner() || isAdmin();
+      allow create: if isAdmin()
+        || (
+          ownsUserDoc(userId)
+          && request.resource.data.role == "customer"
+          && request.resource.data.active == true
+        );
+      allow update: if isAdmin()
+        || isOwner()
+        || (
+          ownsUserDoc(userId)
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly([
+              "displayName",
+              "email",
+              "phone",
+              "expoPushTokens",
+              "updatedAt"
+            ])
+          && request.resource.data.role == resource.data.role
+          && request.resource.data.active == resource.data.active
+        );
+      allow delete: if isAdmin();
+    }
+
+    match /customerProfiles/{userId} {
+      allow read, create, update: if ownsUserDoc(userId) || isOwner() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /driverProfiles/{userId} {
+      allow read: if ownsUserDoc(userId) || isOwner() || isAdmin();
+      allow create, update, delete: if isOwner() || isAdmin();
+    }
+
+    match /addresses/{addressId} {
+      allow read: if isOwner()
+        || (signedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isCustomer()
+        && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isOwner()
+        || (
+          signedIn()
+          && resource.data.userId == request.auth.uid
+          && request.resource.data.userId == request.auth.uid
+        );
+    }
+
+    match /customerPreferences/{userId} {
+      allow read, create, update: if ownsUserDoc(userId) || isOwner();
+      allow delete: if isOwner();
+    }
+
+    match /orders/{orderId} {
+      allow read: if isOwner()
+        || isOwnOrder(resource.data)
+        || isAssignedDriver(resource.data);
+      allow create: if validCustomerOrderCreate();
+      allow update: if isOwner()
+        || customerCanMarkOwnOrderPaid()
+        || driverCanUpdateAssignedOrderStatus();
+      allow delete: if isOwner();
+    }
+
+    match /batches/{batchId} {
+      allow read: if isOwner()
+        || (isDriver() && resource.data.driverId == request.auth.uid);
+      allow create, update, delete: if isOwner()
+        || driverCanSubmitRoute();
+    }
+
+    match /orderEvents/{eventId} {
+      allow read: if isOwner()
+        || (
+          signedIn()
+          && exists(/databases/$(database)/documents/orders/$(resource.data.orderId))
+          && (
+            get(/databases/$(database)/documents/orders/$(resource.data.orderId)).data.customerId == request.auth.uid
+            || get(/databases/$(database)/documents/orders/$(resource.data.orderId)).data.assignedPickupDriverId == request.auth.uid
+            || get(/databases/$(database)/documents/orders/$(resource.data.orderId)).data.assignedDeliveryDriverId == request.auth.uid
+          )
+        );
+      allow create: if signedIn() && request.resource.data.createdBy == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    match /services/{serviceId} {
+      allow read: if true;
+      allow write: if isOwner();
+    }
+
+    match /addOns/{addOnId} {
+      allow read: if true;
+      allow write: if isOwner();
+    }
+
+    match /comforterSizeAddOns/{addOnId} {
+      allow read: if true;
+      allow write: if isOwner();
+    }
+
+    match /dryCleaningItems/{itemId} {
+      allow read: if true;
+      allow write: if isOwner();
+    }
+
+    match /pickupWindows/{pickupWindowId} {
+      allow read: if true;
+      allow write: if isOwner();
+    }
+
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isOwner();
+    }
+
+    match /payments/{paymentId} {
+      allow read: if isOwner()
+        || (signedIn() && resource.data.customerId == request.auth.uid);
+      allow write: if false;
+    }
+  }
+}

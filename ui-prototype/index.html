@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LaundryApp UI Prototype</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar" aria-label="Primary">
+        <a class="brand" href="#home" aria-label="LaundryApp home">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" role="img">
+              <path d="M7 2h10a3 3 0 0 1 3 3v14a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V5a3 3 0 0 1 3-3Zm0 2a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1H7Zm2 2h2v2H9V6Zm4 0h2v2h-2V6Zm-1 5a4 4 0 1 1 0 8 4 4 0 0 1 0-8Zm-2.3 3.4A2.6 2.6 0 0 0 14.4 16c-.9.3-1.9.2-2.8-.2-.8-.4-1.4-.9-1.9-1.4Z" />
+            </svg>
+          </span>
+          <span>LaundryApp</span>
+        </a>
+        <nav class="nav-tabs" aria-label="Prototype views">
+          <button class="tab-button is-active" type="button" data-view="customer">Customer</button>
+          <button class="tab-button" type="button" data-view="tracker">Tracker</button>
+          <button class="tab-button" type="button" data-view="ops">Ops</button>
+        </nav>
+        <button class="icon-button" type="button" aria-label="Open notifications">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 16v-5a6 6 0 1 0-12 0v5l-2 2v1h16v-1l-2-2Zm-7 5h2a2 2 0 0 0 2-2H9a2 2 0 0 0 2 2Z" /></svg>
+        </button>
+      </header>
+
+      <main>
+        <section class="hero panel" id="home">
+          <div class="hero-copy">
+            <div class="status-chip">
+              <span class="pulse" aria-hidden="true"></span>
+              Pickup windows available today
+            </div>
+            <h1>Fresh laundry, handled like a concierge service.</h1>
+            <p>Book pickup, personalize care, follow every handoff, and pay only after the final weight and dry-cleaning items are confirmed.</p>
+            <div class="hero-actions">
+              <button class="primary-action" type="button" data-view="customer">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14m7-7H5" /></svg>
+                Start order
+              </button>
+              <button class="secondary-action" type="button" data-view="tracker">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
+                Track order
+              </button>
+            </div>
+          </div>
+          <div class="hero-media">
+            <img src="./assets/laundry-concierge-hero.png" alt="Premium folded laundry and delivery bag" />
+            <div class="floating-card eta-card">
+              <span>Next pickup</span>
+              <strong>9:00 AM - 12:00 PM</strong>
+            </div>
+            <div class="floating-card rating-card">
+              <strong>4.9</strong>
+              <span>clean-care score</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="metrics-grid" aria-label="Service snapshot">
+          <article>
+            <span>$2.00/lb</span>
+            <strong>Wash & fold</strong>
+          </article>
+          <article>
+            <span>20 lb</span>
+            <strong>Delivery minimum</strong>
+          </article>
+          <article>
+            <span>48 hr</span>
+            <strong>Typical return</strong>
+          </article>
+          <article>
+            <span>Live</span>
+            <strong>Owner + driver flow</strong>
+          </article>
+        </section>
+
+        <section class="view-stack">
+          <div class="view is-active" data-panel="customer">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Book</p>
+                <h2>Build a pickup in under a minute</h2>
+              </div>
+              <div class="estimate-pill" aria-live="polite">
+                <span>Estimated subtotal</span>
+                <strong id="estimateTotal">$81.60</strong>
+              </div>
+            </div>
+
+            <div class="booking-layout">
+              <form class="order-card" id="orderForm">
+                <fieldset>
+                  <legend>Service</legend>
+                  <label class="choice-card">
+                    <input type="radio" name="service" value="wash" />
+                    <span>
+                      <strong>Wash & fold</strong>
+                      <small>Everyday laundry, folded and ready.</small>
+                    </span>
+                    <em>$2/lb</em>
+                  </label>
+                  <label class="choice-card is-selected">
+                    <input type="radio" name="service" value="combo" checked />
+                    <span>
+                      <strong>Wash, fold + dry cleaning</strong>
+                      <small>One pickup for laundry and garments.</small>
+                    </span>
+                    <em>Best fit</em>
+                  </label>
+                </fieldset>
+
+                <div class="form-grid">
+                  <label>
+                    <span>Estimated weight</span>
+                    <input id="weightInput" type="number" min="1" value="15.5" />
+                  </label>
+                  <label>
+                    <span>Pickup window</span>
+                    <select>
+                      <option>9:00 AM - 12:00 PM</option>
+                      <option>12:00 PM - 3:00 PM</option>
+                      <option>3:00 PM - 6:00 PM</option>
+                    </select>
+                  </label>
+                </div>
+
+                <fieldset>
+                  <legend>Add-ons</legend>
+                  <label class="toggle-row">
+                    <input type="checkbox" data-addon="2.5" checked />
+                    <span>Separate colors</span>
+                    <em>$2.50</em>
+                  </label>
+                  <label class="toggle-row">
+                    <input type="checkbox" data-addon="12" checked />
+                    <span>Queen comforter</span>
+                    <em>$12</em>
+                  </label>
+                  <label class="toggle-row">
+                    <input type="checkbox" data-addon="0" />
+                    <span>Rush request</span>
+                    <em>Confirm</em>
+                  </label>
+                </fieldset>
+
+                <label class="note-field">
+                  <span>Care note</span>
+                  <textarea rows="3">Please use hypoallergenic detergent.</textarea>
+                </label>
+              </form>
+
+              <aside class="phone-frame" aria-label="Mobile preview">
+                <div class="phone-screen">
+                  <div class="phone-head">
+                    <span>Today</span>
+                    <strong>Jordan</strong>
+                  </div>
+                  <div class="pickup-card">
+                    <small>Pickup assigned</small>
+                    <strong>Driver arriving in window</strong>
+                    <div class="progress-line"><span></span></div>
+                  </div>
+                  <div class="mini-list">
+                    <div><span></span> Wash & fold + dry cleaning</div>
+                    <div><span></span> 2 shirts, 1 pants, queen comforter</div>
+                    <div><span></span> Maple Ave, Apt 3B</div>
+                  </div>
+                  <button type="button">View live order</button>
+                </div>
+              </aside>
+            </div>
+          </div>
+
+          <div class="view" data-panel="tracker">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Track</p>
+                <h2>Order status that actually feels alive</h2>
+              </div>
+              <button class="secondary-action compact" type="button">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v6h-6" /></svg>
+                Refresh
+              </button>
+            </div>
+            <div class="tracker-layout">
+              <article class="order-summary panel">
+                <div>
+                  <span class="status-chip warm">Order #1001</span>
+                  <h3>Pickup assigned</h3>
+                  <p>Sam Rivera is scheduled for June 22 between 9:00 AM and 12:00 PM.</p>
+                </div>
+                <dl>
+                  <div><dt>Estimate</dt><dd>$81.60</dd></div>
+                  <div><dt>Payment</dt><dd>Unpaid</dd></div>
+                  <div><dt>Return</dt><dd>Jun 24</dd></div>
+                </dl>
+              </article>
+              <ol class="timeline panel">
+                <li class="done"><span></span><div><strong>Requested</strong><p>Your order was received.</p></div></li>
+                <li class="done"><span></span><div><strong>Accepted</strong><p>The owner confirmed availability.</p></div></li>
+                <li class="active"><span></span><div><strong>Pickup assigned</strong><p>Your driver has the stop on their route.</p></div></li>
+                <li><span></span><div><strong>In progress</strong><p>Laundry is weighed, washed, and dry-cleaning items are reviewed.</p></div></li>
+                <li><span></span><div><strong>Payment requested</strong><p>Final price is ready before delivery.</p></div></li>
+                <li><span></span><div><strong>Delivered</strong><p>Your fresh order is back home.</p></div></li>
+              </ol>
+            </div>
+          </div>
+
+          <div class="view" data-panel="ops">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Operate</p>
+                <h2>Owner and driver command surface</h2>
+              </div>
+              <div class="segmented" role="group" aria-label="Operations mode">
+                <button class="is-active" type="button">Owner</button>
+                <button type="button">Driver</button>
+              </div>
+            </div>
+            <div class="ops-grid">
+              <article class="ops-column panel">
+                <div class="column-head">
+                  <span>Incoming</span>
+                  <strong>3</strong>
+                </div>
+                <div class="request-card hot">
+                  <small>Taylor Brooks</small>
+                  <strong>Wash & fold</strong>
+                  <span>12:00 PM - 3:00 PM, Queens</span>
+                  <div class="quick-actions">
+                    <button type="button">Accept</button>
+                    <button type="button">Decline</button>
+                  </div>
+                </div>
+                <div class="request-card">
+                  <small>Avery Patel</small>
+                  <strong>Final price ready</strong>
+                  <span>$59.50 paid, assign delivery</span>
+                </div>
+              </article>
+
+              <article class="ops-column panel">
+                <div class="column-head">
+                  <span>Route</span>
+                  <strong>Sam</strong>
+                </div>
+                <div class="route-map" aria-label="Route preview">
+                  <span class="pin one"></span>
+                  <span class="pin two"></span>
+                  <span class="pin three"></span>
+                  <svg viewBox="0 0 340 180" aria-hidden="true">
+                    <path d="M48 125 C105 45 160 165 225 82 S305 88 312 34" />
+                  </svg>
+                </div>
+                <div class="stop-row"><span>01</span><strong>1428 Maple Ave</strong><em>Pickup</em></div>
+                <div class="stop-row"><span>02</span><strong>17 Pine Road</strong><em>Delivery</em></div>
+              </article>
+
+              <article class="ops-column panel">
+                <div class="column-head">
+                  <span>Revenue</span>
+                  <strong>$487</strong>
+                </div>
+                <div class="bar-chart" aria-label="Daily revenue bars">
+                  <span style="height: 46%"></span>
+                  <span style="height: 72%"></span>
+                  <span style="height: 61%"></span>
+                  <span style="height: 88%"></span>
+                  <span style="height: 54%"></span>
+                  <span style="height: 79%"></span>
+                </div>
+                <div class="insight-card">
+                  <strong>Rush capacity open</strong>
+                  <span>2 available windows before 6 PM</span>
+                </div>
+              </article>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

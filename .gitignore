@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Expo and build output
+.expo/
+**/.expo/
+dist/
+dist-*/
+web-build/
+expo-env.d.ts
+*.tsbuildinfo
+
+# Logs and temporary files
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# Environment files
+.env
+.env.*
+!.env.example
+!.env.production.example
+
+# Firebase local/project-specific state
+.firebaserc
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# Native/generated mobile output
+ios/
+android/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
