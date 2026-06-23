@@ -2,6 +2,23 @@
 
 Use this after `npm run deploy:staging` succeeds.
 
+For the current no-Functions staging test, run the web preview with staging
+Firebase values:
+
+```powershell
+npm run env:staging:check
+npm run preview:staging
+```
+
+Open:
+
+```text
+http://localhost:8100
+```
+
+If the sign-in button stays disabled after entering email and password, the app
+is probably running in demo mode or missing Firebase environment values.
+
 ## Staging Flow
 
 ```mermaid
