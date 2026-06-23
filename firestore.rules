@@ -131,8 +131,10 @@ service cloud.firestore {
     }
 
     match /addresses/{addressId} {
-      allow read: if isOwner()
+      allow get: if isOwner()
+        || (signedIn() && addressId == request.auth.uid + "-default")
         || (signedIn() && resource.data.userId == request.auth.uid);
+      allow list: if isOwner();
       allow create: if isCustomer()
         && request.resource.data.userId == request.auth.uid;
       allow update, delete: if isOwner()

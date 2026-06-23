@@ -66,7 +66,7 @@ export default function CustomerPayOrderScreen() {
 
       setSuccess("Payment complete.");
       router.replace({
-        pathname: "/(customer)/orders/[orderId]",
+        pathname: "/(customer)/my-orders/[orderId]",
         params: { orderId: order.id },
       });
     } catch (payError) {

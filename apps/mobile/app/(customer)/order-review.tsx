@@ -115,7 +115,7 @@ export default function OrderReviewScreen() {
       const orderId = await createCustomerOrder(draft.customer, draft.input);
       clearOrderDraft();
       router.replace({
-        pathname: "/(customer)/orders/[orderId]",
+        pathname: "/(customer)/my-orders/[orderId]",
         params: { orderId },
       });
     } catch (submitError) {

@@ -61,7 +61,7 @@ function calculateOrderEstimate(input: CreateOrderInput) {
   );
 }
 
-function mapOrder(id: string, data: DocumentData): Order {
+export function mapOrder(id: string, data: DocumentData): Order {
   return {
     id,
     customerId: data.customerId ?? "",

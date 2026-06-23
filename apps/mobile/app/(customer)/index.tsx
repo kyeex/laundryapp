@@ -153,7 +153,7 @@ export default function CustomerHomeScreen() {
         <Link href="/(customer)/preferences" style={styles.secondary}>
           Customer Preferences
         </Link>
-        <Link href="/(customer)/orders" style={styles.secondary}>
+        <Link href="/(customer)/my-orders" style={styles.secondary}>
           View orders
         </Link>
       </View>

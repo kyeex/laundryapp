@@ -189,7 +189,7 @@ export default function CustomerOrderDetailScreen() {
               {order.finalPrice !== null && order.paymentStatus !== "paid" ? (
                 <Link
                   href={{
-                    pathname: "/(customer)/orders/[orderId]/pay",
+                    pathname: "/(customer)/my-orders/[orderId]/pay",
                     params: { orderId: order.id },
                   }}
                   style={styles.payLink}
@@ -210,7 +210,7 @@ export default function CustomerOrderDetailScreen() {
               label="Track order status"
               onPress={() =>
                 router.push({
-                  pathname: "/(customer)/orders/[orderId]/track",
+                  pathname: "/(customer)/my-orders/[orderId]/track",
                   params: { orderId: order.id },
                 })
               }

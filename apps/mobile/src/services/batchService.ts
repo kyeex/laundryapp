@@ -36,7 +36,7 @@ import {
   deliveryBatchEligibleStatuses,
 } from "@/workflows/orderWorkflow";
 
-import { addOrderEvent, getAdminOrders } from "./orderService";
+import { addOrderEvent, getAdminOrders, mapOrder } from "./orderService";
 import { recordAuditLog } from "./auditLogService";
 
 function mapBatch(id: string, data: DocumentData): Batch {
@@ -222,10 +222,14 @@ export async function getBatchOrders(batch: Batch) {
     return getDemoOrders().filter((order) => orderIdSet.has(order.id));
   }
 
-  const allOrders = await getAdminOrders();
-  const orderIdSet = new Set(batch.orderIds);
+  const db = getFirebaseFirestore();
+  const snapshots = await Promise.all(
+    batch.orderIds.map((orderId) => getDoc(doc(db, "orders", orderId))),
+  );
 
-  return allOrders.filter((order) => orderIdSet.has(order.id));
+  return snapshots
+    .filter((orderSnapshot) => orderSnapshot.exists())
+    .map((orderSnapshot) => mapOrder(orderSnapshot.id, orderSnapshot.data()));
 }
 
 export function getEligibleOrdersForBatch(orders: Order[], type: BatchType) {

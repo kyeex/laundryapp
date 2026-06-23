@@ -24,6 +24,13 @@ export default function CustomerLayout() {
           name="orders/[orderId]/track"
           options={{ title: "Track order" }}
         />
+        <Stack.Screen name="my-orders" options={{ title: "My orders" }} />
+        <Stack.Screen name="my-orders/[orderId]" options={{ title: "Order detail" }} />
+        <Stack.Screen name="my-orders/[orderId]/pay" options={{ title: "Pay order" }} />
+        <Stack.Screen
+          name="my-orders/[orderId]/track"
+          options={{ title: "Track order" }}
+        />
       </Stack>
     </ProtectedRoute>
   );

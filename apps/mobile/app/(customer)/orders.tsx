@@ -72,7 +72,7 @@ export default function CustomerOrdersScreen() {
           {orders.map((order) => (
             <Link
               href={{
-                pathname: "/(customer)/orders/[orderId]",
+                pathname: "/(customer)/my-orders/[orderId]",
                 params: { orderId: order.id },
               }}
               key={order.id}
