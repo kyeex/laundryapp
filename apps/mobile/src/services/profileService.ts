@@ -12,7 +12,7 @@ import {
   type DocumentData,
 } from "firebase/firestore";
 
-import { getFirebaseFirestore, isFirebaseConfigured } from "@/config/firebase";
+import { getFirebaseFirestore, shouldUseDemoBackend } from "@/config/firebase";
 import { demoUsers } from "@/data/demoData";
 import type { AddressInput, AppUser, UserRole } from "@/types/domain";
 import { requireText, validateAddress } from "@/utils/validation";
@@ -87,7 +87,7 @@ function mapUserProfile(id: string, data: DocumentData): AppUser {
 }
 
 export async function getUserProfile(userId: string) {
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     return Object.values(demoUsers).find((user) => user.id === userId) ?? null;
   }
 
@@ -102,7 +102,7 @@ export async function getUserProfile(userId: string) {
 }
 
 export async function getCustomerProfileSummary(userId: string) {
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     const storedProfile = getStorage()?.getItem(demoCustomerProfileStorageKey);
 
     if (storedProfile) {
@@ -169,7 +169,7 @@ export async function saveCustomerProfileSummary(
     },
   };
 
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     getStorage()?.setItem(
       demoCustomerProfileStorageKey,
       JSON.stringify(normalizedProfile),
@@ -204,7 +204,7 @@ export async function saveCustomerProfileSummary(
 }
 
 export async function getCustomerLaundryPreferences(userId: string) {
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     const storedPreferences = getStorage()?.getItem(demoLaundryPreferencesStorageKey);
 
     if (storedPreferences) {
@@ -256,7 +256,7 @@ export async function saveCustomerLaundryPreferences(
     specialInstructions: preferences.specialInstructions.trim(),
   };
 
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     getStorage()?.setItem(
       demoLaundryPreferencesStorageKey,
       JSON.stringify(normalizedPreferences),
@@ -279,7 +279,7 @@ export async function createUserProfile(input: CreateUserProfileInput) {
   requireText(input.email, "Email");
   requireText(input.displayName, "Display name");
 
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     return getUserProfile(input.id);
   }
 
@@ -309,7 +309,7 @@ export async function createUserProfile(input: CreateUserProfileInput) {
 }
 
 export async function getActiveDrivers() {
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     return [demoUsers.driver];
   }
 
@@ -327,7 +327,7 @@ export async function getActiveDrivers() {
 }
 
 export async function saveExpoPushToken(userId: string, token: string) {
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     return;
   }
 

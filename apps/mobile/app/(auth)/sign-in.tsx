@@ -11,7 +11,7 @@ import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 
 export default function SignInScreen() {
-  const { isConfigured, signInWithEmail, startDemoSession } = useAuth();
+  const { isConfigured, isDemoMode, signInWithEmail, startDemoSession } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -63,7 +63,7 @@ export default function SignInScreen() {
           label={isSubmitting ? "Signing in..." : "Sign in"}
           onPress={handleSubmit}
         />
-        {!isConfigured ? (
+        {isDemoMode ? (
           <View style={styles.demoBox}>
             <Text style={styles.demoTitle}>Explore with demo data</Text>
             <Text style={styles.demoText}>

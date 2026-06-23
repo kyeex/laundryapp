@@ -1,4 +1,4 @@
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -13,10 +13,11 @@ import {
 import { AppButton } from "@/components/AppButton";
 import { Screen } from "@/components/Screen";
 import { serviceCatalog } from "@/data/serviceCatalog";
+import { getAdminBatches, getEligibleOrdersForBatch } from "@/services/batchService";
 import { getAdminOrders } from "@/services/orderService";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
-import type { Order } from "@/types/domain";
+import type { Batch, Order } from "@/types/domain";
 import {
   formatOrderStatus,
   orderStatusGroups,
@@ -31,7 +32,48 @@ const orderTypeFilters = [
   { label: "Wash + dry cleaning", value: "wash-fold-dry-cleaning" },
 ] as const;
 
+const dashboardAttentionFilters = {
+  "new-requests": {
+    label: "New requests",
+    description: "Orders waiting for an owner to accept or decline.",
+  },
+  "price-payment": {
+    label: "Price/payment",
+    description: "Orders needing final pricing or payment follow-up.",
+  },
+  "pickup-ready": {
+    label: "Pickup ready",
+    description: "Accepted orders that can be added to a pickup batch.",
+  },
+  "delivery-ready": {
+    label: "Delivery ready",
+    description: "Orders that can be added to a delivery batch.",
+  },
+  "submitted-routes": {
+    label: "Submitted routes",
+    description: "Orders included in driver-submitted routes.",
+  },
+} as const;
+
+type DashboardAttentionFilter = keyof typeof dashboardAttentionFilters;
+
 const weekdayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function getDashboardAttentionFilter(value: string | string[] | undefined) {
+  const filter = Array.isArray(value) ? value[0] : value;
+
+  return filter && filter in dashboardAttentionFilters
+    ? (filter as DashboardAttentionFilter)
+    : null;
+}
+
+function getSubmittedRouteOrderIds(batches: Batch[]) {
+  return new Set(
+    batches
+      .filter((batch) => batch.status === "completed")
+      .flatMap((batch) => batch.orderIds),
+  );
+}
 
 function toIsoDate(date: Date) {
   const year = date.getFullYear();
@@ -433,7 +475,13 @@ function DatePickerField({
 }
 
 export default function AdminOrdersScreen() {
+  const searchParams = useLocalSearchParams<{ attention?: string | string[] }>();
   const [orders, setOrders] = useState<Order[]>([]);
+  const [batches, setBatches] = useState<Batch[]>([]);
+  const [selectedAttentionFilter, setSelectedAttentionFilter] =
+    useState<DashboardAttentionFilter | null>(() =>
+      getDashboardAttentionFilter(searchParams.attention),
+    );
   const [selectedStatusGroup, setSelectedStatusGroup] = useState<string | null>(null);
   const [selectedOrderType, setSelectedOrderType] =
     useState<(typeof orderTypeFilters)[number]["value"]>("all");
@@ -461,9 +509,52 @@ export default function AdminOrdersScreen() {
   const activeStatusGroup = orderStatusGroups.find(
     (group) => group.label === selectedStatusGroup,
   );
+  const activeAttentionFilterConfig = selectedAttentionFilter
+    ? dashboardAttentionFilters[selectedAttentionFilter]
+    : null;
+  const attentionFilteredOrderIds = useMemo(() => {
+    if (!selectedAttentionFilter) {
+      return null;
+    }
+
+    if (selectedAttentionFilter === "new-requests") {
+      return new Set(
+        orders.filter((order) => order.status === "requested").map((order) => order.id),
+      );
+    }
+
+    if (selectedAttentionFilter === "price-payment") {
+      return new Set(
+        orders
+          .filter(
+            (order) =>
+              order.status === "in_progress" ||
+              (order.finalPrice !== null && order.paymentStatus !== "paid"),
+          )
+          .map((order) => order.id),
+      );
+    }
+
+    if (selectedAttentionFilter === "pickup-ready") {
+      return new Set(
+        getEligibleOrdersForBatch(orders, "pickup").map((order) => order.id),
+      );
+    }
+
+    if (selectedAttentionFilter === "delivery-ready") {
+      return new Set(
+        getEligibleOrdersForBatch(orders, "delivery").map((order) => order.id),
+      );
+    }
+
+    return getSubmittedRouteOrderIds(batches);
+  }, [batches, orders, selectedAttentionFilter]);
   const filteredOrders = useMemo(
     () =>
       orders.filter((order) => {
+        const matchesAttention = attentionFilteredOrderIds
+          ? attentionFilteredOrderIds.has(order.id)
+          : true;
         const matchesStatus = activeStatusGroup
           ? activeStatusGroup.statuses.includes(order.status)
           : true;
@@ -473,9 +564,16 @@ export default function AdminOrdersScreen() {
             : order.selectedServiceIds.includes(selectedOrderType);
         const matchesDates = matchesDateRange(order, dateRangeStart, dateRangeEnd);
 
-        return matchesStatus && matchesType && matchesDates;
+        return matchesAttention && matchesStatus && matchesType && matchesDates;
       }),
-    [activeStatusGroup, dateRangeEnd, dateRangeStart, orders, selectedOrderType],
+    [
+      activeStatusGroup,
+      attentionFilteredOrderIds,
+      dateRangeEnd,
+      dateRangeStart,
+      orders,
+      selectedOrderType,
+    ],
   );
   const sortedOrders = useMemo(
     () =>
@@ -524,15 +622,22 @@ export default function AdminOrdersScreen() {
 
   const hasDateRangeFilter = dateRangeStart.length > 0 || dateRangeEnd.length > 0;
   const hasActiveFilters =
-    Boolean(selectedStatusGroup) || selectedOrderType !== "all" || hasDateRangeFilter;
+    Boolean(selectedAttentionFilter) ||
+    Boolean(selectedStatusGroup) ||
+    selectedOrderType !== "all" ||
+    hasDateRangeFilter;
 
   const loadOrders = useCallback(async () => {
     setError("");
     setIsLoading(true);
 
     try {
-      const adminOrders = await getAdminOrders();
+      const [adminOrders, adminBatches] = await Promise.all([
+        getAdminOrders(),
+        getAdminBatches(),
+      ]);
       setOrders(adminOrders);
+      setBatches(adminBatches);
     } catch (loadError) {
       const message =
         loadError instanceof Error
@@ -547,6 +652,15 @@ export default function AdminOrdersScreen() {
   useEffect(() => {
     void loadOrders();
   }, [loadOrders]);
+
+  useEffect(() => {
+    const nextAttentionFilter = getDashboardAttentionFilter(searchParams.attention);
+
+    setSelectedAttentionFilter(nextAttentionFilter);
+    if (nextAttentionFilter) {
+      setSelectedStatusGroup(null);
+    }
+  }, [searchParams.attention]);
 
   return (
     <Screen>
@@ -566,7 +680,10 @@ export default function AdminOrdersScreen() {
         {orders.length > 0 ? (
           <View style={styles.statusGrid}>
             <Pressable
-              onPress={() => setSelectedStatusGroup(null)}
+              onPress={() => {
+                setSelectedAttentionFilter(null);
+                setSelectedStatusGroup(null);
+              }}
               style={[
                 styles.statusTile,
                 selectedStatusGroup === null && styles.statusTileActive,
@@ -578,11 +695,12 @@ export default function AdminOrdersScreen() {
             {statusSummary.map((item) => (
               <Pressable
                 key={item.label}
-                onPress={() =>
+                onPress={() => {
+                  setSelectedAttentionFilter(null);
                   setSelectedStatusGroup((current) =>
                     current === item.label ? null : item.label,
-                  )
-                }
+                  );
+                }}
                 style={[
                   styles.statusTile,
                   selectedStatusGroup === item.label && styles.statusTileActive,
@@ -621,6 +739,7 @@ export default function AdminOrdersScreen() {
                   disabled={!hasActiveFilters}
                   label="Clear"
                   onPress={() => {
+                    setSelectedAttentionFilter(null);
                     setSelectedStatusGroup(null);
                     setSelectedOrderType("all");
                     setDateRangeStart("");
@@ -631,6 +750,25 @@ export default function AdminOrdersScreen() {
                 />
               </View>
             </View>
+            {activeAttentionFilterConfig ? (
+              <View style={styles.attentionBanner}>
+                <View style={styles.attentionCopy}>
+                  <Text style={styles.attentionLabel}>
+                    Dashboard filter: {activeAttentionFilterConfig.label}
+                  </Text>
+                  <Text style={styles.attentionText}>
+                    {activeAttentionFilterConfig.description}
+                  </Text>
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setSelectedAttentionFilter(null)}
+                  style={styles.attentionClearButton}
+                >
+                  <Text style={styles.attentionClearText}>View all orders</Text>
+                </Pressable>
+              </View>
+            ) : null}
             <Text style={styles.filterMeta}>
               Showing {filteredOrders.length} of {orders.length} order
               {orders.length === 1 ? "" : "s"}.
@@ -968,6 +1106,46 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: spacing.sm,
     justifyContent: "flex-end",
+  },
+  attentionBanner: {
+    alignItems: "center",
+    backgroundColor: "#ECFDF5",
+    borderColor: "#A7F3D0",
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.md,
+    justifyContent: "space-between",
+    padding: spacing.md,
+  },
+  attentionCopy: {
+    flex: 1,
+    gap: spacing.xs,
+    minWidth: 220,
+  },
+  attentionLabel: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  attentionText: {
+    color: colors.muted,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  attentionClearButton: {
+    backgroundColor: colors.surface,
+    borderColor: "#A7F3D0",
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  attentionClearText: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "800",
   },
   analyticsButton: {
     alignItems: "center",

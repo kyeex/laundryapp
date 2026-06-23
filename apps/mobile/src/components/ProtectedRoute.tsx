@@ -39,9 +39,9 @@ export function ProtectedRoute({ allowedRoles, children }: ProtectedRouteProps) 
 }
 
 export function ConfigNotice() {
-  const { isConfigured } = useAuth();
+  const { appEnvironment, isConfigured, isDemoMode } = useAuth();
 
-  if (isConfigured) {
+  if (isConfigured || isDemoMode) {
     return null;
   }
 
@@ -49,8 +49,8 @@ export function ConfigNotice() {
     <View style={styles.notice}>
       <Text style={styles.noticeTitle}>Firebase setup needed</Text>
       <Text style={styles.noticeText}>
-        Copy .env.example to .env and add your Firebase web app values before
-        using authentication.
+        This build is running in {appEnvironment} mode. Add Firebase values to
+        apps/mobile/.env before using real authentication or Firestore data.
       </Text>
     </View>
   );

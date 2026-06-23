@@ -11,7 +11,7 @@ import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 
 export default function ForgotPasswordScreen() {
-  const { isConfigured, sendResetEmail } = useAuth();
+  const { isConfigured, isDemoMode, sendResetEmail } = useAuth();
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -28,10 +28,12 @@ export default function ForgotPasswordScreen() {
         setMessage(
           "If an account exists for that email, a password reset link has been sent.",
         );
-      } else {
+      } else if (isDemoMode) {
         setMessage(
           "Demo mode: password reset request captured. Configure Firebase to send real reset emails.",
         );
+      } else {
+        throw new Error("Firebase must be configured before reset emails can be sent.");
       }
     } catch (resetError) {
       const resetMessage =

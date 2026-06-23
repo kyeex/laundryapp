@@ -6,10 +6,14 @@ import {
   query,
   serverTimestamp,
   setDoc,
-  updateDoc,
 } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
 
-import { getFirebaseFirestore, isFirebaseConfigured } from "@/config/firebase";
+import {
+  getFirebaseFirestore,
+  getFirebaseFunctions,
+  shouldUseDemoBackend,
+} from "@/config/firebase";
 import { demoUsers } from "@/data/demoData";
 import { requestPasswordReset } from "@/services/authService";
 import type { AppUser, UserRole } from "@/types/domain";
@@ -20,6 +24,10 @@ export type ManagedUserInput = {
   email: string;
   phone: string;
   role: UserRole;
+};
+
+type CreateManagedUserResult = {
+  user: AppUser;
 };
 
 const demoManagedUsersStorageKey = "laundryapp.demo.managedUsers.v1";
@@ -74,7 +82,7 @@ function getDemoUserDirectory() {
 }
 
 export async function getManagedUsers() {
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     return getDemoUserDirectory().sort((a, b) =>
       a.displayName.localeCompare(b.displayName),
     );
@@ -104,7 +112,7 @@ export async function getManagedUsers() {
 export async function createManagedUser(input: ManagedUserInput) {
   const normalizedInput = normalizeUserInput(input);
 
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     const demoUsersList = getDemoUserDirectory();
     const newUser: AppUser = {
       id: `demo-managed-${Date.now()}`,
@@ -119,16 +127,26 @@ export async function createManagedUser(input: ManagedUserInput) {
     return newUser;
   }
 
-  throw new Error(
-    "Production user creation needs a secure Cloud Function that creates the Firebase Auth account and matching user profile.",
+  const createUser = httpsCallable<ManagedUserInput, CreateManagedUserResult>(
+    getFirebaseFunctions(),
+    "createManagedUserAccount",
   );
+  const result = await createUser(normalizedInput);
+
+  await requestPasswordReset(normalizedInput.email);
+
+  return {
+    ...result.data.user,
+    createdAt: null,
+    updatedAt: null,
+  };
 }
 
 export async function updateManagedUser(
   userId: string,
   updates: Partial<Pick<AppUser, "active" | "role" | "displayName" | "phone">>,
 ) {
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     const nextUsers = getDemoUserDirectory().map((user) =>
       user.id === userId
         ? {
@@ -143,17 +161,17 @@ export async function updateManagedUser(
     return;
   }
 
-  const db = getFirebaseFirestore();
-  await updateDoc(doc(db, "users", userId), {
-    ...updates,
-    updatedAt: serverTimestamp(),
-  });
+  const updateUserAccess = httpsCallable<
+    { userId: string; updates: typeof updates },
+    { user: AppUser }
+  >(getFirebaseFunctions(), "updateManagedUserAccess");
+  await updateUserAccess({ userId, updates });
 }
 
 export async function sendManagedUserPasswordReset(email: string) {
   requireText(email, "Email");
 
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     return;
   }
 
@@ -163,7 +181,7 @@ export async function sendManagedUserPasswordReset(email: string) {
 export async function provisionManagedUserProfile(input: ManagedUserInput & { id: string }) {
   const normalizedInput = normalizeUserInput(input);
 
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     return createManagedUser(normalizedInput);
   }
 

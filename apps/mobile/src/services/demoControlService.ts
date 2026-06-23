@@ -1,9 +1,9 @@
-import { isFirebaseConfigured } from "@/config/firebase";
+import { shouldUseDemoBackend } from "@/config/firebase";
 import { resetDemoOrders, seedFreshDemoOrders } from "@/data/demoStore";
 import { resetDemoManagedUsers } from "@/services/adminUserService";
 
 export function resetLocalDemoData() {
-  if (isFirebaseConfigured) {
+  if (!shouldUseDemoBackend) {
     throw new Error("Demo reset is disabled when Firebase is connected.");
   }
 
@@ -12,7 +12,7 @@ export function resetLocalDemoData() {
 }
 
 export function seedLocalDemoOrders() {
-  if (isFirebaseConfigured) {
+  if (!shouldUseDemoBackend) {
     throw new Error("Demo seeding is disabled when Firebase is connected.");
   }
 

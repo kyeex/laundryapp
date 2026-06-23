@@ -1,16 +1,24 @@
 # Production Foundation Phase 1
 
 This phase turns the local demo into a real Firebase-backed application while
-keeping the demo fallback available for development.
+keeping demo data intentionally separated from staging and production.
 
 ## What Changed
 
 - Public account creation is customer-only.
 - Owner and driver accounts must be provisioned by the business.
+- Runtime mode is explicit through `EXPO_PUBLIC_APP_ENV`.
+- Only `EXPO_PUBLIC_APP_ENV=demo` uses local demo data.
+- `staging` and `production` require Firebase and use Firestore as the source
+  of truth.
+- Admin user creation and role/status changes are handled by secure Cloud
+  Functions.
+- Owner/admin actions write immutable `auditLogs` records.
 - Firestore rules now cover the newer production collections:
   - `customerPreferences/{userId}`
   - `comforterSizeAddOns/{addOnId}`
   - `dryCleaningItems/{itemId}`
+  - `auditLogs/{auditLogId}`
 - Customers can update their own profile contact fields, default address, and
   laundry preferences.
 - Drivers can update only their assigned stops and submit assigned routes.
@@ -22,19 +30,42 @@ keeping the demo fallback available for development.
 1. Create a Firebase project.
 2. Enable Email/Password sign-in in Firebase Authentication.
 3. Create a web app in Firebase and copy its config values.
-4. Copy `apps/mobile/.env.example` to `apps/mobile/.env`.
-5. Fill in:
+4. For local demo, copy `apps/mobile/.env.example` to `apps/mobile/.env`.
+5. For staging, copy `apps/mobile/.env.staging.example` to your staging env.
+6. For production, copy `apps/mobile/.env.production.example` to your
+   production env.
+7. Set the app environment:
+   - Demo: `EXPO_PUBLIC_APP_ENV=demo`
+   - Staging: `EXPO_PUBLIC_APP_ENV=staging`
+   - Production: `EXPO_PUBLIC_APP_ENV=production`
+8. Fill in:
    - `EXPO_PUBLIC_FIREBASE_API_KEY`
    - `EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN`
    - `EXPO_PUBLIC_FIREBASE_PROJECT_ID`
    - `EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET`
    - `EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
    - `EXPO_PUBLIC_FIREBASE_APP_ID`
-6. Copy `.firebaserc.example` to `.firebaserc` and replace the project id.
-7. Deploy Firestore rules and indexes:
+9. Copy `.firebaserc.example` to `.firebaserc` and replace the project id.
+10. Deploy Firestore rules and indexes:
 
 ```bash
 firebase deploy --only firestore
+```
+
+11. Deploy Cloud Functions:
+
+```bash
+cd apps/functions
+npm install
+cd ../..
+firebase deploy --only functions
+```
+
+12. Fill Stripe function secrets before real payments are enabled:
+
+```bash
+STRIPE_SECRET_KEY=...
+STRIPE_CURRENCY=usd
 ```
 
 ## Provision The First Owner
@@ -108,6 +139,16 @@ The production app uses these Firestore collections:
 - `settings`
 - `customerPreferences`
 - `payments`
+- `auditLogs`
+
+## Environment Rules
+
+- `demo` mode is for local presentations and uses local demo storage only.
+- `staging` mode is for testing real Firebase/Auth/Firestore behavior before
+  launch.
+- `production` mode is for real customers and real business data.
+- Never point demo tooling at the production Firebase project.
+- Use separate Firebase projects for staging and production.
 
 ## Verification
 

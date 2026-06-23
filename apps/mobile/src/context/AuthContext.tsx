@@ -9,7 +9,12 @@ import {
   useState,
 } from "react";
 
-import { isFirebaseConfigured } from "@/config/firebase";
+import {
+  appEnvironment,
+  canUseFirebaseBackend,
+  isDemoEnvironment,
+  isFirebaseConfigured,
+} from "@/config/firebase";
 import { demoUsers } from "@/data/demoData";
 import {
   createAccount,
@@ -25,7 +30,9 @@ import { getHomeRouteForRole } from "@/utils/authRouting";
 
 type AuthContextValue = {
   currentUser: AppUser | null;
+  appEnvironment: typeof appEnvironment;
   isConfigured: boolean;
+  isDemoMode: boolean;
   isLoading: boolean;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   createAccountWithEmail: (input: {
@@ -84,7 +91,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!isFirebaseConfigured) {
+    if (isDemoEnvironment) {
       const storedRole = getStoredDemoRole();
 
       if (storedRole) {
@@ -93,6 +100,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
         setCurrentUser(storedCustomerProfile ?? demoUsers[storedRole]);
       }
 
+      setIsLoading(false);
+      return undefined;
+    }
+
+    if (!isFirebaseConfigured) {
+      setCurrentUser(null);
       setIsLoading(false);
       return undefined;
     }
@@ -111,6 +124,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   const signInWithEmail = useCallback(async (email: string, password: string) => {
+    if (!canUseFirebaseBackend) {
+      throw new Error("Email sign-in is available in staging and production after Firebase is configured.");
+    }
+
     const profile = await signIn(email, password);
 
     if (!profile) {
@@ -129,7 +146,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       phone: string;
       role: Extract<UserRole, "customer">;
     }) => {
-      if (!isFirebaseConfigured) {
+      if (isDemoEnvironment) {
         const profile = await createManagedUser({
           displayName: input.displayName,
           email: input.email,
@@ -142,6 +159,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
         setCurrentUser(profile);
         router.replace(getHomeRouteForRole(profile.role));
         return;
+      }
+
+      if (!canUseFirebaseBackend) {
+        throw new Error("Firebase must be configured before creating real accounts.");
       }
 
       const profile = await createAccount(input);
@@ -157,10 +178,18 @@ export function AuthProvider({ children }: PropsWithChildren) {
   );
 
   const sendResetEmail = useCallback(async (email: string) => {
+    if (!canUseFirebaseBackend) {
+      return;
+    }
+
     await requestPasswordReset(email);
   }, []);
 
   const startDemoSession = useCallback((role: "customer" | "owner" | "driver" | "admin") => {
+    if (!isDemoEnvironment) {
+      throw new Error("Demo role switching is only available in demo mode.");
+    }
+
     const profile = demoUsers[role];
     getStorage()?.setItem(demoRoleStorageKey, role);
     getStorage()?.removeItem(demoCustomerProfileStorageKey);
@@ -169,7 +198,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   const signOut = useCallback(async () => {
-    if (isFirebaseConfigured) {
+    if (canUseFirebaseBackend) {
       await signOutCurrentUser();
     } else {
       getStorage()?.removeItem(demoRoleStorageKey);
@@ -181,8 +210,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const value = useMemo(
     () => ({
+      appEnvironment,
       currentUser,
-      isConfigured: isFirebaseConfigured,
+      isConfigured: canUseFirebaseBackend,
+      isDemoMode: isDemoEnvironment,
       isLoading,
       signInWithEmail,
       createAccountWithEmail,

@@ -4,6 +4,12 @@ import { getFirestore } from "firebase/firestore";
 import { getFunctions } from "firebase/functions";
 import { getStorage } from "firebase/storage";
 
+import {
+  appEnvironment,
+  isDemoEnvironment,
+  requiresFirebaseBackend,
+} from "@/config/runtime";
+
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -14,12 +20,17 @@ const firebaseConfig = {
 };
 
 export const isFirebaseConfigured = Object.values(firebaseConfig).every(Boolean);
+export const shouldUseDemoBackend = isDemoEnvironment;
+export const canUseFirebaseBackend = requiresFirebaseBackend && isFirebaseConfigured;
+export { appEnvironment, isDemoEnvironment, requiresFirebaseBackend };
 
 let firebaseApp: FirebaseApp | null = null;
 
 export function getFirebaseApp() {
   if (!isFirebaseConfigured) {
-    throw new Error("Firebase is not configured. Add values to apps/mobile/.env.");
+    throw new Error(
+      `${appEnvironment} mode requires Firebase. Add Firebase values to apps/mobile/.env.`,
+    );
   }
 
   if (!firebaseApp) {

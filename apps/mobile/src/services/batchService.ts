@@ -11,7 +11,7 @@ import {
   type DocumentData,
 } from "firebase/firestore";
 
-import { getFirebaseFirestore, isFirebaseConfigured } from "@/config/firebase";
+import { getFirebaseFirestore, shouldUseDemoBackend } from "@/config/firebase";
 import {
   createDemoBatch,
   getDemoBatchById,
@@ -37,6 +37,7 @@ import {
 } from "@/workflows/orderWorkflow";
 
 import { addOrderEvent, getAdminOrders } from "./orderService";
+import { recordAuditLog } from "./auditLogService";
 
 function mapBatch(id: string, data: DocumentData): Batch {
   return {
@@ -101,7 +102,7 @@ export async function createBatch(input: CreateBatchInput) {
     return { order, assignmentType };
   });
 
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     return createDemoBatch(input);
   }
 
@@ -142,11 +143,26 @@ export async function createBatch(input: CreateBatchInput) {
     }),
   );
 
+  await recordAuditLog({
+    actorId: input.ownerId,
+    actorRole: "owner",
+    action: "batch.created",
+    resourceType: "batch",
+    resourceId: batchRef.id,
+    summary: `Created ${input.type} batch for ${input.driverName}.`,
+    metadata: {
+      batchType: input.type,
+      driverId: input.driverId,
+      orderIds: input.orderIds,
+      scheduledDate: input.scheduledDate,
+    },
+  });
+
   return batchRef.id;
 }
 
 export async function getAdminBatches() {
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     return getDemoBatches();
   }
 
@@ -164,7 +180,7 @@ export async function getAdminBatches() {
 }
 
 export async function getDriverBatches(driverId: string) {
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     return getDemoBatches().filter((batch) => batch.driverId === driverId);
   }
 
@@ -186,7 +202,7 @@ export async function getDriverBatches(driverId: string) {
 }
 
 export async function getBatchById(batchId: string) {
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     return getDemoBatchById(batchId);
   }
 
@@ -201,7 +217,7 @@ export async function getBatchById(batchId: string) {
 }
 
 export async function getBatchOrders(batch: Batch) {
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     const orderIdSet = new Set(batch.orderIds);
     return getDemoOrders().filter((order) => orderIdSet.has(order.id));
   }
@@ -235,7 +251,7 @@ export async function updateBatchStatus(input: {
   batchId: string;
   status: BatchStatus;
 }) {
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     updateDemoBatchStatus(input);
     return;
   }
@@ -255,7 +271,7 @@ export async function updateDriverOrderStop(input: {
   toStatus: OrderStatus;
   driverId: string;
 }) {
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     updateDemoOrderStatus({
       orderId: input.orderId,
       toStatus: input.toStatus,

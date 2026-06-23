@@ -4,7 +4,9 @@ import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { AppButton } from "@/components/AppButton";
 import { FormTextInput } from "@/components/FormTextInput";
 import { Screen } from "@/components/Screen";
+import { useAuth } from "@/context/AuthContext";
 import { defaultBusinessSettings } from "@/data/serviceCatalog";
+import { recordAuditLog } from "@/services/auditLogService";
 import {
   getAddOns,
   getBusinessSettings,
@@ -73,6 +75,7 @@ function createCatalogId(prefix: string) {
 }
 
 export default function AdminConfigurationScreen() {
+  const { currentUser } = useAuth();
   const [services, setServices] = useState<Service[]>([]);
   const [addOns, setAddOns] = useState<AddOn[]>([]);
   const [comforterSizes, setComforterSizes] = useState<AddOn[]>([]);
@@ -141,6 +144,23 @@ export default function AdminConfigurationScreen() {
         ...pickupWindows.map(savePickupWindow),
         saveBusinessSettings(settings),
       ]);
+      if (currentUser) {
+        await recordAuditLog({
+          actorId: currentUser.id,
+          actorRole: currentUser.role,
+          action: "configuration.saved",
+          resourceType: "configuration",
+          resourceId: "business",
+          summary: "Saved business configuration, catalog, pricing, and availability.",
+          metadata: {
+            serviceCount: services.length,
+            addOnCount: addOns.length,
+            comforterSizeCount: comforterSizes.length,
+            dryCleaningItemCount: dryCleaningCatalog.length,
+            pickupWindowCount: pickupWindows.length,
+          },
+        });
+      }
       setSuccess("Configuration saved.");
       await loadConfiguration();
     } catch (saveError) {

@@ -19,7 +19,7 @@ const demoRoles = [
 ] as const;
 
 export function AccountPanel() {
-  const { currentUser, isConfigured, signOut, startDemoSession } = useAuth();
+  const { currentUser, isDemoMode, signOut, startDemoSession } = useAuth();
   const [notificationMessage, setNotificationMessage] = useState("");
 
   if (!currentUser) {
@@ -63,7 +63,7 @@ export function AccountPanel() {
       {notificationMessage ? (
         <Text style={styles.message}>{notificationMessage}</Text>
       ) : null}
-      {!isConfigured ? (
+      {isDemoMode ? (
         <View style={styles.demoControls}>
           <Text style={styles.sectionLabel}>Demo role</Text>
           <View style={styles.roleGrid}>

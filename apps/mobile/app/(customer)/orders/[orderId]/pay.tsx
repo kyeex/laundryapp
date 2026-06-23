@@ -5,8 +5,11 @@ import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { AppButton } from "@/components/AppButton";
 import { Screen } from "@/components/Screen";
 import { useAuth } from "@/context/AuthContext";
-import { getCustomerOrderById, markOrderPaid } from "@/services/orderService";
-import { createOrderPaymentIntent } from "@/services/paymentService";
+import { getCustomerOrderById } from "@/services/orderService";
+import {
+  confirmOrderPayment,
+  createOrderPaymentIntent,
+} from "@/services/paymentService";
 import { initializeAndPresentPaymentSheet } from "@/services/stripePaymentSheet";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
@@ -59,11 +62,7 @@ export default function CustomerPayOrderScreen() {
     try {
       const paymentSetup = await createOrderPaymentIntent(order.id);
       await initializeAndPresentPaymentSheet(paymentSetup);
-
-      await markOrderPaid({
-        orderId: order.id,
-        customerId: currentUser.id,
-      });
+      await confirmOrderPayment(order.id);
 
       setSuccess("Payment complete.");
       router.replace({

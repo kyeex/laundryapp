@@ -11,7 +11,7 @@ import {
   type DocumentData,
 } from "firebase/firestore";
 
-import { getFirebaseFirestore, isFirebaseConfigured } from "@/config/firebase";
+import { getFirebaseFirestore, shouldUseDemoBackend } from "@/config/firebase";
 import {
   createDemoCustomerOrder,
   getDemoOrderById,
@@ -30,6 +30,8 @@ import type {
   PaymentStatus,
 } from "@/types/domain";
 import { validateCreateOrderInput, validateMoney } from "@/utils/validation";
+
+import { recordAuditLog } from "./auditLogService";
 
 function calculateEstimatedSubtotal(addOns: CreateOrderInput["selectedAddOns"]) {
   return addOns.reduce(
@@ -105,7 +107,7 @@ function mapOrder(id: string, data: DocumentData): Order {
 export async function createCustomerOrder(customer: AppUser, input: CreateOrderInput) {
   validateCreateOrderInput(input);
 
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     return createDemoCustomerOrder(customer, input);
   }
 
@@ -176,7 +178,7 @@ export async function createCustomerOrder(customer: AppUser, input: CreateOrderI
 }
 
 export async function getCustomerOrders(customerId: string) {
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     return getDemoOrders().filter((order) => order.customerId === customerId);
   }
 
@@ -198,7 +200,7 @@ export async function getCustomerOrders(customerId: string) {
 }
 
 export async function getCustomerOrderById(customerId: string, orderId: string) {
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     return (
       getDemoOrders().find(
         (order) => order.id === orderId && order.customerId === customerId,
@@ -223,7 +225,7 @@ export async function getCustomerOrderById(customerId: string, orderId: string) 
 }
 
 export async function getAdminOrders() {
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     return getDemoOrders();
   }
 
@@ -241,7 +243,7 @@ export async function getAdminOrders() {
 }
 
 export async function getAdminOrderById(orderId: string) {
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     return getDemoOrderById(orderId);
   }
 
@@ -263,7 +265,7 @@ export async function addOrderEvent(input: {
   message: string;
   createdBy: string;
 }) {
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     return;
   }
 
@@ -282,7 +284,7 @@ export async function updateOrderStatus(input: {
   ownerId: string;
   message?: string;
 }) {
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     updateDemoOrderStatus({
       orderId: input.orderId,
       toStatus: input.toStatus,
@@ -307,6 +309,19 @@ export async function updateOrderStatus(input: {
       `Owner changed order status from ${input.fromStatus} to ${input.toStatus}.`,
     createdBy: input.ownerId,
   });
+
+  await recordAuditLog({
+    actorId: input.ownerId,
+    actorRole: "owner",
+    action: "order.status_changed",
+    resourceType: "order",
+    resourceId: input.orderId,
+    summary: `Changed order status from ${input.fromStatus} to ${input.toStatus}.`,
+    metadata: {
+      fromStatus: input.fromStatus,
+      toStatus: input.toStatus,
+    },
+  });
 }
 
 export async function setOrderFinalPrice(input: {
@@ -317,7 +332,7 @@ export async function setOrderFinalPrice(input: {
   const paymentStatus: PaymentStatus = "unpaid";
   validateMoney(input.finalPrice, "Final price");
 
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     const order = getDemoOrderById(input.orderId);
 
     if (order?.paymentStatus === "paid") {
@@ -353,41 +368,17 @@ export async function setOrderFinalPrice(input: {
     message: `Owner set final price to $${input.finalPrice.toFixed(2)}.`,
     createdBy: input.ownerId,
   });
-}
 
-export async function markOrderPaid(input: {
-  orderId: string;
-  customerId: string;
-}) {
-  if (!isFirebaseConfigured) {
-    markDemoOrderPaid(input.orderId);
-    return;
-  }
-
-  const db = getFirebaseFirestore();
-  const order = await getCustomerOrderById(input.customerId, input.orderId);
-
-  if (!order) {
-    throw new Error("Order not found for this customer.");
-  }
-
-  if (order.finalPrice === null || order.finalPrice <= 0) {
-    throw new Error("This order is not ready for payment.");
-  }
-
-  await updateDoc(doc(db, "orders", input.orderId), {
-    paymentStatus: "paid" satisfies PaymentStatus,
-    status: "paid" satisfies OrderStatus,
-    updatedAt: serverTimestamp(),
-  });
-
-  await addOrderEvent({
-    orderId: input.orderId,
-    type: "payment_completed",
-    fromStatus: order.status,
-    toStatus: "paid",
-    message: "Customer completed payment.",
-    createdBy: input.customerId,
+  await recordAuditLog({
+    actorId: input.ownerId,
+    actorRole: "owner",
+    action: "order.final_price_set",
+    resourceType: "order",
+    resourceId: input.orderId,
+    summary: `Set final price to $${input.finalPrice.toFixed(2)}.`,
+    metadata: {
+      finalPrice: input.finalPrice,
+    },
   });
 }
 
@@ -395,7 +386,7 @@ export async function finalizeOrderPayment(input: {
   orderId: string;
   ownerId: string;
 }) {
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     const order = getDemoOrderById(input.orderId);
 
     if (!order || order.finalPrice === null || order.finalPrice <= 0) {
@@ -434,6 +425,21 @@ export async function finalizeOrderPayment(input: {
     toStatus: "paid",
     message: "Owner finalized payment for this order.",
     createdBy: input.ownerId,
+  });
+
+  await recordAuditLog({
+    actorId: input.ownerId,
+    actorRole: "owner",
+    action: "payment.finalized_by_owner",
+    resourceType: "payment",
+    resourceId: input.orderId,
+    summary: "Owner finalized payment for an order.",
+    metadata: {
+      orderId: input.orderId,
+      finalPrice: order.finalPrice,
+      fromStatus: order.status,
+      toStatus: "paid",
+    },
   });
 }
 

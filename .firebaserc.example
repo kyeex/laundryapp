@@ -1,5 +1,7 @@
 {
   "projects": {
-    "default": "your-production-firebase-project-id"
+    "default": "your-staging-firebase-project-id",
+    "staging": "your-staging-firebase-project-id",
+    "production": "your-production-firebase-project-id"
   }
 }

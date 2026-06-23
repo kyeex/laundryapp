@@ -61,15 +61,6 @@ service cloud.firestore {
         && request.resource.data.finalPrice == null;
     }
 
-    function customerCanMarkOwnOrderPaid() {
-      return isCustomer()
-        && resource.data.customerId == request.auth.uid
-        && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(["paymentStatus", "status", "updatedAt"])
-        && request.resource.data.paymentStatus == "paid"
-        && request.resource.data.status == "paid";
-    }
-
     function driverCanUpdateAssignedOrderStatus() {
       return isDriver()
         && isAssignedDriver(resource.data)
@@ -95,28 +86,21 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if ownsUserDoc(userId) || isOwner() || isAdmin();
-      allow create: if isAdmin()
-        || (
-          ownsUserDoc(userId)
-          && request.resource.data.role == "customer"
-          && request.resource.data.active == true
-        );
-      allow update: if isAdmin()
-        || isOwner()
-        || (
-          ownsUserDoc(userId)
-          && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly([
-              "displayName",
-              "email",
-              "phone",
-              "expoPushTokens",
-              "updatedAt"
-            ])
-          && request.resource.data.role == resource.data.role
-          && request.resource.data.active == resource.data.active
-        );
-      allow delete: if isAdmin();
+      allow create: if ownsUserDoc(userId)
+        && request.resource.data.role == "customer"
+        && request.resource.data.active == true;
+      allow update: if ownsUserDoc(userId)
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly([
+            "displayName",
+            "email",
+            "phone",
+            "expoPushTokens",
+            "updatedAt"
+          ])
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.active == resource.data.active;
+      allow delete: if false;
     }
 
     match /customerProfiles/{userId} {
@@ -153,9 +137,24 @@ service cloud.firestore {
         || isAssignedDriver(resource.data);
       allow create: if validCustomerOrderCreate();
       allow update: if isOwner()
-        || customerCanMarkOwnOrderPaid()
         || driverCanUpdateAssignedOrderStatus();
       allow delete: if isOwner();
+    }
+
+    match /auditLogs/{auditLogId} {
+      allow read: if isOwner() || isAdmin();
+      allow create: if (isOwner() || isAdmin())
+        && request.resource.data.actorId == request.auth.uid
+        && request.resource.data.actorRole == currentUser().data.role
+        && request.resource.data.resourceType in [
+          "order",
+          "batch",
+          "catalog",
+          "configuration",
+          "user",
+          "payment"
+        ];
+      allow update, delete: if false;
     }
 
     match /batches/{batchId} {

@@ -59,7 +59,7 @@ function StatCard({
 }
 
 export default function DemoControlCenterScreen() {
-  const { currentUser, isConfigured, startDemoSession } = useAuth();
+  const { currentUser, isDemoMode, startDemoSession } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
   const [message, setMessage] = useState("");
@@ -188,12 +188,12 @@ export default function DemoControlCenterScreen() {
         {message ? <Text style={styles.success}>{message}</Text> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        {isConfigured ? (
+        {!isDemoMode ? (
           <View style={styles.notice}>
             <Text style={styles.noticeTitle}>Firebase mode</Text>
             <Text style={styles.noticeText}>
-              Reset and seed actions are disabled when Firebase is connected so
-              demo controls do not touch real backend data.
+              Reset, seed, and role jump actions are disabled outside demo mode
+              so demo controls never touch staging or production data.
             </Text>
           </View>
         ) : null}
@@ -234,13 +234,13 @@ export default function DemoControlCenterScreen() {
           </Text>
           <View style={styles.actionGrid}>
             <AppButton
-              disabled={isConfigured || isSaving}
+              disabled={!isDemoMode || isSaving}
               label={isSaving ? "Working..." : "Reset demo data"}
               onPress={handleResetDemoData}
               variant="secondary"
             />
             <AppButton
-              disabled={isConfigured || isSaving}
+              disabled={!isDemoMode || isSaving}
               label={isSaving ? "Working..." : "Seed fresh sample orders"}
               onPress={handleSeedFreshOrders}
             />
@@ -259,7 +259,7 @@ export default function DemoControlCenterScreen() {
                 <Text style={styles.roleTitle}>{option.label}</Text>
                 <Text style={styles.roleNote}>{option.note}</Text>
                 <AppButton
-                  disabled={isConfigured}
+                  disabled={!isDemoMode}
                   label={`Jump to ${option.label}`}
                   onPress={() => startDemoSession(option.role)}
                   variant={option.role === "admin" ? "secondary" : "primary"}

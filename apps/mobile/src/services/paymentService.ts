@@ -8,6 +8,9 @@ type CreatePaymentIntentRequest = {
 };
 
 type CreatePaymentIntentResponse = PaymentSheetSetup;
+type ConfirmPaymentResponse = {
+  status: "paid";
+};
 
 export async function createOrderPaymentIntent(orderId: string) {
   const createPaymentIntent = httpsCallable<
@@ -16,6 +19,17 @@ export async function createOrderPaymentIntent(orderId: string) {
   >(getFirebaseFunctions(), "createPaymentIntent");
 
   const response = await createPaymentIntent({ orderId });
+
+  return response.data;
+}
+
+export async function confirmOrderPayment(orderId: string) {
+  const confirmPayment = httpsCallable<
+    CreatePaymentIntentRequest,
+    ConfirmPaymentResponse
+  >(getFirebaseFunctions(), "confirmOrderPayment");
+
+  const response = await confirmPayment({ orderId });
 
   return response.data;
 }

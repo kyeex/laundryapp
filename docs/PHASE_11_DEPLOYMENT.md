@@ -43,6 +43,12 @@ Create production environment values from:
 apps/mobile/.env.production.example
 ```
 
+Create staging environment values from:
+
+```text
+apps/mobile/.env.staging.example
+```
+
 Required values:
 
 - `EXPO_PUBLIC_FIREBASE_API_KEY`
@@ -68,7 +74,7 @@ Install and log in to Firebase CLI:
 ```bash
 npm install -g firebase-tools
 firebase login
-firebase use your-production-firebase-project-id
+firebase use staging
 ```
 
 Deploy Firestore rules and indexes:
@@ -84,6 +90,14 @@ cd apps/functions
 npm install
 npm run build
 cd ../..
+firebase deploy --only functions
+```
+
+Repeat the same deploy flow with the production alias only after staging passes:
+
+```bash
+firebase use production
+firebase deploy --only firestore
 firebase deploy --only functions
 ```
 
@@ -117,9 +131,9 @@ Recommended webhook event:
 
 - `payment_intent.succeeded`
 
-The webhook should mark orders paid server-side. The current mobile-side paid
-update is acceptable for MVP testing, but webhooks should become the production
-source of truth.
+The app now confirms payment through the backend after Stripe PaymentSheet
+succeeds. Before public launch, add a Stripe webhook so `payment_intent.succeeded`
+can also mark orders paid if the customer closes the app before returning.
 
 ## Push Notifications
 
@@ -164,4 +178,3 @@ cd apps/functions
 npm run typecheck
 npm run build
 ```
-

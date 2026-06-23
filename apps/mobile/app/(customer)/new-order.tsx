@@ -90,7 +90,7 @@ function formatPreferencesForOrderNotes(preferences: CustomerLaundryPreferences)
 }
 
 export default function NewOrderScreen() {
-  const { currentUser, isConfigured } = useAuth();
+  const { currentUser, isDemoMode } = useAuth();
   const [services, setServices] = useState<Service[]>([]);
   const [addOns, setAddOns] = useState<AddOn[]>([]);
   const [comforterSizes, setComforterSizes] = useState<AddOn[]>([]);
@@ -201,12 +201,12 @@ export default function NewOrderScreen() {
   }, []);
 
   useEffect(() => {
-    if (isConfigured) {
+    if (!isDemoMode) {
       return;
     }
 
     setAddress(demoAddress);
-  }, [isConfigured]);
+  }, [isDemoMode]);
 
   useEffect(() => {
     if (!currentUser) {

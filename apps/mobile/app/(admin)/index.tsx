@@ -12,20 +12,22 @@ import { spacing } from "@/theme/spacing";
 import type { Batch, Order } from "@/types/domain";
 
 function DashboardCard({
+  href,
   label,
   value,
   note,
 }: {
+  href: string;
   label: string;
   value: string;
   note: string;
 }) {
   return (
-    <View style={styles.dashboardCard}>
+    <Link href={href} style={styles.dashboardCard}>
       <Text style={styles.dashboardLabel}>{label}</Text>
       <Text style={styles.dashboardValue}>{value}</Text>
       <Text style={styles.dashboardNote}>{note}</Text>
-    </View>
+    </Link>
   );
 }
 
@@ -99,26 +101,31 @@ export default function AdminHomeScreen() {
         {error ? <Text style={styles.error}>{error}</Text> : null}
         <View style={styles.dashboardGrid}>
           <DashboardCard
+            href="/(admin)/orders?attention=new-requests"
             label="New requests"
             note="Need accept or decline."
             value={`${newRequests}`}
           />
           <DashboardCard
+            href="/(admin)/orders?attention=price-payment"
             label="Price/payment"
             note="Need final price or payment finalization."
             value={`${pricingNeeded}`}
           />
           <DashboardCard
+            href="/(admin)/orders?attention=pickup-ready"
             label="Pickup ready"
             note="Accepted orders ready for pickup batching."
             value={`${pickupReady}`}
           />
           <DashboardCard
+            href="/(admin)/orders?attention=delivery-ready"
             label="Delivery ready"
             note="Orders ready for delivery batching."
             value={`${deliveryReady}`}
           />
           <DashboardCard
+            href="/(admin)/orders?attention=submitted-routes"
             label="Submitted routes"
             note="Driver routes ready for owner review."
             value={`${submittedRoutes}`}

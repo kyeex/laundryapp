@@ -8,6 +8,7 @@ node_modules/
 dist/
 dist-*/
 web-build/
+apps/functions/lib/
 expo-env.d.ts
 *.tsbuildinfo
 
@@ -22,6 +23,7 @@ yarn-error.*
 .env.*
 !.env.example
 !.env.production.example
+!.env.staging.example
 
 # Firebase local/project-specific state
 .firebaserc

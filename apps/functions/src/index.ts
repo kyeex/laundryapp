@@ -1,13 +1,60 @@
 import { initializeApp } from "firebase-admin/app";
+import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 import { onDocumentCreated } from "firebase-functions/firestore";
 import { HttpsError, onCall } from "firebase-functions/https";
+import { randomUUID } from "node:crypto";
 import Stripe from "stripe";
 
 initializeApp();
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 const currency = process.env.STRIPE_CURRENCY ?? "usd";
+
+const allowedRoles = new Set(["customer", "owner", "driver", "admin"]);
+
+async function assertAdminUser(uid: string) {
+  const userSnapshot = await getFirestore().collection("users").doc(uid).get();
+  const user = userSnapshot.data();
+
+  if (!user || user.role !== "admin" || user.active !== true) {
+    throw new HttpsError("permission-denied", "Admin access is required.");
+  }
+}
+
+function requireString(value: unknown, fieldName: string) {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new HttpsError("invalid-argument", `${fieldName} is required.`);
+  }
+
+  return value.trim();
+}
+
+function requireRole(value: unknown) {
+  const role = requireString(value, "role");
+
+  if (!allowedRoles.has(role)) {
+    throw new HttpsError("invalid-argument", "Invalid role.");
+  }
+
+  return role;
+}
+
+async function writeAuditLog(input: {
+  actorId: string;
+  actorRole: string;
+  action: string;
+  resourceType: string;
+  resourceId: string;
+  summary: string;
+  metadata?: Record<string, unknown>;
+}) {
+  await getFirestore().collection("auditLogs").add({
+    ...input,
+    metadata: input.metadata ?? {},
+    createdAt: new Date(),
+  });
+}
 
 function getStripe() {
   if (!stripeSecretKey) {
@@ -19,6 +66,178 @@ function getStripe() {
 
   return new Stripe(stripeSecretKey);
 }
+
+export const createManagedUserAccount = onCall<{
+  displayName: string;
+  email: string;
+  phone?: string;
+  role: string;
+}>(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Sign in before managing users.");
+  }
+
+  await assertAdminUser(request.auth.uid);
+
+  const displayName = requireString(request.data.displayName, "displayName");
+  const email = requireString(request.data.email, "email").toLowerCase();
+  const phone =
+    typeof request.data.phone === "string" ? request.data.phone.trim() : "";
+  const role = requireRole(request.data.role);
+  const auth = getAuth();
+  const tempPassword = randomUUID();
+
+  const authUser = await auth.createUser({
+    disabled: false,
+    displayName,
+    email,
+    emailVerified: false,
+    password: tempPassword,
+  });
+
+  await auth.setCustomUserClaims(authUser.uid, { role });
+
+  const user = {
+    email,
+    role,
+    displayName,
+    phone,
+    active: true,
+    expoPushTokens: [],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  const db = getFirestore();
+  await db.collection("users").doc(authUser.uid).set(user);
+
+  if (role === "customer") {
+    await db.collection("customerProfiles").doc(authUser.uid).set({
+      userId: authUser.uid,
+      defaultAddressId: null,
+      notes: "",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+  }
+
+  if (role === "driver") {
+    await db.collection("driverProfiles").doc(authUser.uid).set({
+      userId: authUser.uid,
+      active: true,
+      phone,
+      vehicleInfo: "",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+  }
+
+  await writeAuditLog({
+    actorId: request.auth.uid,
+    actorRole: "admin",
+    action: "user.created",
+    resourceType: "user",
+    resourceId: authUser.uid,
+    summary: `Created ${role} user ${email}.`,
+    metadata: { email, role },
+  });
+
+  return {
+    user: {
+      id: authUser.uid,
+      ...user,
+    },
+  };
+});
+
+export const updateManagedUserAccess = onCall<{
+  userId: string;
+  updates: {
+    active?: boolean;
+    role?: string;
+    displayName?: string;
+    phone?: string;
+  };
+}>(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Sign in before managing users.");
+  }
+
+  await assertAdminUser(request.auth.uid);
+
+  const userId = requireString(request.data.userId, "userId");
+  const updates = request.data.updates ?? {};
+  const userPatch: Record<string, unknown> = {
+    updatedAt: new Date(),
+  };
+  const authPatch: {
+    disabled?: boolean;
+    displayName?: string;
+  } = {};
+
+  if (typeof updates.active === "boolean") {
+    userPatch.active = updates.active;
+    authPatch.disabled = !updates.active;
+  }
+
+  if (typeof updates.role !== "undefined") {
+    userPatch.role = requireRole(updates.role);
+  }
+
+  if (typeof updates.displayName === "string") {
+    userPatch.displayName = updates.displayName.trim();
+    authPatch.displayName = updates.displayName.trim();
+  }
+
+  if (typeof updates.phone === "string") {
+    userPatch.phone = updates.phone.trim();
+  }
+
+  const db = getFirestore();
+  const userRef = db.collection("users").doc(userId);
+  const beforeSnapshot = await userRef.get();
+
+  if (!beforeSnapshot.exists) {
+    throw new HttpsError("not-found", "User not found.");
+  }
+
+  await userRef.update(userPatch);
+
+  if (Object.keys(authPatch).length > 0) {
+    await getAuth().updateUser(userId, authPatch);
+  }
+
+  if (typeof userPatch.role === "string") {
+    await getAuth().setCustomUserClaims(userId, { role: userPatch.role });
+  }
+
+  const afterSnapshot = await userRef.get();
+  const afterUser = afterSnapshot.data();
+
+  await writeAuditLog({
+    actorId: request.auth.uid,
+    actorRole: "admin",
+    action: "user.access_updated",
+    resourceType: "user",
+    resourceId: userId,
+    summary: "Updated user access settings.",
+    metadata: {
+      updates,
+    },
+  });
+
+  return {
+    user: {
+      id: userId,
+      email: afterUser?.email ?? "",
+      role: afterUser?.role ?? "customer",
+      displayName: afterUser?.displayName ?? "",
+      phone: afterUser?.phone ?? "",
+      active: afterUser?.active ?? true,
+      expoPushTokens: afterUser?.expoPushTokens ?? [],
+    },
+  };
+});
 
 export const createPaymentIntent = onCall<{ orderId: string }>(
   async (request) => {
@@ -88,6 +307,76 @@ export const createPaymentIntent = onCall<{ orderId: string }>(
     return {
       paymentIntentClientSecret: paymentIntent.client_secret,
     };
+  },
+);
+
+export const confirmOrderPayment = onCall<{ orderId: string }>(
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Sign in before confirming payment.");
+    }
+
+    const { orderId } = request.data;
+
+    if (!orderId) {
+      throw new HttpsError("invalid-argument", "orderId is required.");
+    }
+
+    const db = getFirestore();
+    const orderRef = db.collection("orders").doc(orderId);
+    const orderSnapshot = await orderRef.get();
+
+    if (!orderSnapshot.exists) {
+      throw new HttpsError("not-found", "Order not found.");
+    }
+
+    const order = orderSnapshot.data();
+
+    if (!order) {
+      throw new HttpsError("not-found", "Order not found.");
+    }
+
+    if (order.customerId !== request.auth.uid) {
+      throw new HttpsError("permission-denied", "This order belongs to another customer.");
+    }
+
+    if (order.paymentStatus === "paid") {
+      return { status: "paid" };
+    }
+
+    if (typeof order.paymentId !== "string" || !order.paymentId) {
+      throw new HttpsError(
+        "failed-precondition",
+        "No payment intent is attached to this order.",
+      );
+    }
+
+    const paymentIntent = await getStripe().paymentIntents.retrieve(order.paymentId);
+
+    if (paymentIntent.status !== "succeeded") {
+      throw new HttpsError(
+        "failed-precondition",
+        `Payment is ${paymentIntent.status}.`,
+      );
+    }
+
+    await orderRef.update({
+      paymentStatus: "paid",
+      status: "paid",
+      updatedAt: new Date(),
+    });
+
+    await db.collection("orderEvents").add({
+      orderId,
+      type: "payment_completed",
+      fromStatus: order.status ?? null,
+      toStatus: "paid",
+      message: "Customer completed payment.",
+      createdBy: request.auth.uid,
+      createdAt: new Date(),
+    });
+
+    return { status: "paid" };
   },
 );
 

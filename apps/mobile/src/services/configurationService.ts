@@ -7,7 +7,7 @@ import {
   setDoc,
 } from "firebase/firestore";
 
-import { getFirebaseFirestore, isFirebaseConfigured } from "@/config/firebase";
+import { getFirebaseFirestore, shouldUseDemoBackend } from "@/config/firebase";
 import {
   defaultBusinessSettings,
   defaultPickupWindows,
@@ -139,7 +139,7 @@ function saveDemoItem<T extends { id: string }>(
 }
 
 export async function getServices() {
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     return sortBySortOrder(getDemoItems(demoServicesStorageKey, serviceCatalog));
   }
 
@@ -165,7 +165,7 @@ export async function getActiveServices() {
 export async function saveService(service: Service) {
   validateService(service);
 
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     saveDemoItem(demoServicesStorageKey, serviceCatalog, service);
     return;
   }
@@ -183,7 +183,7 @@ export async function saveService(service: Service) {
 }
 
 export async function getAddOns() {
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     return sortBySortOrder(getDemoItems(demoAddOnsStorageKey, serviceAddOns));
   }
 
@@ -209,7 +209,7 @@ export async function getActiveAddOns() {
 export async function saveAddOn(addOn: AddOn) {
   validateAddOn(addOn);
 
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     saveDemoItem(demoAddOnsStorageKey, serviceAddOns, addOn);
     return;
   }
@@ -228,7 +228,7 @@ export async function saveAddOn(addOn: AddOn) {
 }
 
 export async function getPickupWindows() {
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     return sortBySortOrder(getDemoPickupWindows());
   }
 
@@ -254,7 +254,7 @@ export async function getActivePickupWindows() {
 export async function savePickupWindow(pickupWindow: PickupWindow) {
   validatePickupWindow(pickupWindow);
 
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     saveDemoItem(demoPickupWindowsStorageKey, defaultPickupWindows, pickupWindow);
     return;
   }
@@ -270,7 +270,7 @@ export async function savePickupWindow(pickupWindow: PickupWindow) {
 }
 
 export async function getBusinessSettings() {
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     return getDemoBusinessSettings();
   }
 
@@ -294,7 +294,7 @@ export async function getBusinessSettings() {
 export async function saveBusinessSettings(settings: BusinessSettings) {
   validateBusinessSettings(settings);
 
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     getStorage()?.setItem(demoBusinessSettingsStorageKey, JSON.stringify(settings));
     return;
   }
@@ -314,7 +314,7 @@ export async function saveBusinessSettings(settings: BusinessSettings) {
 }
 
 export async function getComforterSizeAddOns() {
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     return sortBySortOrder(
       getDemoItems(demoComforterSizesStorageKey, comforterSizeAddOns),
     );
@@ -342,7 +342,7 @@ export async function getActiveComforterSizeAddOns() {
 export async function saveComforterSizeAddOn(addOn: AddOn) {
   validateAddOn(addOn);
 
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     saveDemoItem(demoComforterSizesStorageKey, comforterSizeAddOns, addOn);
     return;
   }
@@ -361,7 +361,7 @@ export async function saveComforterSizeAddOn(addOn: AddOn) {
 }
 
 export async function getDryCleaningItems() {
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     return sortBySortOrder(
       getDemoItems(demoDryCleaningItemsStorageKey, dryCleaningItems),
     );
@@ -396,7 +396,7 @@ export async function saveDryCleaningItem(item: DryCleaningItem) {
     sortOrder: item.sortOrder,
   });
 
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     saveDemoItem(demoDryCleaningItemsStorageKey, dryCleaningItems, item);
     return;
   }
@@ -414,7 +414,7 @@ export async function saveDryCleaningItem(item: DryCleaningItem) {
 }
 
 export function resetDemoBusinessSettings() {
-  if (!isFirebaseConfigured) {
+  if (shouldUseDemoBackend) {
     getStorage()?.removeItem(demoBusinessSettingsStorageKey);
     getStorage()?.removeItem(demoServicesStorageKey);
     getStorage()?.removeItem(demoAddOnsStorageKey);

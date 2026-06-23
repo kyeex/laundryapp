@@ -93,7 +93,7 @@ function getPendingActionLabel(action: PendingAdminAction) {
 }
 
 export default function SystemAdminUsersScreen() {
-  const { isConfigured } = useAuth();
+  const { isConfigured, isDemoMode } = useAuth();
   const [users, setUsers] = useState<AppUser[]>([]);
   const [form, setForm] = useState(initialForm);
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
@@ -257,7 +257,7 @@ export default function SystemAdminUsersScreen() {
           deactivate accounts, and initiate password recovery.
         </Text>
 
-        {!isConfigured ? (
+        {isDemoMode ? (
           <View style={styles.notice}>
             <Text style={styles.noticeTitle}>Demo mode</Text>
             <Text style={styles.noticeText}>

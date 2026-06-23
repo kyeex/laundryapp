@@ -11,7 +11,7 @@ import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 
 export default function CreateAccountScreen() {
-  const { createAccountWithEmail, isConfigured } = useAuth();
+  const { createAccountWithEmail, isDemoMode } = useAuth();
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -53,7 +53,7 @@ export default function CreateAccountScreen() {
           Customer accounts can be created here. Owner, driver, and admin
           accounts should be provisioned by the business.
         </Text>
-        {!isConfigured ? (
+        {isDemoMode ? (
           <Text style={styles.demoText}>
             Demo mode is active, so this creates a local customer profile for
             testing. No real account or password is saved until Firebase is
