@@ -41,6 +41,17 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == userId;
     }
 
+    function validUserRole(role) {
+      return role in ["customer", "owner", "driver", "admin"];
+    }
+
+    function validAdminManagedUser() {
+      return validUserRole(request.resource.data.role)
+        && request.resource.data.active is bool
+        && request.resource.data.email is string
+        && request.resource.data.displayName is string;
+    }
+
     function isOwnOrder(order) {
       return signedIn() && order.customerId == request.auth.uid;
     }
@@ -86,20 +97,26 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if ownsUserDoc(userId) || isOwner() || isAdmin();
-      allow create: if ownsUserDoc(userId)
-        && request.resource.data.role == "customer"
-        && request.resource.data.active == true;
-      allow update: if ownsUserDoc(userId)
-        && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly([
-            "displayName",
-            "email",
-            "phone",
-            "expoPushTokens",
-            "updatedAt"
-          ])
-        && request.resource.data.role == resource.data.role
-        && request.resource.data.active == resource.data.active;
+      allow create: if (
+          ownsUserDoc(userId)
+          && request.resource.data.role == "customer"
+          && request.resource.data.active == true
+        )
+        || (isAdmin() && validAdminManagedUser());
+      allow update: if (
+          ownsUserDoc(userId)
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly([
+              "displayName",
+              "email",
+              "phone",
+              "expoPushTokens",
+              "updatedAt"
+            ])
+          && request.resource.data.role == resource.data.role
+          && request.resource.data.active == resource.data.active
+        )
+        || (isAdmin() && validAdminManagedUser());
       allow delete: if false;
     }
 

@@ -17,6 +17,19 @@ function Write-Step($Message) {
   Write-Host "==> $Message" -ForegroundColor Cyan
 }
 
+function Normalize-EnvValue($Value) {
+  $cleanValue = $Value.Trim()
+
+  if (
+    ($cleanValue.StartsWith('"') -and $cleanValue.EndsWith('"')) -or
+    ($cleanValue.StartsWith("'") -and $cleanValue.EndsWith("'"))
+  ) {
+    return $cleanValue.Substring(1, $cleanValue.Length - 2)
+  }
+
+  return $cleanValue
+}
+
 function Test-PreviewPort() {
   try {
     $response = Invoke-WebRequest -UseBasicParsing -Uri "http://localhost:$Port" -TimeoutSec 2
@@ -43,7 +56,7 @@ Get-Content -LiteralPath $envPath | ForEach-Object {
   }
 
   $name, $value = $line.Split("=", 2)
-  [Environment]::SetEnvironmentVariable($name.Trim(), $value.Trim(), "Process")
+  [Environment]::SetEnvironmentVariable($name.Trim(), (Normalize-EnvValue $value), "Process")
 }
 
 if (-not ($env:NODE_OPTIONS -like "*--use-system-ca*")) {

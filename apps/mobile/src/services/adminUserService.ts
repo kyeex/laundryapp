@@ -1,4 +1,18 @@
 import {
+  deleteApp,
+  initializeApp,
+  type FirebaseError,
+} from "firebase/app";
+import {
+  createUserWithEmailAndPassword,
+  deleteUser,
+  getAuth,
+  sendPasswordResetEmail,
+  signOut,
+  updateProfile,
+  type User,
+} from "firebase/auth";
+import {
   collection,
   doc,
   getDocs,
@@ -10,6 +24,7 @@ import {
 import { httpsCallable } from "firebase/functions";
 
 import {
+  firebaseConfig,
   getFirebaseFirestore,
   getFirebaseFunctions,
   shouldUseDemoBackend,
@@ -31,6 +46,12 @@ type CreateManagedUserResult = {
 };
 
 const demoManagedUsersStorageKey = "laundryapp.demo.managedUsers.v1";
+const fallbackFunctionCodes = new Set([
+  "functions/internal",
+  "functions/not-found",
+  "functions/unavailable",
+  "functions/unknown",
+]);
 
 function getStorage() {
   try {
@@ -69,6 +90,89 @@ function getDemoManagedUsers() {
 
 function saveDemoManagedUsers(users: AppUser[]) {
   getStorage()?.setItem(demoManagedUsersStorageKey, JSON.stringify(users));
+}
+
+function shouldUseStagingFallback(error: unknown) {
+  const errorCode = (error as FirebaseError | undefined)?.code;
+
+  return errorCode ? fallbackFunctionCodes.has(errorCode) : false;
+}
+
+async function createManagedUserWithoutFunctions(input: ManagedUserInput) {
+  const db = getFirebaseFirestore();
+  const temporaryApp = initializeApp(
+    firebaseConfig,
+    `managed-user-create-${Date.now()}`,
+  );
+  const temporaryAuth = getAuth(temporaryApp);
+  const temporaryPassword = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}Temp!`;
+  let createdAuthUser: User | null = null;
+
+  try {
+    const credential = await createUserWithEmailAndPassword(
+      temporaryAuth,
+      input.email,
+      temporaryPassword,
+    );
+    createdAuthUser = credential.user;
+
+    await updateProfile(credential.user, {
+      displayName: input.displayName,
+    });
+
+    const user: AppUser = {
+      id: credential.user.uid,
+      ...input,
+      active: true,
+      expoPushTokens: [],
+      createdAt: null,
+      updatedAt: null,
+    };
+
+    await setDoc(doc(db, "users", credential.user.uid), {
+      email: input.email,
+      role: input.role,
+      displayName: input.displayName,
+      phone: input.phone,
+      active: true,
+      expoPushTokens: [],
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    if (input.role === "customer") {
+      await setDoc(doc(db, "customerProfiles", credential.user.uid), {
+        userId: credential.user.uid,
+        defaultAddressId: null,
+        notes: "",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    }
+
+    if (input.role === "driver") {
+      await setDoc(doc(db, "driverProfiles", credential.user.uid), {
+        userId: credential.user.uid,
+        active: true,
+        phone: input.phone,
+        vehicleInfo: "",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    }
+
+    await sendPasswordResetEmail(temporaryAuth, input.email);
+    return user;
+  } catch (error) {
+    if (createdAuthUser) {
+      await deleteUser(createdAuthUser).catch(() => undefined);
+    }
+
+    throw error;
+  } finally {
+    await signOut(temporaryAuth).catch(() => undefined);
+    await deleteApp(temporaryApp).catch(() => undefined);
+  }
 }
 
 export function resetDemoManagedUsers() {
@@ -131,15 +235,24 @@ export async function createManagedUser(input: ManagedUserInput) {
     getFirebaseFunctions(),
     "createManagedUserAccount",
   );
-  const result = await createUser(normalizedInput);
 
-  await requestPasswordReset(normalizedInput.email);
+  try {
+    const result = await createUser(normalizedInput);
 
-  return {
-    ...result.data.user,
-    createdAt: null,
-    updatedAt: null,
-  };
+    await requestPasswordReset(normalizedInput.email);
+
+    return {
+      ...result.data.user,
+      createdAt: null,
+      updatedAt: null,
+    };
+  } catch (createError) {
+    if (!shouldUseStagingFallback(createError)) {
+      throw createError;
+    }
+
+    return createManagedUserWithoutFunctions(normalizedInput);
+  }
 }
 
 export async function updateManagedUser(
@@ -165,7 +278,24 @@ export async function updateManagedUser(
     { userId: string; updates: typeof updates },
     { user: AppUser }
   >(getFirebaseFunctions(), "updateManagedUserAccess");
-  await updateUserAccess({ userId, updates });
+
+  try {
+    await updateUserAccess({ userId, updates });
+  } catch (updateError) {
+    if (!shouldUseStagingFallback(updateError)) {
+      throw updateError;
+    }
+
+    const db = getFirebaseFirestore();
+    await setDoc(
+      doc(db, "users", userId),
+      {
+        ...updates,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+  }
 }
 
 export async function sendManagedUserPasswordReset(email: string) {
