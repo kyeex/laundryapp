@@ -25,11 +25,13 @@ import { httpsCallable } from "firebase/functions";
 
 import {
   firebaseConfig,
+  getFirebaseAuth,
   getFirebaseFirestore,
   getFirebaseFunctions,
   shouldUseDemoBackend,
 } from "@/config/firebase";
 import { demoUsers } from "@/data/demoData";
+import { recordAuditLog } from "@/services/auditLogService";
 import { requestPasswordReset } from "@/services/authService";
 import type { AppUser, UserRole } from "@/types/domain";
 import { requireText } from "@/utils/validation";
@@ -96,6 +98,26 @@ function shouldUseStagingFallback(error: unknown) {
   const errorCode = (error as FirebaseError | undefined)?.code;
 
   return errorCode ? fallbackFunctionCodes.has(errorCode) : false;
+}
+
+async function recordFallbackAdminAudit(input: {
+  action: string;
+  resourceId: string;
+  summary: string;
+  metadata?: Record<string, unknown>;
+}) {
+  const actorId = getFirebaseAuth().currentUser?.uid;
+
+  if (!actorId) {
+    return;
+  }
+
+  await recordAuditLog({
+    actorId,
+    actorRole: "admin",
+    resourceType: "user",
+    ...input,
+  });
 }
 
 async function createManagedUserWithoutFunctions(input: ManagedUserInput) {
@@ -251,7 +273,20 @@ export async function createManagedUser(input: ManagedUserInput) {
       throw createError;
     }
 
-    return createManagedUserWithoutFunctions(normalizedInput);
+    const fallbackUser = await createManagedUserWithoutFunctions(normalizedInput);
+
+    await recordFallbackAdminAudit({
+      action: "user.created",
+      resourceId: fallbackUser.id,
+      summary: `Created ${fallbackUser.role} user ${fallbackUser.email}.`,
+      metadata: {
+        email: fallbackUser.email,
+        role: fallbackUser.role,
+        fallback: true,
+      },
+    });
+
+    return fallbackUser;
   }
 }
 
@@ -295,6 +330,16 @@ export async function updateManagedUser(
       },
       { merge: true },
     );
+
+    await recordFallbackAdminAudit({
+      action: "user.access_updated",
+      resourceId: userId,
+      summary: "Updated user access settings.",
+      metadata: {
+        updates,
+        fallback: true,
+      },
+    });
   }
 }
 

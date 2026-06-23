@@ -52,6 +52,10 @@ service cloud.firestore {
         && request.resource.data.displayName is string;
     }
 
+    function isActiveDriverUser(user) {
+      return user.role == "driver" && user.active == true;
+    }
+
     function isOwnOrder(order) {
       return signedIn() && order.customerId == request.auth.uid;
     }
@@ -95,8 +99,61 @@ service cloud.firestore {
         && request.resource.data.status == "completed";
     }
 
+    function canCreateOrderEvent(orderId) {
+      return signedIn()
+        && request.resource.data.createdBy == request.auth.uid
+        && exists(/databases/$(database)/documents/orders/$(orderId))
+        && (
+          isOwner()
+          || get(/databases/$(database)/documents/orders/$(orderId)).data.customerId == request.auth.uid
+          || get(/databases/$(database)/documents/orders/$(orderId)).data.assignedPickupDriverId == request.auth.uid
+          || get(/databases/$(database)/documents/orders/$(orderId)).data.assignedDeliveryDriverId == request.auth.uid
+        );
+    }
+
+    function validAuditResourceType() {
+      return request.resource.data.resourceType in [
+        "order",
+        "batch",
+        "catalog",
+        "configuration",
+        "user",
+        "payment"
+      ];
+    }
+
+    function isOwnAuditLog() {
+      return signedIn()
+        && request.resource.data.actorId == request.auth.uid
+        && request.resource.data.actorRole == currentUser().data.role
+        && validAuditResourceType();
+    }
+
+    function canCreateDriverAuditLog() {
+      return isDriver()
+        && isOwnAuditLog()
+        && (
+          (
+            request.resource.data.resourceType == "order"
+            && request.resource.data.action == "order.driver_stop_updated"
+            && exists(/databases/$(database)/documents/orders/$(request.resource.data.resourceId))
+            && isAssignedDriver(
+              get(/databases/$(database)/documents/orders/$(request.resource.data.resourceId)).data
+            )
+          )
+          || (
+            request.resource.data.resourceType == "batch"
+            && request.resource.data.action == "batch.route_submitted"
+            && exists(/databases/$(database)/documents/batches/$(request.resource.data.resourceId))
+            && get(/databases/$(database)/documents/batches/$(request.resource.data.resourceId)).data.driverId == request.auth.uid
+          )
+        );
+    }
+
     match /users/{userId} {
-      allow read: if ownsUserDoc(userId) || isOwner() || isAdmin();
+      allow read: if ownsUserDoc(userId)
+        || isAdmin()
+        || (isOwner() && isActiveDriverUser(resource.data));
       allow create: if (
           ownsUserDoc(userId)
           && request.resource.data.role == "customer"
@@ -121,23 +178,25 @@ service cloud.firestore {
     }
 
     match /customerProfiles/{userId} {
-      allow read, create, update: if ownsUserDoc(userId) || isOwner() || isAdmin();
+      allow read, create, update: if ownsUserDoc(userId) || isAdmin();
       allow delete: if isAdmin();
     }
 
     match /driverProfiles/{userId} {
       allow read: if ownsUserDoc(userId) || isOwner() || isAdmin();
-      allow create, update, delete: if isOwner() || isAdmin();
+      allow create, update, delete: if isAdmin();
     }
 
     match /addresses/{addressId} {
-      allow get: if isOwner()
+      allow get: if isAdmin()
         || (signedIn() && addressId == request.auth.uid + "-default")
         || (signedIn() && resource.data.userId == request.auth.uid);
-      allow list: if isOwner();
-      allow create: if isCustomer()
-        && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isOwner()
+      allow list: if isAdmin()
+        || (signedIn() && resource.data.userId == request.auth.uid);
+      allow create: if (isCustomer()
+          && request.resource.data.userId == request.auth.uid)
+        || isAdmin();
+      allow update, delete: if isAdmin()
         || (
           signedIn()
           && resource.data.userId == request.auth.uid
@@ -146,8 +205,8 @@ service cloud.firestore {
     }
 
     match /customerPreferences/{userId} {
-      allow read, create, update: if ownsUserDoc(userId) || isOwner();
-      allow delete: if isOwner();
+      allow read, create, update: if ownsUserDoc(userId) || isAdmin();
+      allow delete: if isAdmin();
     }
 
     match /orders/{orderId} {
@@ -162,17 +221,8 @@ service cloud.firestore {
 
     match /auditLogs/{auditLogId} {
       allow read: if isOwner() || isAdmin();
-      allow create: if (isOwner() || isAdmin())
-        && request.resource.data.actorId == request.auth.uid
-        && request.resource.data.actorRole == currentUser().data.role
-        && request.resource.data.resourceType in [
-          "order",
-          "batch",
-          "catalog",
-          "configuration",
-          "user",
-          "payment"
-        ];
+      allow create: if ((isOwner() || isAdmin()) && isOwnAuditLog())
+        || canCreateDriverAuditLog();
       allow update, delete: if false;
     }
 
@@ -194,7 +244,7 @@ service cloud.firestore {
             || get(/databases/$(database)/documents/orders/$(resource.data.orderId)).data.assignedDeliveryDriverId == request.auth.uid
           )
         );
-      allow create: if signedIn() && request.resource.data.createdBy == request.auth.uid;
+      allow create: if canCreateOrderEvent(request.resource.data.orderId);
       allow update, delete: if false;
     }
 

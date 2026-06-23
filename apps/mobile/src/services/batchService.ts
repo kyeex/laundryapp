@@ -254,6 +254,7 @@ export function getEligibleOrdersForBatch(orders: Order[], type: BatchType) {
 export async function updateBatchStatus(input: {
   batchId: string;
   status: BatchStatus;
+  driverId?: string;
 }) {
   if (shouldUseDemoBackend) {
     updateDemoBatchStatus(input);
@@ -266,6 +267,20 @@ export async function updateBatchStatus(input: {
     status: input.status,
     updatedAt: serverTimestamp(),
   });
+
+  if (input.driverId) {
+    await recordAuditLog({
+      actorId: input.driverId,
+      actorRole: "driver",
+      action: "batch.route_submitted",
+      resourceType: "batch",
+      resourceId: input.batchId,
+      summary: "Driver finalized and submitted a route.",
+      metadata: {
+        status: input.status,
+      },
+    });
+  }
 }
 
 export async function updateDriverOrderStop(input: {
@@ -297,5 +312,20 @@ export async function updateDriverOrderStop(input: {
     toStatus: input.toStatus,
     message: `Driver updated ${input.batch.type} stop to ${input.toStatus}.`,
     createdBy: input.driverId,
+  });
+
+  await recordAuditLog({
+    actorId: input.driverId,
+    actorRole: "driver",
+    action: "order.driver_stop_updated",
+    resourceType: "order",
+    resourceId: input.orderId,
+    summary: `Driver updated ${input.batch.type} stop from ${input.fromStatus} to ${input.toStatus}.`,
+    metadata: {
+      batchId: input.batch.id,
+      batchType: input.batch.type,
+      fromStatus: input.fromStatus,
+      toStatus: input.toStatus,
+    },
   });
 }

@@ -48,6 +48,10 @@ Write-Host "Using Firebase alias '$Environment' -> '$projectId'"
 if (-not $SkipFunctionsBuild -and ($Target -eq "all" -or $Target -eq "functions")) {
   Write-Step "Building Cloud Functions"
   npm --prefix apps/functions run build
+
+  if ($LASTEXITCODE -ne 0) {
+    throw "Cloud Functions build failed."
+  }
 }
 
 $deployOnly = switch ($Target) {
@@ -58,5 +62,9 @@ $deployOnly = switch ($Target) {
 
 Write-Step "Deploying $deployOnly to $Environment"
 npx firebase-tools deploy --only $deployOnly --project $Environment
+
+if ($LASTEXITCODE -ne 0) {
+  throw "Firebase deploy failed for '$Environment' target '$deployOnly'."
+}
 
 Write-Step "Done"

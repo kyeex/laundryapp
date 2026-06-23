@@ -109,7 +109,7 @@ export default function DriverFinalizeRouteScreen() {
   }, [loadRoute]);
 
   async function handleSubmitRoute() {
-    if (!batch || selectedOrders.length === 0) {
+    if (!batch || !currentUser || selectedOrders.length === 0) {
       return;
     }
 
@@ -121,6 +121,7 @@ export default function DriverFinalizeRouteScreen() {
       await updateBatchStatus({
         batchId: batch.id,
         status: "completed",
+        driverId: currentUser.id,
       });
       setSuccess("Route submitted successfully.");
       router.replace("/(driver)/batches");
