@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LaundryApp Merchant Prototype</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell merchant-shell">
+      <aside class="sidebar" aria-label="Merchant navigation">
+        <a class="brand" href="#dashboard" aria-label="LaundryApp merchant home">
+          <span class="brand-mark" aria-hidden="true">LA</span>
+          <span>LaundryApp</span>
+        </a>
+        <nav>
+          <button class="nav-item is-active" type="button" data-view="dashboard">Dashboard</button>
+          <button class="nav-item" type="button" data-view="orders">Orders</button>
+          <button class="nav-item" type="button" data-view="routes">Routes</button>
+          <button class="nav-item" type="button" data-view="pricing">Pricing</button>
+          <button class="nav-item" type="button" data-view="auth">Access</button>
+        </nav>
+        <div class="sidebar-card">
+          <span>Today</span>
+          <strong>$487 pending</strong>
+          <p>3 approvals, 2 deliveries, 1 rush window</p>
+        </div>
+      </aside>
+
+      <main>
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Merchant app</p>
+            <h1>Run pickups, pricing, and delivery in one command surface.</h1>
+          </div>
+          <button class="primary-action" type="button" data-view="orders">Review orders</button>
+        </header>
+
+        <section class="view is-active" data-panel="dashboard" id="dashboard">
+          <div class="hero panel">
+            <div class="hero-copy">
+              <span class="status-chip">Operations live</span>
+              <h2>The laundry shop cockpit.</h2>
+              <p>Approve requests, assign drivers, confirm final weight, request payment, and watch revenue without digging through messages.</p>
+              <div class="hero-actions">
+                <button class="primary-action" type="button" data-view="orders">Approve queue</button>
+                <button class="secondary-action" type="button" data-view="routes">Driver routes</button>
+              </div>
+            </div>
+            <div class="hero-media">
+              <img src="./assets/laundry-concierge-hero.png" alt="Premium folded laundry for merchant dashboard" />
+            </div>
+          </div>
+
+          <div class="metric-grid">
+            <article><span>11</span><strong>Active orders</strong></article>
+            <article><span>3</span><strong>Need approval</strong></article>
+            <article><span>$487</span><strong>Revenue today</strong></article>
+          </div>
+        </section>
+
+        <section class="view" data-panel="orders">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Queue</p>
+              <h2>Orders needing attention</h2>
+            </div>
+            <div class="segmented" role="group" aria-label="Order filter">
+              <button class="is-active" type="button">New</button>
+              <button type="button">Active</button>
+              <button type="button">Ready</button>
+            </div>
+          </div>
+          <div class="ops-grid">
+            <article class="panel ops-column">
+              <div class="column-head"><span>Incoming</span><strong>3</strong></div>
+              <div class="request-card hot">
+                <small>Taylor Brooks</small>
+                <strong>Wash & fold</strong>
+                <span>12 PM - 3 PM, Queens</span>
+                <div class="quick-actions"><button type="button">Accept</button><button type="button">Decline</button></div>
+              </div>
+              <div class="request-card">
+                <small>Morgan Lee</small>
+                <strong>Dry cleaning review</strong>
+                <span>2 shirts, 1 pants, pickup tomorrow</span>
+              </div>
+            </article>
+            <article class="panel ops-column">
+              <div class="column-head"><span>Processing</span><strong>5</strong></div>
+              <div class="job-card"><span>#1001</span><strong>Jordan Carter</strong><em>Pickup assigned</em></div>
+              <div class="job-card"><span>#1002</span><strong>Avery Patel</strong><em>Final weight needed</em></div>
+              <div class="job-card"><span>#1003</span><strong>Nina Chen</strong><em>Dry cleaning priced</em></div>
+            </article>
+            <article class="panel ops-column">
+              <div class="column-head"><span>Ready</span><strong>2</strong></div>
+              <div class="request-card paid"><small>Paid</small><strong>$59.50</strong><span>Assign delivery to Pine Road</span></div>
+              <div class="request-card"><small>Payment request</small><strong>$81.60</strong><span>Waiting on customer</span></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="view" data-panel="routes">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Drivers</p>
+              <h2>Route board</h2>
+            </div>
+            <button class="secondary-action" type="button">Optimize</button>
+          </div>
+          <div class="route-layout">
+            <article class="panel route-map">
+              <span class="pin one"></span>
+              <span class="pin two"></span>
+              <span class="pin three"></span>
+              <svg viewBox="0 0 560 300" aria-hidden="true"><path d="M56 222 C160 70 256 268 366 136 S502 142 520 48" /></svg>
+            </article>
+            <aside class="panel route-list">
+              <div class="driver-card"><span>Sam Rivera</span><strong>5 stops</strong><em>2 pickups, 3 deliveries</em></div>
+              <div class="stop-row"><span>01</span><strong>1428 Maple Ave</strong><em>Pickup</em></div>
+              <div class="stop-row"><span>02</span><strong>17 Pine Road</strong><em>Delivery</em></div>
+              <div class="stop-row"><span>03</span><strong>84 Grove Street</strong><em>Pickup</em></div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="view" data-panel="pricing">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Pricing</p>
+              <h2>Finalize order totals</h2>
+            </div>
+            <div class="estimate-pill"><span>Draft total</span><strong id="merchantTotal">$81.60</strong></div>
+          </div>
+          <div class="pricing-layout">
+            <form class="panel form-card">
+              <div class="form-grid">
+                <label><span>Billable weight</span><input id="merchantWeight" type="number" value="20" min="1" /></label>
+                <label><span>Price per lb</span><input id="merchantRate" type="number" value="2" min="0" step="0.25" /></label>
+              </div>
+              <fieldset>
+                <legend>Line items</legend>
+                <label class="toggle-row"><input type="checkbox" data-line="2.5" checked /><span>Separate colors</span><em>$2.50</em></label>
+                <label class="toggle-row"><input type="checkbox" data-line="12" checked /><span>Queen comforter</span><em>$12</em></label>
+                <label class="toggle-row"><input type="checkbox" data-line="13.5" checked /><span>Dry cleaning items</span><em>$13.50</em></label>
+              </fieldset>
+              <label><span>Merchant note</span><textarea rows="3">Dry cleaning items confirmed. Ready to request payment.</textarea></label>
+              <button class="primary-action full" type="button">Send payment request</button>
+            </form>
+            <aside class="panel revenue-card">
+              <h3>Revenue mix</h3>
+              <div class="bar-chart" aria-label="Revenue bars"><span style="height:46%"></span><span style="height:72%"></span><span style="height:61%"></span><span style="height:88%"></span><span style="height:54%"></span><span style="height:79%"></span></div>
+              <p>Rush capacity open: 2 windows before 6 PM.</p>
+            </aside>
+          </div>
+        </section>
+
+        <section class="view" data-panel="auth">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Access</p>
+              <h2>Merchant, owner, and driver authentication</h2>
+            </div>
+            <div class="segmented" role="group" aria-label="Authentication mode">
+              <button class="is-active" type="button" data-auth-mode="signin">Sign in</button>
+              <button type="button" data-auth-mode="invite">Invite</button>
+              <button type="button" data-auth-mode="reset">Reset</button>
+            </div>
+          </div>
+          <div class="auth-layout">
+            <aside class="auth-visual panel">
+              <h3>Role-based access for the people moving each order.</h3>
+              <div class="credential-stack">
+                <div class="credential-card"><span>Owner</span><strong>Approvals + pricing</strong><em>Full business controls</em></div>
+                <div class="credential-card"><span>Driver</span><strong>Routes + handoffs</strong><em>Pickup and delivery only</em></div>
+              </div>
+            </aside>
+            <div class="auth-card panel">
+              <form class="auth-form is-active" data-auth-panel="signin">
+                <h3>Sign in to operations</h3>
+                <label><span>Email</span><input type="email" value="owner@laundryapp.com" /></label>
+                <label><span>Password</span><input type="password" value="merchantflow" /></label>
+                <button class="primary-action full" type="button">Sign in</button>
+              </form>
+              <form class="auth-form" data-auth-panel="invite">
+                <h3>Invite teammate</h3>
+                <div class="form-grid"><label><span>Name</span><input type="text" value="Sam Rivera" /></label><label><span>Email</span><input type="email" value="sam@example.com" /></label></div>
+                <label><span>Role</span><select><option>Driver</option><option>Owner</option><option>Admin</option></select></label>
+                <button class="primary-action full" type="button">Send invite</button>
+              </form>
+              <form class="auth-form" data-auth-panel="reset">
+                <h3>Reset password</h3>
+                <p>Send a secure reset link to an owner, admin, or driver account.</p>
+                <label><span>Email</span><input type="email" value="owner@laundryapp.com" /></label>
+                <button class="primary-action full" type="button">Send reset link</button>
+              </form>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script src="./app.js"></script>
+  </body>
+</html>

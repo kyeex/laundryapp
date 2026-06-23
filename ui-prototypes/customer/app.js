@@ -1,5 +1,5 @@
 const viewButtons = document.querySelectorAll("[data-view]");
-const tabButtons = document.querySelectorAll(".tab-button");
+const navItems = document.querySelectorAll(".nav-item");
 const panels = document.querySelectorAll("[data-panel]");
 const estimateTotal = document.querySelector("#estimateTotal");
 const weightInput = document.querySelector("#weightInput");
@@ -7,10 +7,9 @@ const addonInputs = document.querySelectorAll("[data-addon]");
 const serviceChoices = document.querySelectorAll(".choice-card");
 const authModeButtons = document.querySelectorAll("[data-auth-mode]");
 const authPanels = document.querySelectorAll("[data-auth-panel]");
-const roleCards = document.querySelectorAll(".role-card");
 
 function showView(viewName) {
-  tabButtons.forEach((button) => {
+  navItems.forEach((button) => {
     button.classList.toggle("is-active", button.dataset.view === viewName);
   });
 
@@ -18,26 +17,25 @@ function showView(viewName) {
     panel.classList.toggle("is-active", panel.dataset.panel === viewName);
   });
 
-  document.querySelector(".view-stack")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  window.scrollTo({ behavior: "smooth", top: 0 });
 }
 
 function updateEstimate() {
+  if (!estimateTotal || !weightInput) return;
+
   const weight = Number.parseFloat(weightInput.value || "0");
   const billableWeight = Number.isFinite(weight) ? Math.max(weight, 20) : 20;
   const laundry = billableWeight * 2;
-  const dryCleaning = document.querySelector("input[name='service'][value='combo']")?.checked
-    ? 13.5
-    : 0;
+  const dryCleaning = document.querySelector("input[name='service'][value='combo']")?.checked ? 13.5 : 0;
   const addons = Array.from(addonInputs).reduce((sum, input) => {
     return input.checked ? sum + Number.parseFloat(input.dataset.addon || "0") : sum;
   }, 0);
   const tip = 13.6;
-  const total = laundry + dryCleaning + addons + tip;
 
   estimateTotal.textContent = new Intl.NumberFormat("en-US", {
     currency: "USD",
     style: "currency",
-  }).format(total);
+  }).format(laundry + dryCleaning + addons + tip);
 }
 
 function showAuthMode(mode) {
@@ -51,12 +49,7 @@ function showAuthMode(mode) {
 }
 
 viewButtons.forEach((button) => {
-  button.addEventListener("click", () => {
-    showView(button.dataset.view);
-    if (button.dataset.authMode) {
-      showAuthMode(button.dataset.authMode);
-    }
-  });
+  button.addEventListener("click", () => showView(button.dataset.view));
 });
 
 serviceChoices.forEach((choice) => {
@@ -67,9 +60,6 @@ serviceChoices.forEach((choice) => {
   });
 });
 
-weightInput.addEventListener("input", updateEstimate);
-addonInputs.forEach((input) => input.addEventListener("change", updateEstimate));
-
 authModeButtons.forEach((button) => {
   button.addEventListener("click", () => {
     showView("auth");
@@ -77,12 +67,7 @@ authModeButtons.forEach((button) => {
   });
 });
 
-roleCards.forEach((card) => {
-  card.addEventListener("click", () => {
-    roleCards.forEach((item) => item.classList.remove("is-selected"));
-    card.classList.add("is-selected");
-  });
-});
-
+weightInput?.addEventListener("input", updateEstimate);
+addonInputs.forEach((input) => input.addEventListener("change", updateEstimate));
 updateEstimate();
 showAuthMode("signin");

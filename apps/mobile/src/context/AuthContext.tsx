@@ -12,8 +12,11 @@ import {
 import {
   appEnvironment,
   canUseFirebaseBackend,
+  demoPreviewStorageKey,
   isDemoEnvironment,
+  isDemoPreviewMode,
   isFirebaseConfigured,
+  shouldUseDemoBackend,
 } from "@/config/firebase";
 import { demoUsers } from "@/data/demoData";
 import {
@@ -33,6 +36,7 @@ type AuthContextValue = {
   appEnvironment: typeof appEnvironment;
   isConfigured: boolean;
   isDemoMode: boolean;
+  isDemoPreviewMode: boolean;
   isLoading: boolean;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   createAccountWithEmail: (input: {
@@ -44,6 +48,7 @@ type AuthContextValue = {
   }) => Promise<void>;
   sendResetEmail: (email: string) => Promise<void>;
   startDemoSession: (role: "customer" | "owner" | "driver" | "admin") => void;
+  stopDemoPreviewSession: () => void;
   signOut: () => Promise<void>;
 };
 
@@ -91,13 +96,18 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (isDemoEnvironment) {
+    if (shouldUseDemoBackend) {
       const storedRole = getStoredDemoRole();
 
       if (storedRole) {
         const storedCustomerProfile =
           storedRole === "customer" ? getStoredDemoCustomerProfile() : null;
-        setCurrentUser(storedCustomerProfile ?? demoUsers[storedRole]);
+        const profile = storedCustomerProfile ?? demoUsers[storedRole];
+        setCurrentUser(profile);
+
+        if (isDemoPreviewMode) {
+          router.replace(getHomeRouteForRole(profile.role));
+        }
       }
 
       setIsLoading(false);
@@ -186,21 +196,43 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   const startDemoSession = useCallback((role: "customer" | "owner" | "driver" | "admin") => {
-    if (!isDemoEnvironment) {
-      throw new Error("Demo role switching is only available in demo mode.");
-    }
-
     const profile = demoUsers[role];
     getStorage()?.setItem(demoRoleStorageKey, role);
     getStorage()?.removeItem(demoCustomerProfileStorageKey);
+
+    if (!isDemoEnvironment && !isDemoPreviewMode) {
+      getStorage()?.setItem(demoPreviewStorageKey, "true");
+      setCurrentUser(profile);
+
+      if ("location" in globalThis) {
+        globalThis.location.assign("/");
+        return;
+      }
+    }
+
     setCurrentUser(profile);
     router.replace(getHomeRouteForRole(profile.role));
+  }, []);
+
+  const stopDemoPreviewSession = useCallback(() => {
+    getStorage()?.removeItem(demoPreviewStorageKey);
+    getStorage()?.removeItem(demoRoleStorageKey);
+    getStorage()?.removeItem(demoCustomerProfileStorageKey);
+    setCurrentUser(null);
+
+    if ("location" in globalThis) {
+      globalThis.location.assign("/");
+      return;
+    }
+
+    router.replace("/(auth)/sign-in");
   }, []);
 
   const signOut = useCallback(async () => {
     if (canUseFirebaseBackend) {
       await signOutCurrentUser();
     } else {
+      getStorage()?.removeItem(demoPreviewStorageKey);
       getStorage()?.removeItem(demoRoleStorageKey);
       getStorage()?.removeItem(demoCustomerProfileStorageKey);
     }
@@ -213,12 +245,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
       appEnvironment,
       currentUser,
       isConfigured: canUseFirebaseBackend,
-      isDemoMode: isDemoEnvironment,
+      isDemoMode: shouldUseDemoBackend,
+      isDemoPreviewMode,
       isLoading,
       signInWithEmail,
       createAccountWithEmail,
       sendResetEmail,
       startDemoSession,
+      stopDemoPreviewSession,
       signOut,
     }),
     [
@@ -228,6 +262,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       createAccountWithEmail,
       sendResetEmail,
       startDemoSession,
+      stopDemoPreviewSession,
       signOut,
     ],
   );

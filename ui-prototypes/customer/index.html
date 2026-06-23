@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LaundryApp Customer Prototype</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell customer-shell">
+      <aside class="sidebar" aria-label="Customer navigation">
+        <a class="brand" href="#home" aria-label="LaundryApp customer home">
+          <span class="brand-mark" aria-hidden="true">LA</span>
+          <span>LaundryApp</span>
+        </a>
+        <nav>
+          <button class="nav-item is-active" type="button" data-view="home">Home</button>
+          <button class="nav-item" type="button" data-view="book">Book</button>
+          <button class="nav-item" type="button" data-view="orders">Orders</button>
+          <button class="nav-item" type="button" data-view="care">Care</button>
+          <button class="nav-item" type="button" data-view="auth">Account</button>
+        </nav>
+        <div class="sidebar-card">
+          <span>Next pickup</span>
+          <strong>Today, 9 AM</strong>
+          <p>Driver assigned: Sam Rivera</p>
+        </div>
+      </aside>
+
+      <main>
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Customer app</p>
+            <h1>Fresh laundry without the errand.</h1>
+          </div>
+          <button class="primary-action" type="button" data-view="book">Schedule pickup</button>
+        </header>
+
+        <section class="view is-active" data-panel="home" id="home">
+          <div class="hero panel">
+            <div class="hero-copy">
+              <span class="status-chip">Pickup windows open</span>
+              <h2>Book, track, and pay after final weight.</h2>
+              <p>Designed for customers who want laundry, dry cleaning, delivery, and care preferences handled in one elegant flow.</p>
+              <div class="hero-actions">
+                <button class="primary-action" type="button" data-view="book">Start order</button>
+                <button class="secondary-action" type="button" data-view="orders">Track order</button>
+              </div>
+            </div>
+            <div class="hero-media">
+              <img src="./assets/laundry-concierge-hero.png" alt="Fresh folded laundry with premium delivery bag" />
+            </div>
+          </div>
+
+          <div class="metric-grid">
+            <article><span>$81.60</span><strong>Current estimate</strong></article>
+            <article><span>48 hr</span><strong>Typical return</strong></article>
+            <article><span>4.9</span><strong>Care rating</strong></article>
+          </div>
+        </section>
+
+        <section class="view" data-panel="book">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Book</p>
+              <h2>Build your pickup</h2>
+            </div>
+            <div class="estimate-pill"><span>Estimated subtotal</span><strong id="estimateTotal">$81.60</strong></div>
+          </div>
+          <div class="split-layout">
+            <form class="panel form-card">
+              <fieldset>
+                <legend>Service</legend>
+                <label class="choice-card is-selected">
+                  <input type="radio" name="service" value="combo" checked />
+                  <span><strong>Wash, fold + dry cleaning</strong><small>One pickup, complete garment care.</small></span>
+                  <em>Best fit</em>
+                </label>
+                <label class="choice-card">
+                  <input type="radio" name="service" value="wash" />
+                  <span><strong>Wash & fold</strong><small>Everyday laundry washed and folded.</small></span>
+                  <em>$2/lb</em>
+                </label>
+              </fieldset>
+
+              <div class="form-grid">
+                <label><span>Estimated weight</span><input id="weightInput" type="number" min="1" value="15.5" /></label>
+                <label><span>Pickup window</span><select><option>9:00 AM - 12:00 PM</option><option>12:00 PM - 3:00 PM</option><option>3:00 PM - 6:00 PM</option></select></label>
+              </div>
+
+              <fieldset>
+                <legend>Add-ons</legend>
+                <label class="toggle-row"><input type="checkbox" data-addon="2.5" checked /><span>Separate colors</span><em>$2.50</em></label>
+                <label class="toggle-row"><input type="checkbox" data-addon="12" checked /><span>Queen comforter</span><em>$12</em></label>
+                <label class="toggle-row"><input type="checkbox" data-addon="0" /><span>Rush request</span><em>Confirm</em></label>
+              </fieldset>
+
+              <label class="note-field"><span>Care note</span><textarea rows="3">Please use hypoallergenic detergent.</textarea></label>
+              <button class="primary-action full" type="button">Request pickup</button>
+            </form>
+
+            <aside class="phone-preview panel">
+              <div class="phone-head"><span>Today</span><strong>Jordan</strong></div>
+              <div class="pickup-card">
+                <small>Pickup assigned</small>
+                <strong>Driver arriving in window</strong>
+                <div class="progress-line"><span></span></div>
+              </div>
+              <div class="mini-list">
+                <div>Wash & fold + dry cleaning</div>
+                <div>2 shirts, 1 pants, queen comforter</div>
+                <div>Maple Ave, Apt 3B</div>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="view" data-panel="orders">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Track</p>
+              <h2>Your live order</h2>
+            </div>
+            <button class="secondary-action" type="button">Refresh</button>
+          </div>
+          <div class="split-layout">
+            <article class="panel order-summary">
+              <span class="status-chip warm">Order #1001</span>
+              <h3>Pickup assigned</h3>
+              <p>Sam Rivera is scheduled for June 22 between 9:00 AM and 12:00 PM.</p>
+              <dl>
+                <div><dt>Estimate</dt><dd>$81.60</dd></div>
+                <div><dt>Payment</dt><dd>Unpaid</dd></div>
+                <div><dt>Return</dt><dd>Jun 24</dd></div>
+              </dl>
+            </article>
+            <ol class="panel timeline">
+              <li class="done"><span></span><div><strong>Requested</strong><p>Your order was received.</p></div></li>
+              <li class="done"><span></span><div><strong>Accepted</strong><p>The shop confirmed availability.</p></div></li>
+              <li class="active"><span></span><div><strong>Pickup assigned</strong><p>Your driver has the stop on their route.</p></div></li>
+              <li><span></span><div><strong>In progress</strong><p>Care team weighs, washes, and reviews items.</p></div></li>
+              <li><span></span><div><strong>Payment requested</strong><p>Final price is ready before delivery.</p></div></li>
+              <li><span></span><div><strong>Delivered</strong><p>Your fresh order is back home.</p></div></li>
+            </ol>
+          </div>
+        </section>
+
+        <section class="view" data-panel="care">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Preferences</p>
+              <h2>Saved care profile</h2>
+            </div>
+          </div>
+          <div class="card-grid">
+            <article class="panel preference-card"><span>Detergent</span><strong>Hypoallergenic</strong><p>Default for every wash & fold order.</p></article>
+            <article class="panel preference-card"><span>Sorting</span><strong>Separate colors</strong><p>Automatically included unless removed at checkout.</p></article>
+            <article class="panel preference-card"><span>Delivery</span><strong>Doorstep handoff</strong><p>Text on arrival and leave at apartment door.</p></article>
+          </div>
+        </section>
+
+        <section class="view" data-panel="auth">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Account</p>
+              <h2>Sign in or create your customer profile</h2>
+            </div>
+            <div class="segmented" role="group" aria-label="Authentication mode">
+              <button class="is-active" type="button" data-auth-mode="signin">Sign in</button>
+              <button type="button" data-auth-mode="signup">Create</button>
+              <button type="button" data-auth-mode="reset">Reset</button>
+            </div>
+          </div>
+          <div class="auth-layout">
+            <aside class="auth-visual panel">
+              <h3>Saved addresses, care notes, and live orders travel with you.</h3>
+              <div class="credential-card"><span>Customer</span><strong>Jordan Carter</strong><em>Maple Ave, Apt 3B</em></div>
+            </aside>
+            <div class="auth-card panel">
+              <form class="auth-form is-active" data-auth-panel="signin">
+                <h3>Welcome back</h3>
+                <label><span>Email</span><input type="email" value="jordan@example.com" /></label>
+                <label><span>Password</span><input type="password" value="freshfolds" /></label>
+                <button class="primary-action full" type="button">Sign in</button>
+                <button class="secondary-action full" type="button" data-auth-mode="signup">Create customer account</button>
+              </form>
+              <form class="auth-form" data-auth-panel="signup">
+                <h3>Create customer account</h3>
+                <div class="form-grid"><label><span>Name</span><input type="text" value="Jordan Carter" /></label><label><span>Phone</span><input type="tel" value="(555) 014-2048" /></label></div>
+                <label><span>Email</span><input type="email" value="jordan@example.com" /></label>
+                <label><span>Pickup address</span><input type="text" value="1428 Maple Ave, Apt 3B" /></label>
+                <label><span>Password</span><input type="password" value="freshfolds" /></label>
+                <button class="primary-action full" type="button">Create account</button>
+              </form>
+              <form class="auth-form" data-auth-panel="reset">
+                <h3>Reset password</h3>
+                <p>Send a secure reset link to the email on your customer profile.</p>
+                <label><span>Email</span><input type="email" value="jordan@example.com" /></label>
+                <button class="primary-action full" type="button">Send reset link</button>
+              </form>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script src="./app.js"></script>
+  </body>
+</html>

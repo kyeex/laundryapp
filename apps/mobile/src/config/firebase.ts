@@ -10,6 +10,19 @@ import {
   requiresFirebaseBackend,
 } from "@/config/runtime";
 
+export const demoPreviewStorageKey = "laundryapp.demoPreview.enabled.v1";
+
+function getLocalStorage() {
+  try {
+    return "localStorage" in globalThis ? globalThis.localStorage : null;
+  } catch {
+    return null;
+  }
+}
+
+export const isDemoPreviewMode =
+  !isDemoEnvironment && getLocalStorage()?.getItem(demoPreviewStorageKey) === "true";
+
 export const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -20,8 +33,9 @@ export const firebaseConfig = {
 };
 
 export const isFirebaseConfigured = Object.values(firebaseConfig).every(Boolean);
-export const shouldUseDemoBackend = isDemoEnvironment;
-export const canUseFirebaseBackend = requiresFirebaseBackend && isFirebaseConfigured;
+export const shouldUseDemoBackend = isDemoEnvironment || isDemoPreviewMode;
+export const canUseFirebaseBackend =
+  requiresFirebaseBackend && isFirebaseConfigured && !isDemoPreviewMode;
 export { appEnvironment, isDemoEnvironment, requiresFirebaseBackend };
 
 let firebaseApp: FirebaseApp | null = null;

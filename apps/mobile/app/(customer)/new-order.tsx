@@ -22,6 +22,7 @@ import {
   getBusinessSettings,
 } from "@/services/configurationService";
 import {
+  getCustomerProfileSummary,
   getCustomerLaundryPreferences,
   type CustomerLaundryPreferences,
 } from "@/services/profileService";
@@ -216,22 +217,34 @@ export default function NewOrderScreen() {
     let mounted = true;
     const customerId = currentUser.id;
 
-    async function loadPreferencesIntoNotes() {
+    async function loadCustomerDefaults() {
       try {
-        const preferences = await getCustomerLaundryPreferences(customerId);
+        const [profile, preferences] = await Promise.all([
+          getCustomerProfileSummary(customerId),
+          getCustomerLaundryPreferences(customerId),
+        ]);
         const preferenceNotes = formatPreferencesForOrderNotes(preferences);
 
-        if (!mounted || !preferenceNotes) {
+        if (!mounted) {
           return;
         }
 
-        setCustomerNotes((current) => current || preferenceNotes);
+        setAddress((current) => {
+          const hasStartedAddress =
+            current.street1 || current.city || current.state || current.postalCode;
+
+          return hasStartedAddress ? current : profile.defaultAddress;
+        });
+
+        if (preferenceNotes) {
+          setCustomerNotes((current) => current || preferenceNotes);
+        }
       } catch {
-        // Preferences are helpful defaults, not required to place an order.
+        // Customer defaults are helpful, not required to place an order.
       }
     }
 
-    void loadPreferencesIntoNotes();
+    void loadCustomerDefaults();
 
     return () => {
       mounted = false;
@@ -549,24 +562,30 @@ export default function NewOrderScreen() {
     router.push("/(customer)/order-review");
   }
 
-  const isMissingRequiredInfo =
-    !currentUser ||
-    !address.street1 ||
-    !address.city ||
-    !address.state ||
-    !address.postalCode ||
-    !Number.isFinite(parsedEstimatedWeight) ||
-    parsedEstimatedWeight <= 0 ||
-    !scheduledPickupDate ||
-    !isPickupDateAvailable(scheduledPickupDate, pickupAvailability) ||
-    !scheduledPickupWindow ||
+  const missingReviewRequirements = [
+    !currentUser ? "Sign in as a customer." : "",
+    !selectedServiceIds.length ? "Choose a service." : "",
+    !Number.isFinite(parsedEstimatedWeight) || parsedEstimatedWeight <= 0
+      ? "Enter estimated pounds."
+      : "",
+    !address.street1 || !address.city || !address.state || !address.postalCode
+      ? "Complete the customer address."
+      : "",
+    !scheduledPickupDate || !isPickupDateAvailable(scheduledPickupDate, pickupAvailability)
+      ? "Choose an available pickup date."
+      : "",
+    !scheduledPickupWindow ? "Choose a pickup time window." : "",
     !scheduledDropoffDate ||
     !isPickupDateAvailable(scheduledDropoffDate, pickupAvailability) ||
-    !isDateAfter(scheduledDropoffDate, scheduledPickupDate) ||
-    !scheduledDropoffWindow ||
-    (selectedAddOnIds.includes("comforter") &&
-      selectedComforterAddOns.length === 0) ||
-    selectedServiceIds.length === 0;
+    !isDateAfter(scheduledDropoffDate, scheduledPickupDate)
+      ? "Choose an available drop-off date after pickup."
+      : "",
+    !scheduledDropoffWindow ? "Choose a drop-off time window." : "",
+    selectedAddOnIds.includes("comforter") && selectedComforterAddOns.length === 0
+      ? "Add at least one comforter size or turn off the comforter add-on."
+      : "",
+  ].filter(Boolean);
+  const isMissingRequiredInfo = missingReviewRequirements.length > 0;
 
   return (
     <Screen>
@@ -994,9 +1013,20 @@ export default function NewOrderScreen() {
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
+        {isMissingRequiredInfo ? (
+          <View style={styles.reviewChecklist}>
+            <Text style={styles.reviewChecklistTitle}>Before you review</Text>
+            {missingReviewRequirements.map((requirement) => (
+              <Text key={requirement} style={styles.reviewChecklistItem}>
+                {requirement}
+              </Text>
+            ))}
+          </View>
+        ) : null}
+
         <AppButton
           disabled={isMissingRequiredInfo}
-          label="Review order"
+          label={isMissingRequiredInfo ? "Complete order details" : "Review order"}
           onPress={handleReviewOrder}
         />
       </View>
@@ -1205,5 +1235,23 @@ const styles = StyleSheet.create({
     color: colors.danger,
     fontSize: 14,
     fontWeight: "700",
+  },
+  reviewChecklist: {
+    backgroundColor: "#FEF3C7",
+    borderColor: "#F59E0B",
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: spacing.xs,
+    padding: spacing.md,
+  },
+  reviewChecklistTitle: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  reviewChecklistItem: {
+    color: colors.muted,
+    fontSize: 14,
+    lineHeight: 20,
   },
 });

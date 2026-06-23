@@ -21,9 +21,10 @@
           <button class="tab-button is-active" type="button" data-view="customer">Customer</button>
           <button class="tab-button" type="button" data-view="tracker">Tracker</button>
           <button class="tab-button" type="button" data-view="ops">Ops</button>
+          <button class="tab-button" type="button" data-view="auth">Auth</button>
         </nav>
-        <button class="icon-button" type="button" aria-label="Open notifications">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 16v-5a6 6 0 1 0-12 0v5l-2 2v1h16v-1l-2-2Zm-7 5h2a2 2 0 0 0 2-2H9a2 2 0 0 0 2 2Z" /></svg>
+        <button class="icon-button" type="button" aria-label="Open sign in" data-view="auth">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17v-2h4V9h-4V7l-5 5 5 5Zm2-15a10 10 0 0 1 0 20H7v-2h5a8 8 0 1 0 0-16H7V2h5Z" /></svg>
         </button>
       </header>
 
@@ -36,14 +37,14 @@
             </div>
             <h1>Fresh laundry, handled like a concierge service.</h1>
             <p>Book pickup, personalize care, follow every handoff, and pay only after the final weight and dry-cleaning items are confirmed.</p>
-            <div class="hero-actions">
-              <button class="primary-action" type="button" data-view="customer">
+          <div class="hero-actions">
+              <button class="primary-action" type="button" data-view="auth" data-auth-mode="signup">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14m7-7H5" /></svg>
-                Start order
+                Create account
               </button>
-              <button class="secondary-action" type="button" data-view="tracker">
+              <button class="secondary-action" type="button" data-view="auth" data-auth-mode="signin">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
-                Track order
+                Sign in
               </button>
             </div>
           </div>
@@ -280,6 +281,137 @@
                 </div>
               </article>
             </div>
+          </div>
+
+          <div class="view" data-panel="auth">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Access</p>
+                <h2>Authentication that feels premium from the first tap</h2>
+              </div>
+              <div class="auth-switcher segmented" role="group" aria-label="Authentication mode">
+                <button class="is-active" type="button" data-auth-mode="signin">Sign in</button>
+                <button type="button" data-auth-mode="signup">Create</button>
+                <button type="button" data-auth-mode="reset">Reset</button>
+              </div>
+            </div>
+
+            <section class="auth-layout">
+              <aside class="auth-visual panel" aria-label="LaundryApp access preview">
+                <div class="auth-glance">
+                  <span class="status-chip">
+                    <span class="pulse" aria-hidden="true"></span>
+                    Secure Firebase-ready flow
+                  </span>
+                  <h3>One account for pickup, delivery, and operations.</h3>
+                </div>
+                <div class="credential-stack" aria-hidden="true">
+                  <div class="credential-card top">
+                    <span>Customer</span>
+                    <strong>Book pickup</strong>
+                    <em>Saved address + care profile</em>
+                  </div>
+                  <div class="credential-card middle">
+                    <span>Driver</span>
+                    <strong>Route ready</strong>
+                    <em>Assigned stops and handoffs</em>
+                  </div>
+                  <div class="credential-card bottom">
+                    <span>Owner</span>
+                    <strong>Approve orders</strong>
+                    <em>Pricing, batches, payouts</em>
+                  </div>
+                </div>
+              </aside>
+
+              <div class="auth-card panel">
+                <form class="auth-form is-active" data-auth-panel="signin">
+                  <div class="auth-form-head">
+                    <span>Welcome back</span>
+                    <h3>Sign in to LaundryApp</h3>
+                  </div>
+                  <label>
+                    <span>Email address</span>
+                    <input type="email" value="jordan@example.com" autocomplete="email" />
+                  </label>
+                  <label>
+                    <span>Password</span>
+                    <input type="password" value="freshfolds" autocomplete="current-password" />
+                  </label>
+                  <div class="form-options">
+                    <label class="checkline">
+                      <input type="checkbox" checked />
+                      <span>Keep me signed in</span>
+                    </label>
+                    <button class="text-button" type="button" data-auth-mode="reset">Forgot?</button>
+                  </div>
+                  <button class="primary-action full" type="button">Sign in</button>
+                  <button class="secondary-action full" type="button" data-auth-mode="signup">Create new account</button>
+                </form>
+
+                <form class="auth-form" data-auth-panel="signup">
+                  <div class="auth-form-head">
+                    <span>Start fresh</span>
+                    <h3>Create your account</h3>
+                  </div>
+                  <div class="role-picker" aria-label="Choose account type">
+                    <label class="role-card is-selected">
+                      <input type="radio" name="role" checked />
+                      <span>Customer</span>
+                    </label>
+                    <label class="role-card">
+                      <input type="radio" name="role" />
+                      <span>Owner</span>
+                    </label>
+                    <label class="role-card">
+                      <input type="radio" name="role" />
+                      <span>Driver</span>
+                    </label>
+                  </div>
+                  <div class="form-grid">
+                    <label>
+                      <span>Full name</span>
+                      <input type="text" value="Jordan Carter" autocomplete="name" />
+                    </label>
+                    <label>
+                      <span>Phone</span>
+                      <input type="tel" value="(555) 014-2048" autocomplete="tel" />
+                    </label>
+                  </div>
+                  <label>
+                    <span>Email address</span>
+                    <input type="email" value="jordan@example.com" autocomplete="email" />
+                  </label>
+                  <label>
+                    <span>Default pickup address</span>
+                    <input type="text" value="1428 Maple Ave, Apt 3B" autocomplete="street-address" />
+                  </label>
+                  <label>
+                    <span>Password</span>
+                    <input type="password" value="freshfolds" autocomplete="new-password" />
+                  </label>
+                  <label class="checkline terms">
+                    <input type="checkbox" checked />
+                    <span>I agree to care updates, order messages, and service terms.</span>
+                  </label>
+                  <button class="primary-action full" type="button">Create account</button>
+                </form>
+
+                <form class="auth-form" data-auth-panel="reset">
+                  <div class="auth-form-head">
+                    <span>Reset access</span>
+                    <h3>Get a secure link</h3>
+                  </div>
+                  <p class="auth-copy">Enter the email attached to the account and LaundryApp can send a password reset link.</p>
+                  <label>
+                    <span>Email address</span>
+                    <input type="email" value="jordan@example.com" autocomplete="email" />
+                  </label>
+                  <button class="primary-action full" type="button">Send reset link</button>
+                  <button class="secondary-action full" type="button" data-auth-mode="signin">Back to sign in</button>
+                </form>
+              </div>
+            </section>
           </div>
         </section>
       </main>

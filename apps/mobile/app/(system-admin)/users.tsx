@@ -97,6 +97,7 @@ export default function SystemAdminUsersScreen() {
   const [users, setUsers] = useState<AppUser[]>([]);
   const [form, setForm] = useState(initialForm);
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [userSearch, setUserSearch] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [recentlyCreatedUserId, setRecentlyCreatedUserId] = useState("");
@@ -124,6 +125,7 @@ export default function SystemAdminUsersScreen() {
   }, [loadUsers]);
 
   const filteredUsers = useMemo(() => {
+    const normalizedSearch = userSearch.trim().toLowerCase();
     const visibleUsers =
       statusFilter === "active"
         ? users.filter((user) => user.active)
@@ -131,7 +133,22 @@ export default function SystemAdminUsersScreen() {
           ? users.filter((user) => !user.active)
           : users;
 
-    return [...visibleUsers].sort((firstUser, secondUser) => {
+    const searchedUsers = normalizedSearch
+      ? visibleUsers.filter((user) =>
+          [
+            user.displayName,
+            user.email,
+            user.phone,
+            user.role,
+            formatRole(user.role),
+          ]
+            .join(" ")
+            .toLowerCase()
+            .includes(normalizedSearch),
+        )
+      : visibleUsers;
+
+    return [...searchedUsers].sort((firstUser, secondUser) => {
       if (firstUser.id === recentlyCreatedUserId) {
         return -1;
       }
@@ -142,7 +159,7 @@ export default function SystemAdminUsersScreen() {
 
       return firstUser.displayName.localeCompare(secondUser.displayName);
     });
-  }, [recentlyCreatedUserId, statusFilter, users]);
+  }, [recentlyCreatedUserId, statusFilter, userSearch, users]);
 
   async function handleCreateUser() {
     setError("");
@@ -318,6 +335,22 @@ export default function SystemAdminUsersScreen() {
             </Text>
             <AppButton label="Refresh" onPress={loadUsers} variant="secondary" />
           </View>
+          <View style={styles.searchPanel}>
+            <FormTextInput
+              autoCapitalize="none"
+              label="Search users"
+              onChangeText={setUserSearch}
+              placeholder="Search by name, email, phone, or role"
+              value={userSearch}
+            />
+            {userSearch.trim() ? (
+              <AppButton
+                label="Clear search"
+                onPress={() => setUserSearch("")}
+                variant="secondary"
+              />
+            ) : null}
+          </View>
           <View style={styles.filterRow}>
             {(["all", "active", "inactive"] as const).map((filter) => (
               <Pressable
@@ -343,9 +376,9 @@ export default function SystemAdminUsersScreen() {
             <View style={styles.empty}>
               <Text style={styles.emptyTitle}>No users found</Text>
               <Text style={styles.muted}>
-                No accounts match this view. Switch the filter back to All, or use
-                Create user above to add a customer, owner, driver, or admin demo
-                account.
+                No accounts match this view. Clear the search, switch the filter
+                back to All, or use Create user above to add a customer, owner,
+                driver, or admin demo account.
               </Text>
             </View>
           ) : null}
@@ -530,6 +563,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.sm,
+  },
+  searchPanel: {
+    backgroundColor: "#F8FAFC",
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: spacing.sm,
+    padding: spacing.md,
   },
   filterButton: {
     backgroundColor: colors.surface,

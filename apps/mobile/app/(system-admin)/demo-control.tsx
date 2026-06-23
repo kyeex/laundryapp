@@ -192,8 +192,9 @@ export default function DemoControlCenterScreen() {
           <View style={styles.notice}>
             <Text style={styles.noticeTitle}>Firebase mode</Text>
             <Text style={styles.noticeText}>
-              Reset, seed, and role jump actions are disabled outside demo mode
-              so demo controls never touch staging or production data.
+              Reset and seed actions stay disabled so they never touch staging
+              data. Role jumps open a local demo preview, letting you present the
+              app through another role without changing real Firebase records.
             </Text>
           </View>
         ) : null}
@@ -250,8 +251,8 @@ export default function DemoControlCenterScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Jump to role</Text>
           <Text style={styles.muted}>
-            Role jumps switch the active demo session and open that role's home
-            dashboard.
+            Role jumps open that role's home dashboard with local demo data, so
+            you can see the app through the eyes of that assigned user type.
           </Text>
           <View style={styles.roleGrid}>
             {roleJumpOptions.map((option) => (
@@ -259,8 +260,7 @@ export default function DemoControlCenterScreen() {
                 <Text style={styles.roleTitle}>{option.label}</Text>
                 <Text style={styles.roleNote}>{option.note}</Text>
                 <AppButton
-                  disabled={!isDemoMode}
-                  label={`Jump to ${option.label}`}
+                  label={isDemoMode ? `Jump to ${option.label}` : `Preview ${option.label}`}
                   onPress={() => startDemoSession(option.role)}
                   variant={option.role === "admin" ? "secondary" : "primary"}
                 />

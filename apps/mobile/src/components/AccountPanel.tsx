@@ -19,7 +19,14 @@ const demoRoles = [
 ] as const;
 
 export function AccountPanel() {
-  const { currentUser, isDemoMode, signOut, startDemoSession } = useAuth();
+  const {
+    currentUser,
+    isDemoMode,
+    isDemoPreviewMode,
+    signOut,
+    startDemoSession,
+    stopDemoPreviewSession,
+  } = useAuth();
   const [notificationMessage, setNotificationMessage] = useState("");
 
   if (!currentUser) {
@@ -62,6 +69,20 @@ export function AccountPanel() {
       </View>
       {notificationMessage ? (
         <Text style={styles.message}>{notificationMessage}</Text>
+      ) : null}
+      {isDemoPreviewMode ? (
+        <View style={styles.previewNotice}>
+          <Text style={styles.previewTitle}>Role preview</Text>
+          <Text style={styles.previewText}>
+            You are viewing local demo data through this role. Real staging data is
+            not changed while preview mode is active.
+          </Text>
+          <AppButton
+            label="Return to real admin"
+            onPress={stopDemoPreviewSession}
+            variant="secondary"
+          />
+        </View>
       ) : null}
       {isDemoMode ? (
         <View style={styles.demoControls}>
@@ -119,6 +140,24 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: 14,
     fontWeight: "700",
+  },
+  previewNotice: {
+    backgroundColor: "#FEF3C7",
+    borderColor: "#F59E0B",
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: spacing.xs,
+    padding: spacing.md,
+  },
+  previewTitle: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  previewText: {
+    color: colors.muted,
+    fontSize: 14,
+    lineHeight: 20,
   },
   demoControls: {
     gap: spacing.sm,

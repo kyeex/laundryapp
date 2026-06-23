@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LaundryApp Driver Prototype</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell driver-shell">
+      <aside class="sidebar" aria-label="Driver navigation">
+        <a class="brand" href="#route" aria-label="LaundryApp driver home">
+          <span class="brand-mark" aria-hidden="true">LA</span>
+          <span>LaundryApp</span>
+        </a>
+        <nav>
+          <button class="nav-item is-active" type="button" data-view="route">Route</button>
+          <button class="nav-item" type="button" data-view="stop">Stop</button>
+          <button class="nav-item" type="button" data-view="handoff">Handoff</button>
+          <button class="nav-item" type="button" data-view="earnings">Earnings</button>
+          <button class="nav-item" type="button" data-view="auth">Access</button>
+        </nav>
+        <div class="sidebar-card">
+          <span>Shift</span>
+          <strong>5 stops</strong>
+          <p>2 pickups, 3 deliveries, 18.4 miles</p>
+        </div>
+      </aside>
+
+      <main>
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Driver app</p>
+            <h1>Every pickup, proof, and delivery in one clean route.</h1>
+          </div>
+          <button class="primary-action" type="button" data-view="stop">Next stop</button>
+        </header>
+
+        <section class="view is-active" data-panel="route" id="route">
+          <div class="hero panel">
+            <div class="hero-copy">
+              <span class="status-chip">Route ready</span>
+              <h2>Start the shift with confidence.</h2>
+              <p>Drivers get the route, customer notes, handoff requirements, and proof capture without switching apps.</p>
+              <div class="hero-actions">
+                <button class="primary-action" type="button" data-view="stop">Open next stop</button>
+                <button class="secondary-action" type="button" data-view="handoff">Proof tools</button>
+              </div>
+            </div>
+            <div class="hero-media">
+              <img src="./assets/laundry-concierge-hero.png" alt="Laundry delivery bag and folded laundry for driver workflow" />
+            </div>
+          </div>
+
+          <div class="metric-grid">
+            <article><span>5</span><strong>Stops today</strong></article>
+            <article><span>18.4</span><strong>Miles planned</strong></article>
+            <article><span>$74</span><strong>Shift earnings</strong></article>
+          </div>
+
+          <div class="route-layout">
+            <article class="panel route-map">
+              <span class="pin one"></span>
+              <span class="pin two"></span>
+              <span class="pin three"></span>
+              <span class="pin four"></span>
+              <svg viewBox="0 0 560 300" aria-hidden="true"><path d="M50 232 C130 92 240 266 325 156 S472 130 520 50" /></svg>
+            </article>
+            <aside class="panel route-list">
+              <div class="driver-card"><span>Sam Rivera</span><strong>On route</strong><em>Pickup window: 9 AM - 12 PM</em></div>
+              <button class="stop-row is-active" type="button" data-view="stop"><span>01</span><strong>1428 Maple Ave</strong><em>Pickup</em></button>
+              <button class="stop-row" type="button"><span>02</span><strong>17 Pine Road</strong><em>Delivery</em></button>
+              <button class="stop-row" type="button"><span>03</span><strong>84 Grove Street</strong><em>Pickup</em></button>
+              <button class="stop-row" type="button"><span>04</span><strong>210 Cedar Lane</strong><em>Delivery</em></button>
+            </aside>
+          </div>
+        </section>
+
+        <section class="view" data-panel="stop">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Next stop</p>
+              <h2>Pickup details</h2>
+            </div>
+            <div class="estimate-pill"><span>ETA</span><strong>9:18 AM</strong></div>
+          </div>
+
+          <div class="stop-layout">
+            <article class="panel stop-detail">
+              <span class="status-chip warm">Order #1001</span>
+              <h3>Jordan Carter</h3>
+              <p>1428 Maple Ave, Apt 3B. Text on arrival. Customer prefers no doorbell.</p>
+              <div class="detail-grid">
+                <div><span>Service</span><strong>Wash, fold + dry cleaning</strong></div>
+                <div><span>Items</span><strong>2 shirts, 1 pants, queen comforter</strong></div>
+                <div><span>Care note</span><strong>Hypoallergenic detergent</strong></div>
+                <div><span>Payment</span><strong>Final price pending</strong></div>
+              </div>
+              <div class="action-grid">
+                <button class="primary-action" type="button">Navigate</button>
+                <button class="secondary-action" type="button">Text customer</button>
+                <button class="secondary-action" type="button" data-view="handoff">Capture pickup</button>
+              </div>
+            </article>
+
+            <aside class="phone-preview panel">
+              <div class="phone-head"><span>Stop 01</span><strong>Pickup</strong></div>
+              <div class="pickup-card">
+                <small>Arrive by</small>
+                <strong>9:18 AM</strong>
+                <div class="progress-line"><span></span></div>
+              </div>
+              <div class="mini-list">
+                <div>Address verified</div>
+                <div>Bag count required</div>
+                <div>Photo proof before leaving</div>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="view" data-panel="handoff">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Proof</p>
+              <h2>Pickup and delivery capture</h2>
+            </div>
+            <button class="secondary-action" type="button">Save draft</button>
+          </div>
+
+          <div class="handoff-layout">
+            <form class="panel form-card">
+              <fieldset>
+                <legend>Pickup verification</legend>
+                <label class="toggle-row"><input type="checkbox" checked /><span>Customer address matched</span><em>Done</em></label>
+                <label class="toggle-row"><input type="checkbox" checked /><span>Laundry bag count confirmed</span><em>2 bags</em></label>
+                <label class="toggle-row"><input type="checkbox" /><span>Dry cleaning garment bag attached</span><em>Needed</em></label>
+              </fieldset>
+              <div class="proof-drop">
+                <span>Photo proof</span>
+                <strong>Tap to capture bag at pickup spot</strong>
+              </div>
+              <label><span>Driver note</span><textarea rows="3">Bags picked up from apartment door. No contact needed.</textarea></label>
+              <button class="primary-action full" type="button">Mark pickup complete</button>
+            </form>
+
+            <article class="panel checklist-card">
+              <h3>Handoff checklist</h3>
+              <ol>
+                <li class="done">Confirm stop and customer note</li>
+                <li class="done">Count bags before leaving</li>
+                <li class="active">Capture proof photo</li>
+                <li>Send pickup completion</li>
+              </ol>
+            </article>
+          </div>
+        </section>
+
+        <section class="view" data-panel="earnings">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Pay</p>
+              <h2>Shift earnings</h2>
+            </div>
+          </div>
+          <div class="earnings-grid">
+            <article class="panel earnings-card"><span>Projected</span><strong>$74.00</strong><p>Base route, delivery bonuses, and completed pickup credits.</p></article>
+            <article class="panel earnings-card"><span>Completed</span><strong>1 / 5</strong><p>First stop becomes payable after pickup proof syncs.</p></article>
+            <article class="panel earnings-card"><span>Bonus</span><strong>$12.00</strong><p>Rush-window delivery bonus available before 6 PM.</p></article>
+          </div>
+          <article class="panel payout-card">
+            <h3>Today’s route value</h3>
+            <div class="bar-chart" aria-label="Driver earnings bars"><span style="height:46%"></span><span style="height:72%"></span><span style="height:61%"></span><span style="height:88%"></span><span style="height:54%"></span></div>
+          </article>
+        </section>
+
+        <section class="view" data-panel="auth">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Access</p>
+              <h2>Driver sign in and onboarding</h2>
+            </div>
+            <div class="segmented" role="group" aria-label="Authentication mode">
+              <button class="is-active" type="button" data-auth-mode="signin">Sign in</button>
+              <button type="button" data-auth-mode="onboard">Onboard</button>
+              <button type="button" data-auth-mode="reset">Reset</button>
+            </div>
+          </div>
+          <div class="auth-layout">
+            <aside class="auth-visual panel">
+              <h3>Driver access built for routes, proof, and handoffs.</h3>
+              <div class="credential-card"><span>Driver</span><strong>Sam Rivera</strong><em>Verified route access only</em></div>
+            </aside>
+            <div class="auth-card panel">
+              <form class="auth-form is-active" data-auth-panel="signin">
+                <h3>Sign in to route</h3>
+                <label><span>Email</span><input type="email" value="sam@example.com" /></label>
+                <label><span>Password</span><input type="password" value="routeflow" /></label>
+                <button class="primary-action full" type="button">Sign in</button>
+              </form>
+              <form class="auth-form" data-auth-panel="onboard">
+                <h3>Driver onboarding</h3>
+                <div class="form-grid"><label><span>Name</span><input type="text" value="Sam Rivera" /></label><label><span>Phone</span><input type="tel" value="(555) 019-4432" /></label></div>
+                <label><span>Email</span><input type="email" value="sam@example.com" /></label>
+                <label><span>Vehicle</span><input type="text" value="Compact SUV" /></label>
+                <button class="primary-action full" type="button">Request access</button>
+              </form>
+              <form class="auth-form" data-auth-panel="reset">
+                <h3>Reset password</h3>
+                <p>Send a secure reset link to the driver email on file.</p>
+                <label><span>Email</span><input type="email" value="sam@example.com" /></label>
+                <button class="primary-action full" type="button">Send reset link</button>
+              </form>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script src="./app.js"></script>
+  </body>
+</html>
