@@ -1,0 +1,20 @@
+{
+  "name": "laundryapp-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "check:mobile": "node --max-old-space-size=4096 apps/mobile/node_modules/typescript/bin/tsc --project apps/mobile/tsconfig.json --noEmit",
+    "check:functions": "npm --prefix apps/functions run build",
+    "check:all": "npm run check:mobile && npm run check:functions",
+    "firebase:login": "npx firebase-tools login",
+    "firebase:projects": "npx firebase-tools projects:list",
+    "firebase:use:staging": "npx firebase-tools use staging",
+    "firebase:use:production": "npx firebase-tools use production",
+    "deploy:staging:firestore": "powershell -ExecutionPolicy Bypass -File ./scripts/firebase-deploy.ps1 -Environment staging -Target firestore -SkipFunctionsBuild",
+    "deploy:staging:functions": "powershell -ExecutionPolicy Bypass -File ./scripts/firebase-deploy.ps1 -Environment staging -Target functions",
+    "deploy:staging": "powershell -ExecutionPolicy Bypass -File ./scripts/firebase-deploy.ps1 -Environment staging",
+    "deploy:production:firestore": "powershell -ExecutionPolicy Bypass -File ./scripts/firebase-deploy.ps1 -Environment production -Target firestore -SkipFunctionsBuild",
+    "deploy:production:functions": "powershell -ExecutionPolicy Bypass -File ./scripts/firebase-deploy.ps1 -Environment production -Target functions",
+    "deploy:production": "powershell -ExecutionPolicy Bypass -File ./scripts/firebase-deploy.ps1 -Environment production"
+  }
+}

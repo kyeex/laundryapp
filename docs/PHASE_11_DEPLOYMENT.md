@@ -69,36 +69,35 @@ Create `.firebaserc` from:
 .firebaserc.example
 ```
 
-Install and log in to Firebase CLI:
+Log in to Firebase from PowerShell:
 
-```bash
-npm install -g firebase-tools
-firebase login
-firebase use staging
+```powershell
+npm run firebase:login
+npm run firebase:projects
 ```
 
 Deploy Firestore rules and indexes:
 
-```bash
-firebase deploy --only firestore
+```powershell
+npm run deploy:staging:firestore
 ```
 
 Deploy Functions:
 
-```bash
-cd apps/functions
-npm install
-npm run build
-cd ../..
-firebase deploy --only functions
+```powershell
+npm run deploy:staging:functions
 ```
 
 Repeat the same deploy flow with the production alias only after staging passes:
 
-```bash
-firebase use production
-firebase deploy --only firestore
-firebase deploy --only functions
+```powershell
+npm run deploy:production
+```
+
+You can also use the PowerShell helper:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\firebase-deploy.ps1 -Environment staging
 ```
 
 ## Functions Environment
