@@ -16,6 +16,7 @@ import { getActiveDrivers } from "@/services/profileService";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import type { AppUser, Batch, BatchType, Order } from "@/types/domain";
+import { formatDisplayDate } from "@/utils/dateFormat";
 import {
   formatOrderStatus,
   getOrderBatchType as getWorkflowOrderBatchType,
@@ -53,8 +54,8 @@ function getOrderBatchType(order: Order): BatchType {
 
 function getOrderSchedule(order: Order, orderBatchType: BatchType) {
   return orderBatchType === "delivery"
-    ? `${order.scheduledDropoffDate} · ${order.scheduledDropoffWindow}`
-    : `${order.scheduledPickupDate} · ${order.scheduledPickupWindow}`;
+    ? `${formatDisplayDate(order.scheduledDropoffDate)} · ${order.scheduledDropoffWindow}`
+    : `${formatDisplayDate(order.scheduledPickupDate)} · ${order.scheduledPickupWindow}`;
 }
 
 function getBatchOrderType(batch: Batch, order: Order): BatchType {
@@ -162,7 +163,9 @@ function DatePickerField({
         onPress={onOpen}
         style={[styles.datePickerButton, isOpen && styles.datePickerButtonActive]}
       >
-        <Text style={styles.datePickerButtonText}>{value || "Select date"}</Text>
+        <Text style={styles.datePickerButtonText}>
+          {value ? formatDisplayDate(value) : "Select date"}
+        </Text>
       </Pressable>
       {value ? (
         <Pressable onPress={onClear} style={styles.clearDateButton}>
@@ -733,7 +736,7 @@ export default function AdminBatchesScreen() {
                   {formatBatchType(batch.type)} · {formatOrderStatus(batch.status)}
                 </Text>
                 <Text style={styles.muted}>
-                  {batch.driverName || "Driver"} · {batch.scheduledDate}
+                  {batch.driverName || "Driver"} · {formatDisplayDate(batch.scheduledDate)}
                 </Text>
                 <Text style={styles.muted}>
                   {batch.orderIds.length} order
@@ -804,7 +807,7 @@ export default function AdminBatchesScreen() {
                     {formatBatchType(batch.type)} · {formatOrderStatus(batch.status)}
                   </Text>
                   <Text style={styles.muted}>
-                    {batch.driverName || "Driver"} · {batch.scheduledDate}
+                    {batch.driverName || "Driver"} · {formatDisplayDate(batch.scheduledDate)}
                   </Text>
                   <Text style={styles.muted}>
                     {batch.orderIds.length} order

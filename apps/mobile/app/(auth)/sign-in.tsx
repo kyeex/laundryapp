@@ -1,6 +1,13 @@
 import { Link } from "expo-router";
-import { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { useRef, useState } from "react";
+import {
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  type NativeSyntheticEvent,
+  type TextInputKeyPressEventData,
+} from "react-native";
 
 import { AppButton } from "@/components/AppButton";
 import { FormTextInput } from "@/components/FormTextInput";
@@ -11,13 +18,27 @@ import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 
 export default function SignInScreen() {
-  const { isConfigured, isDemoMode, signInWithEmail, startDemoSession } = useAuth();
+  const {
+    isConfigured,
+    isDemoMode,
+    isDemoPreviewMode,
+    signInWithEmail,
+    startDemoSession,
+    stopDemoPreviewSession,
+  } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const passwordInputRef = useRef<TextInput>(null);
+  const hasCredentials = Boolean(email.trim()) && Boolean(password);
+  const canSubmit = !isSubmitting && hasCredentials;
 
   async function handleSubmit() {
+    if (isSubmitting || !hasCredentials) {
+      return;
+    }
+
     setError("");
     setIsSubmitting(true);
 
@@ -34,6 +55,22 @@ export default function SignInScreen() {
     }
   }
 
+  function handleEmailKeyPress(
+    event: NativeSyntheticEvent<TextInputKeyPressEventData>,
+  ) {
+    if (event.nativeEvent.key === "Enter") {
+      passwordInputRef.current?.focus();
+    }
+  }
+
+  function handlePasswordKeyPress(
+    event: NativeSyntheticEvent<TextInputKeyPressEventData>,
+  ) {
+    if (event.nativeEvent.key === "Enter") {
+      void handleSubmit();
+    }
+  }
+
   return (
     <Screen>
       <View style={styles.content}>
@@ -42,24 +79,45 @@ export default function SignInScreen() {
           Access your customer, owner, driver, or admin workspace.
         </Text>
         <ConfigNotice />
+        {isDemoPreviewMode ? (
+          <View style={styles.demoPreviewNotice}>
+            <Text style={styles.demoPreviewTitle}>Demo preview is active</Text>
+            <Text style={styles.demoPreviewText}>
+              Exit demo preview before signing in with a real Firebase account.
+            </Text>
+            <AppButton
+              label="Exit demo preview"
+              onPress={stopDemoPreviewSession}
+              variant="secondary"
+            />
+          </View>
+        ) : null}
         <FormTextInput
           autoCapitalize="none"
+          blurOnSubmit={false}
           keyboardType="email-address"
           label="Email"
           onChangeText={setEmail}
+          onKeyPress={handleEmailKeyPress}
+          onSubmitEditing={() => passwordInputRef.current?.focus()}
           placeholder="you@example.com"
+          returnKeyType="next"
           value={email}
         />
         <FormTextInput
           label="Password"
           onChangeText={setPassword}
+          onKeyPress={handlePasswordKeyPress}
+          onSubmitEditing={handleSubmit}
           placeholder="Password"
+          ref={passwordInputRef}
+          returnKeyType="done"
           secureTextEntry
           value={password}
         />
         {error ? <Text style={styles.error}>{error}</Text> : null}
         <AppButton
-          disabled={!isConfigured || isSubmitting || !email || !password}
+          disabled={!canSubmit}
           label={isSubmitting ? "Signing in..." : "Sign in"}
           onPress={handleSubmit}
         />
@@ -127,6 +185,24 @@ const styles = StyleSheet.create({
     color: colors.danger,
     fontSize: 14,
     fontWeight: "700",
+  },
+  demoPreviewNotice: {
+    backgroundColor: "#FEF3C7",
+    borderColor: "#F59E0B",
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: spacing.sm,
+    padding: spacing.md,
+  },
+  demoPreviewTitle: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  demoPreviewText: {
+    color: colors.muted,
+    fontSize: 14,
+    lineHeight: 20,
   },
   demoBox: {
     backgroundColor: colors.surface,

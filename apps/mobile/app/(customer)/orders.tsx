@@ -9,6 +9,7 @@ import { getCustomerOrders } from "@/services/orderService";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import type { Order } from "@/types/domain";
+import { formatDisplayDate } from "@/utils/dateFormat";
 import { formatOrderStatus } from "@/workflows/orderWorkflow";
 
 export default function CustomerOrdersScreen() {
@@ -80,10 +81,10 @@ export default function CustomerOrdersScreen() {
             >
               <Text style={styles.cardTitle}>{formatOrderStatus(order.status)}</Text>
               <Text style={styles.cardMeta}>
-                Pickup {order.scheduledPickupDate} · {order.scheduledPickupWindow}
+                Pickup {formatDisplayDate(order.scheduledPickupDate)} · {order.scheduledPickupWindow}
               </Text>
               <Text style={styles.cardMeta}>
-                Drop-off {order.scheduledDropoffDate} · {order.scheduledDropoffWindow}
+                Drop-off {formatDisplayDate(order.scheduledDropoffDate)} · {order.scheduledDropoffWindow}
               </Text>
               <Text style={styles.cardMeta}>
                 Estimate: ${order.estimatedSubtotal.toFixed(2)}

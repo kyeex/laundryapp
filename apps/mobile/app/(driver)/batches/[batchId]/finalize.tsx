@@ -14,6 +14,7 @@ import { formatAddress } from "@/services/orderService";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import type { Batch, BatchType, Order } from "@/types/domain";
+import { formatDisplayDate } from "@/utils/dateFormat";
 
 function formatStatus(status: string) {
   return status.replace(/_/g, " ");
@@ -160,7 +161,7 @@ export default function DriverFinalizeRouteScreen() {
               <Text style={styles.kicker}>Finalize route</Text>
               <Text style={styles.title}>{formatBatchType(batch.type)}</Text>
               <Text style={styles.muted}>
-                {batch.scheduledDate} · {selectedOrders.length} selected stop
+                {formatDisplayDate(batch.scheduledDate)} · {selectedOrders.length} selected stop
                 {selectedOrders.length === 1 ? "" : "s"}
               </Text>
             </View>

@@ -8,6 +8,7 @@ import { formatAddress, getAdminOrders } from "@/services/orderService";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import type { Batch, BatchType, Order } from "@/types/domain";
+import { formatDisplayDate } from "@/utils/dateFormat";
 
 function formatStatus(status: string) {
   return status.replace(/_/g, " ");
@@ -31,8 +32,8 @@ function getBatchOrderType(batch: Batch, order: Order): BatchType {
 
 function getOrderSchedule(order: Order, type: BatchType) {
   return type === "delivery"
-    ? `${order.scheduledDropoffDate} · ${order.scheduledDropoffWindow}`
-    : `${order.scheduledPickupDate} · ${order.scheduledPickupWindow}`;
+    ? `${formatDisplayDate(order.scheduledDropoffDate)} · ${order.scheduledDropoffWindow}`
+    : `${formatDisplayDate(order.scheduledPickupDate)} · ${order.scheduledPickupWindow}`;
 }
 
 export default function AdminDriverTrackingScreen() {
@@ -138,7 +139,7 @@ export default function AdminDriverTrackingScreen() {
                     {formatBatchType(batch.type)} · {formatStatus(batch.status)}
                   </Text>
                   <Text style={styles.muted}>
-                    Route date: {batch.scheduledDate}
+                    Route date: {formatDisplayDate(batch.scheduledDate)}
                   </Text>
                   {batch.notes ? <Text style={styles.muted}>{batch.notes}</Text> : null}
 

@@ -6,6 +6,7 @@ import {
   getDocs,
   query,
   serverTimestamp,
+  setDoc,
   updateDoc,
   where,
   type DocumentData,
@@ -61,9 +62,18 @@ function calculateOrderEstimate(input: CreateOrderInput) {
   );
 }
 
+function createOrderNumberFromId(orderId: string) {
+  return `ORD-${orderId.slice(0, 8).toUpperCase()}`;
+}
+
+export function getOrderNumber(order: Pick<Order, "id" | "orderNumber">) {
+  return order.orderNumber?.trim() || createOrderNumberFromId(order.id);
+}
+
 export function mapOrder(id: string, data: DocumentData): Order {
   return {
     id,
+    orderNumber: data.orderNumber ?? createOrderNumberFromId(id),
     customerId: data.customerId ?? "",
     customerName: data.customerName ?? "",
     customerPhone: data.customerPhone ?? "",
@@ -132,7 +142,11 @@ export async function createCustomerOrder(customer: AppUser, input: CreateOrderI
   });
 
   const estimatedSubtotal = calculateOrderEstimate(input);
-  const orderRef = await addDoc(collection(db, "orders"), {
+  const orderRef = doc(collection(db, "orders"));
+  const orderNumber = createOrderNumberFromId(orderRef.id);
+
+  await setDoc(orderRef, {
+    orderNumber,
     customerId: customer.id,
     customerName: customer.displayName,
     customerPhone: customer.phone,

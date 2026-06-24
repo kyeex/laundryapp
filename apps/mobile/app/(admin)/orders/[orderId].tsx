@@ -21,6 +21,7 @@ import {
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import type { Order, OrderStatus } from "@/types/domain";
+import { formatDisplayDate } from "@/utils/dateFormat";
 import {
   canShowFinalPriceControls,
   canShowOwnerWorkflowActions,
@@ -420,7 +421,7 @@ export default function AdminOrderDetailScreen() {
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Customer address</Text>
               <Text style={styles.value}>
-                Pickup: {order.scheduledPickupDate} · {order.scheduledPickupWindow}
+                Pickup: {formatDisplayDate(order.scheduledPickupDate)} · {order.scheduledPickupWindow}
               </Text>
               <Text style={styles.value}>{formatAddress(order.addressSnapshot)}</Text>
               {order.addressSnapshot.deliveryInstructions ? (
@@ -433,7 +434,7 @@ export default function AdminOrderDetailScreen() {
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Drop-off</Text>
               <Text style={styles.value}>
-                {order.scheduledDropoffDate} · {order.scheduledDropoffWindow}
+                {formatDisplayDate(order.scheduledDropoffDate)} · {order.scheduledDropoffWindow}
               </Text>
               <Text style={styles.muted}>
                 Requested return drop-off window for the cleaned order.

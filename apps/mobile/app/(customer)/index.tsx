@@ -14,6 +14,7 @@ import {
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import type { Order } from "@/types/domain";
+import { formatDisplayDate } from "@/utils/dateFormat";
 import { formatOrderStatus, isStoppedOrderStatus } from "@/workflows/orderWorkflow";
 
 function isActiveOrder(order: Order) {
@@ -111,7 +112,7 @@ export default function CustomerHomeScreen() {
             label="Upcoming pickup"
             note={
               upcomingPickup
-                ? `${upcomingPickup.scheduledPickupDate} · ${upcomingPickup.scheduledPickupWindow}`
+                ? `${formatDisplayDate(upcomingPickup.scheduledPickupDate)} · ${upcomingPickup.scheduledPickupWindow}`
                 : "Start an order to schedule pickup."
             }
             value={upcomingPickup ? formatOrderStatus(upcomingPickup.status) : "None"}

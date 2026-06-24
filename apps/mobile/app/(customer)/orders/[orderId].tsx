@@ -14,6 +14,7 @@ import { formatAddress, getCustomerOrderById } from "@/services/orderService";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import type { Order } from "@/types/domain";
+import { formatDisplayDate } from "@/utils/dateFormat";
 import { formatOrderStatus } from "@/workflows/orderWorkflow";
 
 export default function CustomerOrderDetailScreen() {
@@ -82,8 +83,8 @@ export default function CustomerOrderDetailScreen() {
               <Text style={styles.kicker}>Order request</Text>
               <Text style={styles.title}>{formatOrderStatus(order.status)}</Text>
               <Text style={styles.muted}>
-                Pickup {order.scheduledPickupDate} · Drop-off{" "}
-                {order.scheduledDropoffDate}
+                Pickup {formatDisplayDate(order.scheduledPickupDate)} · Drop-off{" "}
+                {formatDisplayDate(order.scheduledDropoffDate)}
               </Text>
             </View>
 
@@ -170,10 +171,10 @@ export default function CustomerOrderDetailScreen() {
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Schedule</Text>
               <Text style={styles.value}>
-                Pickup: {order.scheduledPickupDate} · {order.scheduledPickupWindow}
+                Pickup: {formatDisplayDate(order.scheduledPickupDate)} · {order.scheduledPickupWindow}
               </Text>
               <Text style={styles.value}>
-                Drop-off: {order.scheduledDropoffDate} ·{" "}
+                Drop-off: {formatDisplayDate(order.scheduledDropoffDate)} ·{" "}
                 {order.scheduledDropoffWindow}
               </Text>
             </View>

@@ -9,6 +9,7 @@ import { getDriverBatches } from "@/services/batchService";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import type { Batch, BatchType } from "@/types/domain";
+import { formatDisplayDate } from "@/utils/dateFormat";
 import { formatOrderStatus } from "@/workflows/orderWorkflow";
 
 function formatBatchType(type: BatchType) {
@@ -90,7 +91,7 @@ export default function DriverBatchesScreen() {
               <Text style={styles.kicker}>{formatBatchType(batch.type)}</Text>
               <Text style={styles.cardTitle}>{formatOrderStatus(batch.status)}</Text>
               <Text style={styles.muted}>
-                {batch.scheduledDate} · {batch.orderIds.length} stop
+                {formatDisplayDate(batch.scheduledDate)} · {batch.orderIds.length} stop
                 {batch.orderIds.length === 1 ? "" : "s"}
               </Text>
               {batch.notes ? <Text style={styles.muted}>{batch.notes}</Text> : null}

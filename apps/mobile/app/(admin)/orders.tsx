@@ -14,22 +14,37 @@ import { AppButton } from "@/components/AppButton";
 import { Screen } from "@/components/Screen";
 import { serviceCatalog } from "@/data/serviceCatalog";
 import { getAdminBatches, getEligibleOrdersForBatch } from "@/services/batchService";
-import { getAdminOrders } from "@/services/orderService";
+import { getAdminOrders, getOrderNumber } from "@/services/orderService";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import type { Batch, Order } from "@/types/domain";
+import { formatDisplayDate } from "@/utils/dateFormat";
 import {
   formatOrderStatus,
   orderStatusGroups,
 } from "@/workflows/orderWorkflow";
 
-type SortKey = "customer" | "type" | "status" | "schedule" | "total" | "payment";
+type SortKey =
+  | "number"
+  | "customer"
+  | "type"
+  | "status"
+  | "schedule"
+  | "total"
+  | "payment";
 type SortDirection = "asc" | "desc";
 
 const orderTypeFilters = [
   { label: "All types", value: "all" },
   { label: "Wash and fold", value: "wash-fold" },
   { label: "Wash + dry cleaning", value: "wash-fold-dry-cleaning" },
+] as const;
+
+const pickupWindowFilters = [
+  { label: "All pickup windows", value: "all" },
+  { label: "9AM-12PM", value: "9:00 AM - 12:00 PM" },
+  { label: "12PM-3PM", value: "12:00 PM - 3:00 PM" },
+  { label: "3PM-6PM", value: "3:00 PM - 6:00 PM" },
 ] as const;
 
 const dashboardAttentionFilters = {
@@ -170,6 +185,10 @@ function getOrderType(order: Order) {
 }
 
 function getSortValue(order: Order, sortKey: SortKey) {
+  if (sortKey === "number") {
+    return getOrderNumber(order);
+  }
+
   if (sortKey === "customer") {
     return order.customerName || "Customer";
   }
@@ -308,6 +327,7 @@ function buildOrderAnalytics(orders: Order[]) {
 
 function createExcelTable(orders: Order[]) {
   const headers = [
+    "Order number",
     "Customer",
     "Phone",
     "Order type",
@@ -324,14 +344,15 @@ function createExcelTable(orders: Order[]) {
     "Order ID",
   ];
   const rows = orders.map((order) => [
+    getOrderNumber(order),
     order.customerName || "Customer",
     order.customerPhone,
     getOrderType(order),
     getServiceNames(order),
     formatOrderStatus(order.status),
-    order.scheduledPickupDate,
+    formatDisplayDate(order.scheduledPickupDate),
     order.scheduledPickupWindow,
-    order.scheduledDropoffDate,
+    formatDisplayDate(order.scheduledDropoffDate),
     order.scheduledDropoffWindow,
     `$${order.estimatedSubtotal.toFixed(2)}`,
     `$${order.gratuityAmount.toFixed(2)}`,
@@ -418,7 +439,9 @@ function DatePickerField({
         onPress={onOpen}
         style={[styles.datePickerButton, isOpen && styles.datePickerButtonActive]}
       >
-        <Text style={styles.datePickerButtonText}>{value || "Select date"}</Text>
+        <Text style={styles.datePickerButtonText}>
+          {value ? formatDisplayDate(value) : "Select date"}
+        </Text>
       </Pressable>
       {value ? (
         <Pressable onPress={onClear} style={styles.clearDateButton}>
@@ -485,9 +508,12 @@ export default function AdminOrdersScreen() {
   const [selectedStatusGroup, setSelectedStatusGroup] = useState<string | null>(null);
   const [selectedOrderType, setSelectedOrderType] =
     useState<(typeof orderTypeFilters)[number]["value"]>("all");
+  const [selectedPickupWindow, setSelectedPickupWindow] =
+    useState<(typeof pickupWindowFilters)[number]["value"]>("all");
   const [dateRangeStart, setDateRangeStart] = useState("");
   const [dateRangeEnd, setDateRangeEnd] = useState("");
   const [openDatePicker, setOpenDatePicker] = useState<"start" | "end" | null>(null);
+  const [areFiltersExpanded, setAreFiltersExpanded] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("schedule");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
@@ -562,9 +588,19 @@ export default function AdminOrdersScreen() {
           selectedOrderType === "all"
             ? true
             : order.selectedServiceIds.includes(selectedOrderType);
+        const matchesPickupWindow =
+          selectedPickupWindow === "all"
+            ? true
+            : order.scheduledPickupWindow === selectedPickupWindow;
         const matchesDates = matchesDateRange(order, dateRangeStart, dateRangeEnd);
 
-        return matchesAttention && matchesStatus && matchesType && matchesDates;
+        return (
+          matchesAttention &&
+          matchesStatus &&
+          matchesType &&
+          matchesPickupWindow &&
+          matchesDates
+        );
       }),
     [
       activeStatusGroup,
@@ -572,6 +608,7 @@ export default function AdminOrdersScreen() {
       dateRangeEnd,
       dateRangeStart,
       orders,
+      selectedPickupWindow,
       selectedOrderType,
     ],
   );
@@ -625,7 +662,25 @@ export default function AdminOrdersScreen() {
     Boolean(selectedAttentionFilter) ||
     Boolean(selectedStatusGroup) ||
     selectedOrderType !== "all" ||
+    selectedPickupWindow !== "all" ||
     hasDateRangeFilter;
+  const activeFilterCount = [
+    Boolean(selectedAttentionFilter),
+    Boolean(selectedStatusGroup),
+    selectedOrderType !== "all",
+    selectedPickupWindow !== "all",
+    hasDateRangeFilter,
+  ].filter(Boolean).length;
+
+  function handleToggleFilters() {
+    setAreFiltersExpanded((current) => {
+      if (current) {
+        setOpenDatePicker(null);
+      }
+
+      return !current;
+    });
+  }
 
   const loadOrders = useCallback(async () => {
     setError("");
@@ -716,113 +771,173 @@ export default function AdminOrdersScreen() {
         {orders.length > 0 ? (
           <View style={styles.filterPanel}>
             <View style={styles.filterHeader}>
-              <Text style={styles.filterTitle}>Filters</Text>
-              <View style={styles.filterActions}>
-                <Pressable
-                  accessibilityRole="button"
-                  disabled={orders.length === 0}
-                  onPress={() => setIsAnalyticsOpen(true)}
-                  style={[
-                    styles.analyticsButton,
-                    orders.length === 0 && styles.analyticsButtonDisabled,
-                  ]}
-                >
-                  <Text style={styles.analyticsButtonText}>View Analytics Report</Text>
-                </Pressable>
-                <AppButton
-                  disabled={sortedOrders.length === 0}
-                  label="Export Excel"
-                  onPress={handleExportOrders}
-                  variant="secondary"
-                />
-                <AppButton
-                  disabled={!hasActiveFilters}
-                  label="Clear"
-                  onPress={() => {
-                    setSelectedAttentionFilter(null);
-                    setSelectedStatusGroup(null);
-                    setSelectedOrderType("all");
-                    setDateRangeStart("");
-                    setDateRangeEnd("");
-                    setOpenDatePicker(null);
-                  }}
-                  variant="secondary"
-                />
+              <View style={styles.filterHeaderCopy}>
+                <Text style={styles.filterTitle}>Filters</Text>
+                <Text style={styles.filterMeta}>
+                  Showing {filteredOrders.length} of {orders.length} order
+                  {orders.length === 1 ? "" : "s"}.
+                  {" "}Sorted by {sortKey}{" "}
+                  {sortDirection === "asc" ? "ascending" : "descending"}.
+                </Text>
               </View>
+              <Pressable
+                accessibilityLabel={
+                  areFiltersExpanded ? "Collapse filters" : "Expand filters"
+                }
+                accessibilityRole="button"
+                onPress={handleToggleFilters}
+                style={styles.filterToggleButton}
+              >
+                <Text style={styles.filterToggleText}>
+                  {areFiltersExpanded ? "-" : "+"}
+                </Text>
+              </Pressable>
             </View>
-            {activeAttentionFilterConfig ? (
-              <View style={styles.attentionBanner}>
-                <View style={styles.attentionCopy}>
-                  <Text style={styles.attentionLabel}>
-                    Dashboard filter: {activeAttentionFilterConfig.label}
-                  </Text>
-                  <Text style={styles.attentionText}>
-                    {activeAttentionFilterConfig.description}
-                  </Text>
-                </View>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => setSelectedAttentionFilter(null)}
-                  style={styles.attentionClearButton}
-                >
-                  <Text style={styles.attentionClearText}>View all orders</Text>
-                </Pressable>
-              </View>
+            {!areFiltersExpanded ? (
+              <Text style={styles.filterCollapsedText}>
+                {hasActiveFilters
+                  ? `${activeFilterCount} active filter${
+                      activeFilterCount === 1 ? "" : "s"
+                    }. Open filters to adjust.`
+                  : "Filter controls are hidden. Open filters to refine, export, or view analytics."}
+              </Text>
             ) : null}
-            <Text style={styles.filterMeta}>
-              Showing {filteredOrders.length} of {orders.length} order
-              {orders.length === 1 ? "" : "s"}.
-              {" "}Sorted by {sortKey} {sortDirection === "asc" ? "ascending" : "descending"}.
-            </Text>
-            <View style={styles.filterGrid}>
-              {orderTypeFilters.map((filter) => (
-                <Pressable
-                  key={filter.value}
-                  onPress={() => setSelectedOrderType(filter.value)}
-                  style={[
-                    styles.filterChip,
-                    selectedOrderType === filter.value && styles.filterChipActive,
-                  ]}
-                >
-                  <Text
+            {areFiltersExpanded ? (
+              <>
+                <View style={styles.filterActions}>
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={orders.length === 0}
+                    onPress={() => setIsAnalyticsOpen(true)}
                     style={[
-                      styles.filterChipText,
-                      selectedOrderType === filter.value && styles.filterChipTextActive,
+                      styles.analyticsButton,
+                      orders.length === 0 && styles.analyticsButtonDisabled,
                     ]}
                   >
-                    {filter.label}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-            <View style={styles.dateFilterGrid}>
-              <DatePickerField
-                isOpen={openDatePicker === "start"}
-                label="Start date"
-                onClear={() => setDateRangeStart("")}
-                onOpen={() =>
-                  setOpenDatePicker((current) => (current === "start" ? null : "start"))
-                }
-                onSelect={(date) => {
-                  setDateRangeStart(date);
-                  setOpenDatePicker(null);
-                }}
-                value={dateRangeStart}
-              />
-              <DatePickerField
-                isOpen={openDatePicker === "end"}
-                label="End date"
-                onClear={() => setDateRangeEnd("")}
-                onOpen={() =>
-                  setOpenDatePicker((current) => (current === "end" ? null : "end"))
-                }
-                onSelect={(date) => {
-                  setDateRangeEnd(date);
-                  setOpenDatePicker(null);
-                }}
-                value={dateRangeEnd}
-              />
-            </View>
+                    <Text style={styles.analyticsButtonText}>
+                      View Analytics Report
+                    </Text>
+                  </Pressable>
+                  <AppButton
+                    disabled={sortedOrders.length === 0}
+                    label="Export Excel"
+                    onPress={handleExportOrders}
+                    variant="secondary"
+                  />
+                  <AppButton
+                    disabled={!hasActiveFilters}
+                    label="Clear"
+                    onPress={() => {
+                      setSelectedAttentionFilter(null);
+                      setSelectedStatusGroup(null);
+                      setSelectedOrderType("all");
+                      setSelectedPickupWindow("all");
+                      setDateRangeStart("");
+                      setDateRangeEnd("");
+                      setOpenDatePicker(null);
+                    }}
+                    variant="secondary"
+                  />
+                </View>
+                {activeAttentionFilterConfig ? (
+                  <View style={styles.attentionBanner}>
+                    <View style={styles.attentionCopy}>
+                      <Text style={styles.attentionLabel}>
+                        Dashboard filter: {activeAttentionFilterConfig.label}
+                      </Text>
+                      <Text style={styles.attentionText}>
+                        {activeAttentionFilterConfig.description}
+                      </Text>
+                    </View>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => setSelectedAttentionFilter(null)}
+                      style={styles.attentionClearButton}
+                    >
+                      <Text style={styles.attentionClearText}>View all orders</Text>
+                    </Pressable>
+                  </View>
+                ) : null}
+                <View style={styles.filterGrid}>
+                  {orderTypeFilters.map((filter) => (
+                    <Pressable
+                      key={filter.value}
+                      onPress={() => setSelectedOrderType(filter.value)}
+                      style={[
+                        styles.filterChip,
+                        selectedOrderType === filter.value && styles.filterChipActive,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.filterChipText,
+                          selectedOrderType === filter.value &&
+                            styles.filterChipTextActive,
+                        ]}
+                      >
+                        {filter.label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+                <Text style={styles.filterSectionLabel}>Pickup window</Text>
+                <View style={styles.filterGrid}>
+                  {pickupWindowFilters.map((filter) => (
+                    <Pressable
+                      key={filter.value}
+                      onPress={() => setSelectedPickupWindow(filter.value)}
+                      style={[
+                        styles.filterChip,
+                        selectedPickupWindow === filter.value &&
+                          styles.filterChipActive,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.filterChipText,
+                          selectedPickupWindow === filter.value &&
+                            styles.filterChipTextActive,
+                        ]}
+                      >
+                        {filter.label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+                <View style={styles.dateFilterGrid}>
+                  <DatePickerField
+                    isOpen={openDatePicker === "start"}
+                    label="Start date"
+                    onClear={() => setDateRangeStart("")}
+                    onOpen={() =>
+                      setOpenDatePicker((current) =>
+                        current === "start" ? null : "start",
+                      )
+                    }
+                    onSelect={(date) => {
+                      setDateRangeStart(date);
+                      setOpenDatePicker(null);
+                    }}
+                    value={dateRangeStart}
+                  />
+                  <DatePickerField
+                    isOpen={openDatePicker === "end"}
+                    label="End date"
+                    onClear={() => setDateRangeEnd("")}
+                    onOpen={() =>
+                      setOpenDatePicker((current) =>
+                        current === "end" ? null : "end",
+                      )
+                    }
+                    onSelect={(date) => {
+                      setDateRangeEnd(date);
+                      setOpenDatePicker(null);
+                    }}
+                    value={dateRangeEnd}
+                  />
+                </View>
+              </>
+            ) : null}
           </View>
         ) : null}
 
@@ -840,6 +955,7 @@ export default function AdminOrdersScreen() {
         {orders.length > 0 ? (
           <View style={styles.table}>
             <View style={[styles.tableRow, styles.tableHeader]}>
+              {renderSortHeader("Order #", "number", styles.orderNumberCell)}
               {renderSortHeader("Customer", "customer", styles.customerCell)}
               {renderSortHeader("Order type", "type", styles.typeCell)}
               {renderSortHeader("Status", "status", styles.statusCell)}
@@ -867,6 +983,9 @@ export default function AdminOrdersScreen() {
                 }
                 style={[styles.tableRow, styles.tableLink]}
               >
+                <View style={styles.orderNumberCell}>
+                  <Text style={styles.primaryText}>{getOrderNumber(order)}</Text>
+                </View>
                 <View style={styles.customerCell}>
                   <Text style={styles.primaryText}>
                     {order.customerName || "Customer"}
@@ -882,13 +1001,13 @@ export default function AdminOrdersScreen() {
                 </View>
                 <View style={styles.scheduleCell}>
                   <Text style={styles.primaryText}>
-                    Pickup {order.scheduledPickupDate}
+                    Pickup {formatDisplayDate(order.scheduledPickupDate)}
                   </Text>
                   <Text style={styles.secondaryText}>
                     {order.scheduledPickupWindow}
                   </Text>
                   <Text style={styles.secondaryText}>
-                    Drop-off {order.scheduledDropoffDate}
+                    Drop-off {formatDisplayDate(order.scheduledDropoffDate)}
                   </Text>
                 </View>
                 <View style={styles.totalCell}>
@@ -1096,6 +1215,11 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     justifyContent: "space-between",
   },
+  filterHeaderCopy: {
+    flex: 1,
+    gap: spacing.xs,
+    minWidth: 220,
+  },
   filterTitle: {
     color: colors.text,
     fontSize: 18,
@@ -1106,6 +1230,28 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: spacing.sm,
     justifyContent: "flex-end",
+  },
+  filterToggleButton: {
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    height: 44,
+    minHeight: 44,
+    justifyContent: "center",
+    width: 44,
+  },
+  filterToggleText: {
+    color: colors.text,
+    fontSize: 24,
+    fontWeight: "800",
+    lineHeight: 26,
+  },
+  filterCollapsedText: {
+    color: colors.muted,
+    fontSize: 14,
+    lineHeight: 20,
   },
   attentionBanner: {
     alignItems: "center",
@@ -1172,6 +1318,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.sm,
+  },
+  filterSectionLabel: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "800",
+    textTransform: "uppercase",
   },
   dateFilterGrid: {
     flexDirection: "row",
@@ -1335,6 +1487,10 @@ const styles = StyleSheet.create({
   },
   headerCellActive: {
     color: colors.primary,
+  },
+  orderNumberCell: {
+    flex: 0.95,
+    minWidth: 124,
   },
   customerCell: {
     flex: 1.1,

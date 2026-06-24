@@ -124,6 +124,7 @@ export type AddressInput = Omit<Address, "id" | "userId">;
 
 export type Order = {
   id: string;
+  orderNumber?: string;
   customerId: string;
   customerName: string;
   customerPhone: string;

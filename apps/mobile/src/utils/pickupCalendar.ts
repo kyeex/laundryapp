@@ -1,4 +1,5 @@
 import type { PickupAvailability } from "@/types/domain";
+import { formatDisplayDate } from "@/utils/dateFormat";
 
 const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -15,7 +16,7 @@ export function formatCalendarDate(dateIso: string) {
 
   return {
     dayName: dayLabels[date.getDay()],
-    label: `${dayLabels[date.getDay()]} ${date.getMonth() + 1}/${date.getDate()}`,
+    label: `${dayLabels[date.getDay()]} ${formatDisplayDate(dateIso)}`,
   };
 }
 

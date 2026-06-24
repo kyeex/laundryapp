@@ -8,6 +8,7 @@ import { getAuditLogs, type AuditLog } from "@/services/auditLogService";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import type { UserRole } from "@/types/domain";
+import { formatDisplayDateTime } from "@/utils/dateFormat";
 
 const roleFilters: Array<"all" | UserRole> = [
   "all",
@@ -16,17 +17,6 @@ const roleFilters: Array<"all" | UserRole> = [
   "driver",
   "customer",
 ];
-
-function formatDate(value: Date | null) {
-  if (!value) {
-    return "Pending timestamp";
-  }
-
-  return value.toLocaleString("en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
 
 function formatMetadata(metadata: Record<string, unknown>) {
   const entries = Object.entries(metadata);
@@ -156,7 +146,7 @@ export default function AuditLogsScreen() {
           <View key={log.id} style={styles.logCard}>
             <View style={styles.logHeader}>
               <Text style={styles.action}>{log.action}</Text>
-              <Text style={styles.timestamp}>{formatDate(log.createdAt)}</Text>
+              <Text style={styles.timestamp}>{formatDisplayDateTime(log.createdAt)}</Text>
             </View>
             <Text style={styles.summary}>{log.summary}</Text>
             <Text style={styles.meta}>

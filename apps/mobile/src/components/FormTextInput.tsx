@@ -1,3 +1,4 @@
+import { forwardRef } from "react";
 import { StyleSheet, Text, TextInput, TextInputProps, View } from "react-native";
 
 import { colors } from "@/theme/colors";
@@ -7,18 +8,20 @@ type FormTextInputProps = TextInputProps & {
   label: string;
 };
 
-export function FormTextInput({ label, style, ...props }: FormTextInputProps) {
+export const FormTextInput = forwardRef<TextInput, FormTextInputProps>(
+  function FormTextInput({ label, style, ...props }, ref) {
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
       <TextInput
         placeholderTextColor={colors.muted}
+        ref={ref}
         style={[styles.input, style]}
         {...props}
       />
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   field: {

@@ -41,6 +41,7 @@ import {
   isDateAfter,
   isPickupDateAvailable,
 } from "@/utils/pickupCalendar";
+import { formatDisplayDate } from "@/utils/dateFormat";
 
 const initialAddress: AddressInput = {
   label: "Home",
@@ -817,7 +818,8 @@ export default function NewOrderScreen() {
           </View>
           {pickupCalendar.some((date) => date.available) ? (
             <Text style={styles.summaryMuted}>
-              Selected pickup date: {scheduledPickupDate || "Choose a date"}
+              Selected pickup date:{" "}
+              {scheduledPickupDate ? formatDisplayDate(scheduledPickupDate) : "Choose a date"}
             </Text>
           ) : (
             <Text style={styles.error}>
@@ -858,7 +860,8 @@ export default function NewOrderScreen() {
           </View>
           {dropoffCalendar.some((date) => date.available) ? (
             <Text style={styles.summaryMuted}>
-              Selected drop-off date: {scheduledDropoffDate || "Choose a date"}
+              Selected drop-off date:{" "}
+              {scheduledDropoffDate ? formatDisplayDate(scheduledDropoffDate) : "Choose a date"}
             </Text>
           ) : (
             <Text style={styles.error}>

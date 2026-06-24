@@ -18,6 +18,7 @@ import { authorizeDemoOrderPayment } from "@/services/demoPaymentService";
 import { createCustomerOrder } from "@/services/orderService";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
+import { formatDisplayDate } from "@/utils/dateFormat";
 
 export default function OrderReviewScreen() {
   const [draft, setDraft] = useState<OrderDraft | null>(null);
@@ -167,11 +168,11 @@ export default function OrderReviewScreen() {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Schedule</Text>
           <Text style={styles.value}>
-            Pickup: {draft.input.scheduledPickupDate} ·{" "}
+            Pickup: {formatDisplayDate(draft.input.scheduledPickupDate)} ·{" "}
             {draft.input.scheduledPickupWindow}
           </Text>
           <Text style={styles.value}>
-            Drop-off: {draft.input.scheduledDropoffDate} ·{" "}
+            Drop-off: {formatDisplayDate(draft.input.scheduledDropoffDate)} ·{" "}
             {draft.input.scheduledDropoffWindow}
           </Text>
         </View>

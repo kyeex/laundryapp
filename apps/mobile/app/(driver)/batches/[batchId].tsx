@@ -15,6 +15,7 @@ import { formatAddress } from "@/services/orderService";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import type { Batch, BatchType, Order, OrderStatus } from "@/types/domain";
+import { formatDisplayDate } from "@/utils/dateFormat";
 import { formatOrderStatus } from "@/workflows/orderWorkflow";
 
 function formatStatus(status: string) {
@@ -172,7 +173,7 @@ export default function DriverBatchDetailScreen() {
               <Text style={styles.kicker}>{formatBatchType(batch.type)} batch</Text>
               <Text style={styles.title}>{formatStatus(batch.status)}</Text>
               <Text style={styles.muted}>
-                {batch.scheduledDate} · {orders.length} stop
+                {formatDisplayDate(batch.scheduledDate)} · {orders.length} stop
                 {orders.length === 1 ? "" : "s"}
               </Text>
             </View>

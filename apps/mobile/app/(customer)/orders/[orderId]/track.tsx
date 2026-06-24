@@ -10,6 +10,7 @@ import { formatAddress, getCustomerOrderById } from "@/services/orderService";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import type { Order } from "@/types/domain";
+import { formatDisplayDate } from "@/utils/dateFormat";
 import {
   formatOrderStatus,
   isStoppedOrderStatus,
@@ -71,8 +72,8 @@ export default function CustomerOrderTrackingScreen() {
               <Text style={styles.kicker}>Order tracking</Text>
               <Text style={styles.title}>{formatOrderStatus(order.status)}</Text>
               <Text style={styles.muted}>
-                Pickup {order.scheduledPickupDate} · Drop-off{" "}
-                {order.scheduledDropoffDate}
+                Pickup {formatDisplayDate(order.scheduledPickupDate)} · Drop-off{" "}
+                {formatDisplayDate(order.scheduledDropoffDate)}
               </Text>
             </View>
 
@@ -91,10 +92,10 @@ export default function CustomerOrderTrackingScreen() {
               <Text style={styles.cardTitle}>Delivery details</Text>
               <Text style={styles.value}>{formatAddress(order.addressSnapshot)}</Text>
               <Text style={styles.muted}>
-                Pickup: {order.scheduledPickupDate} · {order.scheduledPickupWindow}
+                Pickup: {formatDisplayDate(order.scheduledPickupDate)} · {order.scheduledPickupWindow}
               </Text>
               <Text style={styles.muted}>
-                Drop-off: {order.scheduledDropoffDate} ·{" "}
+                Drop-off: {formatDisplayDate(order.scheduledDropoffDate)} ·{" "}
                 {order.scheduledDropoffWindow}
               </Text>
             </View>

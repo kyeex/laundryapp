@@ -16,6 +16,7 @@ import {
   isDemoEnvironment,
   isDemoPreviewMode,
   isFirebaseConfigured,
+  requiresFirebaseBackend,
   shouldUseDemoBackend,
 } from "@/config/firebase";
 import { demoUsers } from "@/data/demoData";
@@ -134,8 +135,20 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   const signInWithEmail = useCallback(async (email: string, password: string) => {
-    if (!canUseFirebaseBackend) {
-      throw new Error("Email sign-in is available in staging and production after Firebase is configured.");
+    if (isDemoPreviewMode) {
+      throw new Error(
+        "Demo preview mode is active. Exit demo preview before signing in with a real Firebase account.",
+      );
+    }
+
+    if (!requiresFirebaseBackend) {
+      throw new Error("Email sign-in is available in staging and production mode.");
+    }
+
+    if (!isFirebaseConfigured) {
+      throw new Error(
+        "Firebase values are not loaded. Restart the local preview after apps/mobile/.env is configured.",
+      );
     }
 
     const profile = await signIn(email, password);

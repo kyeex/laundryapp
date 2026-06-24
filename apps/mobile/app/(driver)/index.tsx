@@ -10,6 +10,7 @@ import { getBatchOrders, getDriverBatches } from "@/services/batchService";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import type { Batch, Order } from "@/types/domain";
+import { formatDisplayDate } from "@/utils/dateFormat";
 
 function isPickupStop(batch: Batch, order: Order) {
   if (batch.type === "pickup") {
@@ -112,7 +113,7 @@ export default function DriverHomeScreen() {
         <View style={styles.dashboardGrid}>
           <DashboardCard
             label="Assigned route"
-            note={nextBatch ? nextBatch.scheduledDate : "No route assigned yet."}
+            note={nextBatch ? formatDisplayDate(nextBatch.scheduledDate) : "No route assigned yet."}
             value={nextBatch ? "Ready" : "None"}
           />
           <DashboardCard
