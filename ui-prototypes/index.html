@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LaundryApp Prototype Hub</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #14211f;
+        --muted: #68736e;
+        --paper: #fffaf3;
+        --surface: #ffffff;
+        --line: rgba(20, 33, 31, 0.12);
+        --teal: #08786f;
+        --coral: #ff6f5e;
+        --yellow: #f6c453;
+        --shadow: 0 22px 62px rgba(31, 40, 38, 0.14);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background:
+          linear-gradient(145deg, rgba(255, 111, 94, 0.12), transparent 34rem),
+          linear-gradient(215deg, rgba(8, 120, 111, 0.15), transparent 34rem),
+          var(--paper);
+        color: var(--ink);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      main {
+        display: grid;
+        gap: 22px;
+        margin: 0 auto;
+        max-width: 1180px;
+        min-height: 100vh;
+        padding: 28px;
+      }
+
+      .hero,
+      .prototype-card {
+        background: rgba(255, 255, 255, 0.84);
+        border: 1px solid var(--line);
+        box-shadow: var(--shadow);
+      }
+
+      .hero {
+        border-radius: 30px;
+        display: grid;
+        gap: 22px;
+        grid-template-columns: minmax(0, 0.95fr) minmax(320px, 1.05fr);
+        overflow: hidden;
+        padding: 32px;
+      }
+
+      .hero-copy {
+        align-content: center;
+        display: grid;
+        gap: 18px;
+      }
+
+      .brand {
+        align-items: center;
+        display: inline-flex;
+        font-weight: 950;
+        gap: 10px;
+      }
+
+      .brand-mark {
+        align-items: center;
+        background: var(--ink);
+        border-radius: 50%;
+        color: white;
+        display: inline-flex;
+        font-size: 12px;
+        height: 40px;
+        justify-content: center;
+        width: 40px;
+      }
+
+      h1 {
+        font-size: clamp(44px, 8vw, 88px);
+        letter-spacing: 0;
+        line-height: 0.94;
+        margin: 0;
+      }
+
+      p {
+        color: var(--muted);
+        font-size: 18px;
+        line-height: 1.55;
+        margin: 0;
+      }
+
+      .hero-media {
+        border-radius: 24px;
+        min-height: 420px;
+        overflow: hidden;
+      }
+
+      img {
+        display: block;
+        height: 100%;
+        object-fit: cover;
+        width: 100%;
+      }
+
+      .grid {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      .prototype-card {
+        border-radius: 24px;
+        color: inherit;
+        display: grid;
+        gap: 16px;
+        min-height: 260px;
+        padding: 22px;
+        text-decoration: none;
+        transition:
+          transform 160ms ease,
+          box-shadow 160ms ease;
+      }
+
+      .prototype-card:hover {
+        box-shadow: 0 26px 70px rgba(31, 40, 38, 0.2);
+        transform: translateY(-3px);
+      }
+
+      .prototype-card span {
+        color: var(--coral);
+        font-size: 12px;
+        font-weight: 950;
+        text-transform: uppercase;
+      }
+
+      .prototype-card strong {
+        font-size: 34px;
+        letter-spacing: 0;
+        line-height: 1;
+      }
+
+      .prototype-card em {
+        align-self: end;
+        background: var(--ink);
+        border-radius: 999px;
+        color: white;
+        display: inline-flex;
+        font-style: normal;
+        font-weight: 950;
+        justify-content: center;
+        min-height: 48px;
+        padding: 13px 18px;
+        width: fit-content;
+      }
+
+      .prototype-card:nth-child(2) em {
+        background: var(--teal);
+      }
+
+      .prototype-card:nth-child(3) em {
+        background: #2738a6;
+      }
+
+      @media (max-width: 900px) {
+        .hero,
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 620px) {
+        main {
+          padding: 12px;
+        }
+
+        .hero {
+          padding: 22px;
+        }
+
+        h1 {
+          font-size: 42px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="hero">
+        <div class="hero-copy">
+          <div class="brand"><span class="brand-mark">LA</span><span>LaundryApp</span></div>
+          <h1>Prototype hub</h1>
+          <p>Open each standalone UI directly from disk. No local server, port, or background process required.</p>
+        </div>
+        <div class="hero-media">
+          <img src="./customer/assets/laundry-concierge-hero.png" alt="Premium folded laundry and delivery bag" />
+        </div>
+      </section>
+
+      <section class="grid" aria-label="LaundryApp prototypes">
+        <a class="prototype-card" href="./customer/index.html">
+          <span>Customer</span>
+          <strong>Book, track, and manage care preferences.</strong>
+          <p>Customer-facing pickup, order tracking, saved preferences, and account screens.</p>
+          <em>Open customer</em>
+        </a>
+        <a class="prototype-card" href="./merchant/index.html">
+          <span>Merchant</span>
+          <strong>Approve, price, route, and operate.</strong>
+          <p>Merchant operations dashboard for orders, driver routing, pricing, and access control.</p>
+          <em>Open merchant</em>
+        </a>
+        <a class="prototype-card" href="./driver/index.html">
+          <span>Driver</span>
+          <strong>Run the route and capture proof.</strong>
+          <p>Driver route board, next stop detail, handoff checklist, earnings, and sign in.</p>
+          <em>Open driver</em>
+        </a>
+      </section>
+    </main>
+  </body>
+</html>
