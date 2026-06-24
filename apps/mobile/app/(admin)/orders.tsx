@@ -82,6 +82,30 @@ function getDashboardAttentionFilter(value: string | string[] | undefined) {
     : null;
 }
 
+function getStatusGroupForDashboardAttention(
+  filter: DashboardAttentionFilter | null,
+) {
+  if (filter === "new-requests") {
+    return "New";
+  }
+
+  if (filter === "pickup-ready") {
+    return "Accepted";
+  }
+
+  if (filter === "delivery-ready") {
+    return "Delivery";
+  }
+
+  return null;
+}
+
+function getAttentionFilterForDashboardRoute(
+  filter: DashboardAttentionFilter | null,
+) {
+  return filter === "pickup-ready" || filter === "delivery-ready" ? null : filter;
+}
+
 function getSubmittedRouteOrderIds(batches: Batch[]) {
   return new Set(
     batches
@@ -499,13 +523,16 @@ function DatePickerField({
 
 export default function AdminOrdersScreen() {
   const searchParams = useLocalSearchParams<{ attention?: string | string[] }>();
+  const initialAttentionFilter = getDashboardAttentionFilter(searchParams.attention);
+  const initialSelectedAttentionFilter =
+    getAttentionFilterForDashboardRoute(initialAttentionFilter);
   const [orders, setOrders] = useState<Order[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
   const [selectedAttentionFilter, setSelectedAttentionFilter] =
-    useState<DashboardAttentionFilter | null>(() =>
-      getDashboardAttentionFilter(searchParams.attention),
-    );
-  const [selectedStatusGroup, setSelectedStatusGroup] = useState<string | null>(null);
+    useState<DashboardAttentionFilter | null>(() => initialSelectedAttentionFilter);
+  const [selectedStatusGroup, setSelectedStatusGroup] = useState<string | null>(() =>
+    getStatusGroupForDashboardAttention(initialAttentionFilter),
+  );
   const [selectedOrderType, setSelectedOrderType] =
     useState<(typeof orderTypeFilters)[number]["value"]>("all");
   const [selectedPickupWindow, setSelectedPickupWindow] =
@@ -633,11 +660,20 @@ export default function AdminOrdersScreen() {
 
   function renderSortHeader(label: string, nextSortKey: SortKey, cellStyle: object) {
     const isActive = sortKey === nextSortKey;
+    const arrowLabel = isActive ? (sortDirection === "asc" ? "↑" : "↓") : "↑↓";
 
     return (
-      <Pressable onPress={() => handleSort(nextSortKey)} style={cellStyle}>
+      <Pressable
+        accessibilityLabel={`Sort by ${label}`}
+        accessibilityRole="button"
+        onPress={() => handleSort(nextSortKey)}
+        style={[cellStyle, styles.sortHeaderButton]}
+      >
         <Text style={[styles.headerCell, isActive && styles.headerCellActive]}>
-          {label} {isActive ? (sortDirection === "asc" ? "(asc)" : "(desc)") : ""}
+          {label}
+        </Text>
+        <Text style={[styles.sortArrow, isActive && styles.sortArrowActive]}>
+          {arrowLabel}
         </Text>
       </Pressable>
     );
@@ -711,10 +747,8 @@ export default function AdminOrdersScreen() {
   useEffect(() => {
     const nextAttentionFilter = getDashboardAttentionFilter(searchParams.attention);
 
-    setSelectedAttentionFilter(nextAttentionFilter);
-    if (nextAttentionFilter) {
-      setSelectedStatusGroup(null);
-    }
+    setSelectedAttentionFilter(getAttentionFilterForDashboardRoute(nextAttentionFilter));
+    setSelectedStatusGroup(getStatusGroupForDashboardAttention(nextAttentionFilter));
   }, [searchParams.attention]);
 
   return (
@@ -1479,13 +1513,27 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     padding: spacing.lg,
   },
+  sortHeaderButton: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: spacing.xs,
+  },
   headerCell: {
     color: colors.muted,
+    flexShrink: 1,
     fontSize: 12,
     fontWeight: "800",
     textTransform: "uppercase",
   },
   headerCellActive: {
+    color: colors.primary,
+  },
+  sortArrow: {
+    color: colors.muted,
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  sortArrowActive: {
     color: colors.primary,
   },
   orderNumberCell: {

@@ -5,11 +5,11 @@ import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { AccountPanel } from "@/components/AccountPanel";
 import { DemoWalkthrough } from "@/components/DemoWalkthrough";
 import { Screen } from "@/components/Screen";
-import { getAdminBatches, getEligibleOrdersForBatch } from "@/services/batchService";
+import { getEligibleOrdersForBatch } from "@/services/batchService";
 import { getAdminOrders } from "@/services/orderService";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
-import type { Batch, Order } from "@/types/domain";
+import type { Order } from "@/types/domain";
 
 function DashboardCard({
   href,
@@ -33,7 +33,6 @@ function DashboardCard({
 
 export default function AdminHomeScreen() {
   const [orders, setOrders] = useState<Order[]>([]);
-  const [batches, setBatches] = useState<Batch[]>([]);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
@@ -42,13 +41,8 @@ export default function AdminHomeScreen() {
     setIsLoading(true);
 
     try {
-      const [adminOrders, adminBatches] = await Promise.all([
-        getAdminOrders(),
-        getAdminBatches(),
-      ]);
-
+      const adminOrders = await getAdminOrders();
       setOrders(adminOrders);
-      setBatches(adminBatches);
     } catch (loadError) {
       const message =
         loadError instanceof Error ? loadError.message : "Unable to load owner dashboard.";
@@ -82,10 +76,6 @@ export default function AdminHomeScreen() {
   const deliveryReady = useMemo(
     () => getEligibleOrdersForBatch(orders, "delivery").length,
     [orders],
-  );
-  const submittedRoutes = useMemo(
-    () => batches.filter((batch) => batch.status === "completed").length,
-    [batches],
   );
 
   return (
@@ -123,12 +113,6 @@ export default function AdminHomeScreen() {
             label="Delivery ready"
             note="Orders ready for delivery batching."
             value={`${deliveryReady}`}
-          />
-          <DashboardCard
-            href="/(admin)/orders?attention=submitted-routes"
-            label="Submitted routes"
-            note="Driver routes ready for owner review."
-            value={`${submittedRoutes}`}
           />
         </View>
         <DemoWalkthrough

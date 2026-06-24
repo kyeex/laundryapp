@@ -10,7 +10,11 @@ import {
 } from "@/data/pricing";
 import { serviceCatalog } from "@/data/serviceCatalog";
 import { useAuth } from "@/context/AuthContext";
-import { formatAddress, getCustomerOrderById } from "@/services/orderService";
+import {
+  formatAddress,
+  getCustomerOrderById,
+  getOrderNumber,
+} from "@/services/orderService";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import type { Order } from "@/types/domain";
@@ -81,6 +85,7 @@ export default function CustomerOrderDetailScreen() {
           <>
             <View style={styles.header}>
               <Text style={styles.kicker}>Order request</Text>
+              <Text style={styles.orderNumber}>Order #{getOrderNumber(order)}</Text>
               <Text style={styles.title}>{formatOrderStatus(order.status)}</Text>
               <Text style={styles.muted}>
                 Pickup {formatDisplayDate(order.scheduledPickupDate)} · Drop-off{" "}
@@ -243,6 +248,11 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: "800",
     textTransform: "capitalize",
+  },
+  orderNumber: {
+    color: colors.text,
+    fontSize: 17,
+    fontWeight: "800",
   },
   muted: {
     color: colors.muted,

@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { AppButton } from "@/components/AppButton";
 import { FormTextInput } from "@/components/FormTextInput";
@@ -30,6 +30,7 @@ import type {
   PickupWindow,
   Service,
 } from "@/types/domain";
+import { formatDisplayDateTime } from "@/utils/dateFormat";
 
 const weekdayOptions = [
   { label: "Sun", value: 0 },
@@ -74,8 +75,208 @@ function createCatalogId(prefix: string) {
   return `${prefix}-${Date.now()}`;
 }
 
+type ConfigurationSnapshot = {
+  services: Service[];
+  addOns: AddOn[];
+  comforterSizes: AddOn[];
+  dryCleaningCatalog: DryCleaningItem[];
+  pickupWindows: PickupWindow[];
+  settings: BusinessSettings;
+};
+
+function cloneConfiguration(snapshot: ConfigurationSnapshot) {
+  return JSON.parse(JSON.stringify(snapshot)) as ConfigurationSnapshot;
+}
+
+function formatPercentOptions(rates: number[]) {
+  return rates.map((rate) => `${Math.round(rate * 100)}%`).join(", ");
+}
+
+function formatWeekdayValues(values: number[]) {
+  return weekdayOptions
+    .filter((weekday) => values.includes(weekday.value))
+    .map((weekday) => weekday.label)
+    .join(", ");
+}
+
+function valuesChanged(previous: unknown, current: unknown) {
+  return JSON.stringify(previous) !== JSON.stringify(current);
+}
+
+function summarizeCatalogChanges<T extends { id: string }>(
+  label: string,
+  previousItems: T[],
+  currentItems: T[],
+  getTrackedFields: (item: T) => Record<string, unknown>,
+  getItemName: (item: T) => string = (item) =>
+    "name" in item && typeof item.name === "string" ? item.name : item.id,
+) {
+  const changes: string[] = [];
+  const previousById = new Map(previousItems.map((item) => [item.id, item]));
+
+  currentItems.forEach((item) => {
+    const previousItem = previousById.get(item.id);
+
+    if (!previousItem) {
+      changes.push(`${label}: added "${getItemName(item)}".`);
+      return;
+    }
+
+    const changedFields = Object.entries(getTrackedFields(item))
+      .filter(([field, value]) => valuesChanged(getTrackedFields(previousItem)[field], value))
+      .map(([field]) => field);
+
+    if (changedFields.length > 0) {
+      changes.push(
+        `${label}: updated "${getItemName(item)}" (${changedFields.join(", ")}).`,
+      );
+    }
+  });
+
+  previousItems.forEach((item) => {
+    if (!currentItems.some((currentItem) => currentItem.id === item.id)) {
+      changes.push(`${label}: removed "${getItemName(item)}".`);
+    }
+  });
+
+  return changes;
+}
+
+function summarizeConfigurationChanges(
+  previous: ConfigurationSnapshot | null,
+  current: ConfigurationSnapshot,
+) {
+  if (!previous) {
+    return ["Initial configuration saved."];
+  }
+
+  const changes: string[] = [];
+
+  if (previous.settings.businessName !== current.settings.businessName) {
+    changes.push(`Business name changed to "${current.settings.businessName}".`);
+  }
+
+  if (previous.settings.phone !== current.settings.phone) {
+    changes.push(`Phone changed to "${current.settings.phone}".`);
+  }
+
+  if (previous.settings.serviceAreaNotes !== current.settings.serviceAreaNotes) {
+    changes.push("Service area notes updated.");
+  }
+
+  if (
+    previous.settings.laundryPricePerPound !== current.settings.laundryPricePerPound
+  ) {
+    changes.push(
+      `Price per pound changed to $${current.settings.laundryPricePerPound.toFixed(2)}.`,
+    );
+  }
+
+  if (
+    previous.settings.deliveryMinimumPounds !== current.settings.deliveryMinimumPounds
+  ) {
+    changes.push(
+      `Delivery minimum changed to ${current.settings.deliveryMinimumPounds} lb.`,
+    );
+  }
+
+  if (
+    valuesChanged(
+      previous.settings.gratuityRateOptions,
+      current.settings.gratuityRateOptions,
+    )
+  ) {
+    changes.push(
+      `Suggested gratuity changed to ${formatPercentOptions(
+        current.settings.gratuityRateOptions,
+      )}.`,
+    );
+  }
+
+  if (
+    valuesChanged(
+      previous.settings.pickupAvailability.availableWeekdays,
+      current.settings.pickupAvailability.availableWeekdays,
+    )
+  ) {
+    changes.push(
+      `Pickup days changed to ${formatWeekdayValues(
+        current.settings.pickupAvailability.availableWeekdays,
+      ) || "none"}.`,
+    );
+  }
+
+  if (
+    valuesChanged(
+      previous.settings.pickupAvailability.unavailableDates,
+      current.settings.pickupAvailability.unavailableDates,
+    )
+  ) {
+    changes.push("Blocked pickup dates updated.");
+  }
+
+  changes.push(
+    ...summarizeCatalogChanges("Services", previous.services, current.services, (item) => ({
+      name: item.name,
+      description: item.description,
+      basePrice: item.basePrice,
+      active: item.active,
+      sortOrder: item.sortOrder,
+    })),
+    ...summarizeCatalogChanges("Add-ons", previous.addOns, current.addOns, (item) => ({
+      name: item.name,
+      description: item.description,
+      price: item.price,
+      active: item.active,
+      requiresOwnerConfirmation: item.requiresOwnerConfirmation,
+      sortOrder: item.sortOrder,
+    })),
+    ...summarizeCatalogChanges(
+      "Comforter sizes",
+      previous.comforterSizes,
+      current.comforterSizes,
+      (item) => ({
+        name: item.name,
+        description: item.description,
+        price: item.price,
+        active: item.active,
+        sortOrder: item.sortOrder,
+      }),
+    ),
+    ...summarizeCatalogChanges(
+      "Dry-cleaning items",
+      previous.dryCleaningCatalog,
+      current.dryCleaningCatalog,
+      (item) => ({
+        name: item.name,
+        description: item.description,
+        price: item.price,
+        active: item.active,
+        sortOrder: item.sortOrder,
+      }),
+    ),
+    ...summarizeCatalogChanges(
+      "Pickup windows",
+      previous.pickupWindows,
+      current.pickupWindows,
+      (item) => ({
+        label: item.label,
+        active: item.active,
+        sortOrder: item.sortOrder,
+      }),
+      (item) => item.label,
+    ),
+  );
+
+  return changes.length > 0
+    ? changes
+    : ["No field changes were detected; configuration was resaved."];
+}
+
 export default function AdminConfigurationScreen() {
   const { currentUser } = useAuth();
+  const loadedConfigurationRef = useRef<ConfigurationSnapshot | null>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [addOns, setAddOns] = useState<AddOn[]>([]);
   const [comforterSizes, setComforterSizes] = useState<AddOn[]>([]);
@@ -84,6 +285,8 @@ export default function AdminConfigurationScreen() {
   const [settings, setSettings] = useState<BusinessSettings>(defaultBusinessSettings);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [lastSavedChanges, setLastSavedChanges] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -115,6 +318,14 @@ export default function AdminConfigurationScreen() {
       setDryCleaningCatalog(loadedDryCleaningCatalog);
       setPickupWindows(loadedWindows);
       setSettings(loadedSettings);
+      loadedConfigurationRef.current = cloneConfiguration({
+        services: loadedServices,
+        addOns: loadedAddOns,
+        comforterSizes: loadedComforterSizes,
+        dryCleaningCatalog: loadedDryCleaningCatalog,
+        pickupWindows: loadedWindows,
+        settings: loadedSettings,
+      });
     } catch (loadError) {
       const message =
         loadError instanceof Error
@@ -136,6 +347,19 @@ export default function AdminConfigurationScreen() {
     setIsSaving(true);
 
     try {
+      const currentConfiguration = cloneConfiguration({
+        services,
+        addOns,
+        comforterSizes,
+        dryCleaningCatalog,
+        pickupWindows,
+        settings,
+      });
+      const savedChangeSummary = summarizeConfigurationChanges(
+        loadedConfigurationRef.current,
+        currentConfiguration,
+      );
+
       await Promise.all([
         ...services.map(saveService),
         ...addOns.map(saveAddOn),
@@ -161,7 +385,13 @@ export default function AdminConfigurationScreen() {
           },
         });
       }
-      setSuccess("Configuration saved.");
+      const savedAt = new Date();
+      setLastSavedAt(savedAt);
+      setLastSavedChanges(savedChangeSummary);
+      setSuccess(`Configuration saved on ${formatDisplayDateTime(savedAt)}.`);
+      requestAnimationFrame(() => {
+        scrollViewRef.current?.scrollTo({ animated: true, y: 0 });
+      });
       await loadConfiguration();
     } catch (saveError) {
       const message =
@@ -223,25 +453,100 @@ export default function AdminConfigurationScreen() {
     ]);
   }
 
+  const activeServiceCount = services.filter((service) => service.active).length;
+  const activeAddOnCount = addOns.filter((addOn) => addOn.active).length;
+  const activeComforterSizeCount = comforterSizes.filter((size) => size.active).length;
+  const activeDryCleaningItemCount = dryCleaningCatalog.filter(
+    (item) => item.active,
+  ).length;
+  const activePickupWindowCount = pickupWindows.filter(
+    (pickupWindow) => pickupWindow.active,
+  ).length;
+  const availableDayLabels = weekdayOptions
+    .filter((weekday) =>
+      settings.pickupAvailability.availableWeekdays.includes(weekday.value),
+    )
+    .map((weekday) => weekday.label)
+    .join(", ");
+
   return (
-    <Screen>
+    <Screen scrollViewRef={scrollViewRef}>
       <View style={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.title}>Configuration</Text>
-          <Text style={styles.body}>
-            Manage pricing, catalog availability, pickup windows, and basic
-            business details.
-          </Text>
-          <AppButton label="Refresh" onPress={loadConfiguration} variant="secondary" />
+          <View style={styles.headerCopy}>
+            <Text style={styles.kicker}>Owner settings</Text>
+            <Text style={styles.title}>Business configuration</Text>
+            <Text style={styles.body}>
+              Manage the prices, catalog, availability, and customer-facing
+              options that power new orders.
+            </Text>
+          </View>
+          <View style={styles.headerActions}>
+            <AppButton label="Refresh" onPress={loadConfiguration} variant="secondary" />
+            <AppButton
+              disabled={isSaving}
+              label={isSaving ? "Saving..." : "Save changes"}
+              onPress={handleSaveAll}
+            />
+          </View>
         </View>
 
         {isLoading ? <ActivityIndicator color={colors.primary} /> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
-        {success ? <Text style={styles.success}>{success}</Text> : null}
+        {success ? (
+          <View style={styles.successBanner}>
+            <Text style={styles.successTitle}>Configuration saved</Text>
+            <Text style={styles.successText}>{success}</Text>
+            {lastSavedAt ? (
+              <Text style={styles.successMeta}>
+                Last updated: {formatDisplayDateTime(lastSavedAt)}
+              </Text>
+            ) : null}
+            <View style={styles.changeList}>
+              <Text style={styles.changeListTitle}>Changes saved:</Text>
+              {lastSavedChanges.map((change) => (
+                <Text key={change} style={styles.changeItem}>
+                  - {change}
+                </Text>
+              ))}
+            </View>
+          </View>
+        ) : null}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Business</Text>
+        <View style={styles.summaryGrid}>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryLabel}>Laundry rate</Text>
+            <Text style={styles.summaryValue}>
+              ${settings.laundryPricePerPound.toFixed(2)}/lb
+            </Text>
+          </View>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryLabel}>Delivery minimum</Text>
+            <Text style={styles.summaryValue}>{settings.deliveryMinimumPounds} lb</Text>
+          </View>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryLabel}>Active catalog</Text>
+            <Text style={styles.summaryValue}>
+              {activeServiceCount + activeAddOnCount + activeComforterSizeCount + activeDryCleaningItemCount}
+            </Text>
+          </View>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryLabel}>Pickup windows</Text>
+            <Text style={styles.summaryValue}>{activePickupWindowCount}</Text>
+          </View>
+        </View>
+
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Core setup</Text>
+          <Text style={styles.muted}>
+            These settings are used directly on the customer order form and
+            estimate.
+          </Text>
+        </View>
+
+        <View style={styles.configurationGrid}>
           <View style={styles.card}>
+            <Text style={styles.cardTitle}>Business details</Text>
             <FormTextInput
               label="Business name"
               onChangeText={(businessName) =>
@@ -264,11 +569,9 @@ export default function AdminConfigurationScreen() {
               value={settings.serviceAreaNotes}
             />
           </View>
-        </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Pricing rules</Text>
           <View style={styles.card}>
+            <Text style={styles.cardTitle}>Pricing rules</Text>
             <FormTextInput
               keyboardType="decimal-pad"
               label="Price per pound"
@@ -313,10 +616,16 @@ export default function AdminConfigurationScreen() {
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Pickup calendar</Text>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Availability</Text>
+          <Text style={styles.muted}>
+            Current pickup days: {availableDayLabels || "No days selected"}.
+          </Text>
+        </View>
+
+        <View style={styles.configurationGrid}>
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Available pickup days</Text>
+            <Text style={styles.cardTitle}>Pickup calendar</Text>
             <Text style={styles.muted}>
               Customers can only select dates that fall on active weekdays and
               are not blocked below.
@@ -356,19 +665,110 @@ export default function AdminConfigurationScreen() {
               value={settings.pickupAvailability.unavailableDates.join(", ")}
             />
           </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Pickup windows</Text>
+            <Text style={styles.muted}>
+              Active windows appear on the New Order page.
+            </Text>
+            {pickupWindows.map((pickupWindow, index) => (
+              <View key={pickupWindow.id} style={styles.compactItem}>
+                <View style={styles.catalogHeader}>
+                  <Text style={styles.itemTitle}>{pickupWindow.label}</Text>
+                  <Text
+                    style={[
+                      styles.statusChip,
+                      pickupWindow.active
+                        ? styles.statusChipActive
+                        : styles.statusChipInactive,
+                    ]}
+                  >
+                    {pickupWindow.active ? "Active" : "Inactive"}
+                  </Text>
+                </View>
+                <FormTextInput
+                  label="Window"
+                  onChangeText={(label) =>
+                    setPickupWindows((current) =>
+                      current.map((item) =>
+                        item.id === pickupWindow.id ? { ...item, label } : item,
+                      ),
+                    )
+                  }
+                  value={pickupWindow.label}
+                />
+                <View style={styles.row}>
+                  <View style={styles.rowItem}>
+                    <AppButton
+                      label={pickupWindow.active ? "Deactivate" : "Activate"}
+                      onPress={() =>
+                        setPickupWindows((current) =>
+                          current.map((item) =>
+                            item.id === pickupWindow.id
+                              ? { ...item, active: !item.active }
+                              : item,
+                          ),
+                        )
+                      }
+                      variant={pickupWindow.active ? "secondary" : "primary"}
+                    />
+                  </View>
+                  <View style={styles.rowItem}>
+                    <FormTextInput
+                      keyboardType="number-pad"
+                      label="Sort"
+                      onChangeText={(value) =>
+                        setPickupWindows((current) =>
+                          current.map((item) =>
+                            item.id === pickupWindow.id
+                              ? {
+                                  ...item,
+                                  sortOrder: Number.parseInt(value, 10) || index + 1,
+                                }
+                              : item,
+                          ),
+                        )
+                      }
+                      value={pickupWindow.sortOrder.toString()}
+                    />
+                  </View>
+                </View>
+              </View>
+            ))}
+          </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Service availability</Text>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Customer catalog</Text>
           <Text style={styles.muted}>
-            Turn customer-facing service options on or off.
+            Turn customer-facing services and upsells on or off, adjust prices,
+            and control display order.
           </Text>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Services</Text>
+          <View style={styles.listHeader}>
+            <View>
+              <Text style={styles.sectionTitle}>Services</Text>
+              <Text style={styles.muted}>{activeServiceCount} active service options</Text>
+            </View>
+          </View>
           {services.map((service, index) => (
-            <View key={service.id} style={styles.card}>
+            <View key={service.id} style={styles.catalogCard}>
+              <View style={styles.catalogHeader}>
+                <View style={styles.catalogTitleBlock}>
+                  <Text style={styles.itemTitle}>{service.name}</Text>
+                  <Text style={styles.itemMeta}>Sort {service.sortOrder}</Text>
+                </View>
+                <Text
+                  style={[
+                    styles.statusChip,
+                    service.active ? styles.statusChipActive : styles.statusChipInactive,
+                  ]}
+                >
+                  {service.active ? "Active" : "Inactive"}
+                </Text>
+              </View>
               <FormTextInput
                 label="Name"
                 onChangeText={(name) =>
@@ -409,7 +809,7 @@ export default function AdminConfigurationScreen() {
               <View style={styles.row}>
                 <View style={styles.rowItem}>
                   <AppButton
-                    label={service.active ? "Active" : "Inactive"}
+                    label={service.active ? "Deactivate" : "Activate"}
                     onPress={() =>
                       setServices((current) =>
                         current.map((item) =>
@@ -419,7 +819,7 @@ export default function AdminConfigurationScreen() {
                         ),
                       )
                     }
-                    variant={service.active ? "primary" : "secondary"}
+                    variant={service.active ? "secondary" : "primary"}
                   />
                 </View>
                 <View style={styles.rowItem}>
@@ -444,13 +844,35 @@ export default function AdminConfigurationScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Add-ons</Text>
-          <Text style={styles.muted}>
-            Add optional customer upsells for wash-and-fold orders.
-          </Text>
-          <AppButton label="Create add-on" onPress={addNewAddOn} variant="secondary" />
+          <View style={styles.listHeader}>
+            <View>
+              <Text style={styles.sectionTitle}>Add-ons</Text>
+              <Text style={styles.muted}>{activeAddOnCount} active wash-and-fold upsells</Text>
+            </View>
+            <AppButton label="Create add-on" onPress={addNewAddOn} variant="secondary" />
+          </View>
           {addOns.map((addOn, index) => (
-            <View key={addOn.id} style={styles.card}>
+            <View key={addOn.id} style={styles.catalogCard}>
+              <View style={styles.catalogHeader}>
+                <View style={styles.catalogTitleBlock}>
+                  <Text style={styles.itemTitle}>{addOn.name}</Text>
+                  <Text style={styles.itemMeta}>
+                    {addOn.requiresOwnerConfirmation
+                      ? "Owner confirms price"
+                      : addOn.price === null
+                        ? "No fixed price"
+                        : `$${addOn.price.toFixed(2)}`}
+                  </Text>
+                </View>
+                <Text
+                  style={[
+                    styles.statusChip,
+                    addOn.active ? styles.statusChipActive : styles.statusChipInactive,
+                  ]}
+                >
+                  {addOn.active ? "Active" : "Inactive"}
+                </Text>
+              </View>
               <FormTextInput
                 label="Name"
                 onChangeText={(name) =>
@@ -489,7 +911,7 @@ export default function AdminConfigurationScreen() {
               <View style={styles.row}>
                 <View style={styles.rowItem}>
                   <AppButton
-                    label={addOn.active ? "Active" : "Inactive"}
+                    label={addOn.active ? "Deactivate" : "Activate"}
                     onPress={() =>
                       setAddOns((current) =>
                         current.map((item) =>
@@ -497,7 +919,7 @@ export default function AdminConfigurationScreen() {
                         ),
                       )
                     }
-                    variant={addOn.active ? "primary" : "secondary"}
+                    variant={addOn.active ? "secondary" : "primary"}
                   />
                 </View>
                 <View style={styles.rowItem}>
@@ -539,9 +961,30 @@ export default function AdminConfigurationScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Comforter sizes</Text>
+          <View style={styles.listHeader}>
+            <View>
+              <Text style={styles.sectionTitle}>Comforter sizes</Text>
+              <Text style={styles.muted}>{activeComforterSizeCount} active comforter prices</Text>
+            </View>
+          </View>
           {comforterSizes.map((size, index) => (
-            <View key={size.id} style={styles.card}>
+            <View key={size.id} style={styles.catalogCard}>
+              <View style={styles.catalogHeader}>
+                <View style={styles.catalogTitleBlock}>
+                  <Text style={styles.itemTitle}>{size.name}</Text>
+                  <Text style={styles.itemMeta}>
+                    {size.price === null ? "No fixed price" : `$${size.price.toFixed(2)}`}
+                  </Text>
+                </View>
+                <Text
+                  style={[
+                    styles.statusChip,
+                    size.active ? styles.statusChipActive : styles.statusChipInactive,
+                  ]}
+                >
+                  {size.active ? "Active" : "Inactive"}
+                </Text>
+              </View>
               <FormTextInput
                 label="Name"
                 onChangeText={(name) =>
@@ -579,7 +1022,7 @@ export default function AdminConfigurationScreen() {
               <View style={styles.row}>
                 <View style={styles.rowItem}>
                   <AppButton
-                    label={size.active ? "Active" : "Inactive"}
+                    label={size.active ? "Deactivate" : "Activate"}
                     onPress={() =>
                       setComforterSizes((current) =>
                         current.map((item) =>
@@ -587,7 +1030,7 @@ export default function AdminConfigurationScreen() {
                         ),
                       )
                     }
-                    variant={size.active ? "primary" : "secondary"}
+                    variant={size.active ? "secondary" : "primary"}
                   />
                 </View>
                 <View style={styles.rowItem}>
@@ -612,18 +1055,35 @@ export default function AdminConfigurationScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Dry-cleaning items</Text>
-          <Text style={styles.muted}>
-            Add priced garments or items customers can include with combined
-            wash-and-fold plus dry-cleaning orders.
-          </Text>
-          <AppButton
-            label="Create dry-cleaning item"
-            onPress={addNewDryCleaningItem}
-            variant="secondary"
-          />
+          <View style={styles.listHeader}>
+            <View>
+              <Text style={styles.sectionTitle}>Dry-cleaning items</Text>
+              <Text style={styles.muted}>
+                {activeDryCleaningItemCount} active items for combined orders
+              </Text>
+            </View>
+            <AppButton
+              label="Create dry-cleaning item"
+              onPress={addNewDryCleaningItem}
+              variant="secondary"
+            />
+          </View>
           {dryCleaningCatalog.map((item, index) => (
-            <View key={item.id} style={styles.card}>
+            <View key={item.id} style={styles.catalogCard}>
+              <View style={styles.catalogHeader}>
+                <View style={styles.catalogTitleBlock}>
+                  <Text style={styles.itemTitle}>{item.name}</Text>
+                  <Text style={styles.itemMeta}>${item.price.toFixed(2)}</Text>
+                </View>
+                <Text
+                  style={[
+                    styles.statusChip,
+                    item.active ? styles.statusChipActive : styles.statusChipInactive,
+                  ]}
+                >
+                  {item.active ? "Active" : "Inactive"}
+                </Text>
+              </View>
               <FormTextInput
                 label="Name"
                 onChangeText={(name) =>
@@ -668,7 +1128,7 @@ export default function AdminConfigurationScreen() {
               <View style={styles.row}>
                 <View style={styles.rowItem}>
                   <AppButton
-                    label={item.active ? "Active" : "Inactive"}
+                    label={item.active ? "Deactivate" : "Activate"}
                     onPress={() =>
                       setDryCleaningCatalog((current) =>
                         current.map((currentItem) =>
@@ -678,7 +1138,7 @@ export default function AdminConfigurationScreen() {
                         ),
                       )
                     }
-                    variant={item.active ? "primary" : "secondary"}
+                    variant={item.active ? "secondary" : "primary"}
                   />
                 </View>
                 <View style={styles.rowItem}>
@@ -705,58 +1165,6 @@ export default function AdminConfigurationScreen() {
           ))}
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Pickup windows</Text>
-          {pickupWindows.map((pickupWindow, index) => (
-            <View key={pickupWindow.id} style={styles.card}>
-              <FormTextInput
-                label="Window"
-                onChangeText={(label) =>
-                  setPickupWindows((current) =>
-                    current.map((item) =>
-                      item.id === pickupWindow.id ? { ...item, label } : item,
-                    ),
-                  )
-                }
-                value={pickupWindow.label}
-              />
-              <View style={styles.row}>
-                <View style={styles.rowItem}>
-                  <AppButton
-                    label={pickupWindow.active ? "Active" : "Inactive"}
-                    onPress={() =>
-                      setPickupWindows((current) =>
-                        current.map((item) =>
-                          item.id === pickupWindow.id
-                            ? { ...item, active: !item.active }
-                            : item,
-                        ),
-                      )
-                    }
-                    variant={pickupWindow.active ? "primary" : "secondary"}
-                  />
-                </View>
-                <View style={styles.rowItem}>
-                  <FormTextInput
-                    keyboardType="number-pad"
-                    label="Sort"
-                    onChangeText={(value) =>
-                      setPickupWindows((current) =>
-                        current.map((item) =>
-                          item.id === pickupWindow.id
-                            ? { ...item, sortOrder: Number.parseInt(value, 10) || index + 1 }
-                            : item,
-                        ),
-                      )
-                    }
-                    value={pickupWindow.sortOrder.toString()}
-                  />
-                </View>
-              </View>
-            </View>
-          ))}
-        </View>
-
         <AppButton
           disabled={isSaving}
           label={isSaving ? "Saving..." : "Save configuration"}
@@ -774,7 +1182,28 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
   },
   header: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: spacing.sm,
+    justifyContent: "space-between",
+  },
+  headerCopy: {
+    flex: 1,
+    gap: spacing.sm,
+    minWidth: 280,
+  },
+  headerActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+    justifyContent: "flex-end",
+  },
+  kicker: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: "800",
+    textTransform: "uppercase",
   },
   title: {
     color: colors.text,
@@ -789,12 +1218,57 @@ const styles = StyleSheet.create({
   section: {
     gap: spacing.sm,
   },
+  sectionHeader: {
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+  },
   sectionTitle: {
     color: colors.text,
     fontSize: 20,
     fontWeight: "800",
   },
+  summaryGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  summaryCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    flex: 1,
+    gap: spacing.xs,
+    minWidth: 160,
+    padding: spacing.md,
+  },
+  summaryLabel: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  summaryValue: {
+    color: colors.text,
+    fontSize: 22,
+    fontWeight: "800",
+  },
+  configurationGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.md,
+  },
   card: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    flex: 1,
+    gap: spacing.md,
+    minWidth: 300,
+    padding: spacing.md,
+  },
+  catalogCard: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderRadius: 8,
@@ -802,12 +1276,64 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     padding: spacing.md,
   },
+  compactItem: {
+    borderTopColor: colors.border,
+    borderTopWidth: 1,
+    gap: spacing.sm,
+    paddingTop: spacing.md,
+  },
+  listHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+    justifyContent: "space-between",
+  },
+  catalogHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: spacing.md,
+    justifyContent: "space-between",
+  },
+  catalogTitleBlock: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  itemTitle: {
+    color: colors.text,
+    fontSize: 17,
+    fontWeight: "800",
+  },
+  itemMeta: {
+    color: colors.muted,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  statusChip: {
+    borderRadius: 8,
+    fontSize: 12,
+    fontWeight: "800",
+    overflow: "hidden",
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    textTransform: "uppercase",
+  },
+  statusChipActive: {
+    backgroundColor: "#DCFCE7",
+    color: colors.success,
+  },
+  statusChipInactive: {
+    backgroundColor: "#F1F5F9",
+    color: colors.muted,
+  },
   row: {
+    flexWrap: "wrap",
     flexDirection: "row",
     gap: spacing.sm,
   },
   rowItem: {
     flex: 1,
+    minWidth: 160,
   },
   weekdayGrid: {
     flexDirection: "row",
@@ -841,5 +1367,48 @@ const styles = StyleSheet.create({
     color: colors.success,
     fontSize: 14,
     fontWeight: "700",
+  },
+  successBanner: {
+    backgroundColor: "#ECFDF5",
+    borderColor: "#22C55E",
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: spacing.xs,
+    padding: spacing.md,
+  },
+  successTitle: {
+    color: colors.success,
+    fontSize: 17,
+    fontWeight: "800",
+  },
+  successText: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: "700",
+    lineHeight: 22,
+  },
+  successMeta: {
+    color: colors.muted,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  changeList: {
+    backgroundColor: colors.surface,
+    borderColor: "#A7F3D0",
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+    padding: spacing.md,
+  },
+  changeListTitle: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  changeItem: {
+    color: colors.text,
+    fontSize: 14,
+    lineHeight: 20,
   },
 });

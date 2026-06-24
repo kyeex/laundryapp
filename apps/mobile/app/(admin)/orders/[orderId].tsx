@@ -15,6 +15,7 @@ import {
   finalizeOrderPayment,
   formatAddress,
   getAdminOrderById,
+  getOrderNumber,
   setOrderFinalPrice,
   updateOrderStatus,
 } from "@/services/orderService";
@@ -217,6 +218,7 @@ export default function AdminOrderDetailScreen() {
           <>
             <View style={styles.header}>
               <Text style={styles.kicker}>Manage order</Text>
+              <Text style={styles.orderNumber}>Order #{getOrderNumber(order)}</Text>
               <Text style={styles.title}>{formatOrderStatus(order.status)}</Text>
               <Text style={styles.muted}>
                 {order.customerName || "Customer"} · {order.customerPhone || "No phone"}
@@ -552,6 +554,11 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: "800",
     textTransform: "capitalize",
+  },
+  orderNumber: {
+    color: colors.text,
+    fontSize: 17,
+    fontWeight: "800",
   },
   muted: {
     color: colors.muted,
