@@ -11,22 +11,68 @@ import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import type { Order } from "@/types/domain";
 
+type DashboardTone = "requests" | "payment" | "pickup" | "delivery";
+
 function DashboardCard({
   href,
+  highlighted = false,
   label,
+  tone,
   value,
-  note,
 }: {
   href: string;
+  highlighted?: boolean;
   label: string;
-  value: string;
-  note: string;
+  tone: DashboardTone;
+  value: number;
 }) {
+  const cardToneStyle = {
+    requests: styles.dashboardCardRequests,
+    payment: styles.dashboardCardPayment,
+    pickup: styles.dashboardCardPickup,
+    delivery: styles.dashboardCardDelivery,
+  }[tone];
+  const valueToneStyle = {
+    requests: styles.dashboardValueRequests,
+    payment: styles.dashboardValuePayment,
+    pickup: styles.dashboardValuePickup,
+    delivery: styles.dashboardValueDelivery,
+  }[tone];
+
   return (
-    <Link href={href} style={styles.dashboardCard}>
-      <Text style={styles.dashboardLabel}>{label}</Text>
-      <Text style={styles.dashboardValue}>{value}</Text>
-      <Text style={styles.dashboardNote}>{note}</Text>
+    <Link
+      href={href}
+      style={[
+        styles.dashboardCard,
+        cardToneStyle,
+        highlighted && styles.dashboardCardHighlighted,
+      ]}
+    >
+      <Text
+        style={[
+          styles.dashboardLabel,
+          highlighted && styles.dashboardLabelHighlighted,
+        ]}
+      >
+        {label}
+      </Text>
+      <Text
+        style={[
+          styles.dashboardValue,
+          valueToneStyle,
+          highlighted && styles.dashboardValueHighlighted,
+        ]}
+      >
+        {value}
+      </Text>
+      <Text
+        style={[
+          styles.dashboardStatus,
+          highlighted && styles.dashboardStatusHighlighted,
+        ]}
+      >
+        {highlighted ? "Review" : value > 0 ? "Open" : "Clear"}
+      </Text>
     </Link>
   );
 }
@@ -89,30 +135,37 @@ export default function AdminHomeScreen() {
         </Text>
         {isLoading ? <ActivityIndicator color={colors.primary} /> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
+        <View style={styles.dashboardHeader}>
+          <Text style={styles.dashboardTitle}>Needs attention</Text>
+          <Text style={styles.dashboardSubtitle}>
+            Tap a tile to open the matching filtered order view.
+          </Text>
+        </View>
         <View style={styles.dashboardGrid}>
           <DashboardCard
             href="/(admin)/orders?attention=new-requests"
+            highlighted={newRequests > 0}
             label="New requests"
-            note="Need accept or decline."
-            value={`${newRequests}`}
+            tone="requests"
+            value={newRequests}
           />
           <DashboardCard
             href="/(admin)/orders?attention=price-payment"
             label="Price/payment"
-            note="Need final price or payment finalization."
-            value={`${pricingNeeded}`}
+            tone="payment"
+            value={pricingNeeded}
           />
           <DashboardCard
             href="/(admin)/orders?attention=pickup-ready"
             label="Pickup ready"
-            note="Accepted orders ready for pickup batching."
-            value={`${pickupReady}`}
+            tone="pickup"
+            value={pickupReady}
           />
           <DashboardCard
             href="/(admin)/orders?attention=delivery-ready"
             label="Delivery ready"
-            note="Orders ready for delivery batching."
-            value={`${deliveryReady}`}
+            tone="delivery"
+            value={deliveryReady}
           />
         </View>
         <DemoWalkthrough
@@ -160,36 +213,110 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
   },
+  dashboardHeader: {
+    gap: spacing.xs,
+  },
+  dashboardTitle: {
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: "800",
+  },
+  dashboardSubtitle: {
+    color: colors.muted,
+    fontSize: 14,
+    lineHeight: 20,
+  },
   dashboardGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.sm,
   },
   dashboardCard: {
+    alignItems: "center",
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderRadius: 8,
     borderWidth: 1,
+    borderLeftWidth: 5,
     flexGrow: 1,
     gap: spacing.xs,
-    minWidth: 160,
-    padding: spacing.md,
+    justifyContent: "center",
+    minHeight: 104,
+    minWidth: 138,
+    padding: spacing.sm,
+  },
+  dashboardCardRequests: {
+    backgroundColor: "#FFFBEB",
+    borderColor: "#FBBF24",
+  },
+  dashboardCardPayment: {
+    backgroundColor: "#EFF6FF",
+    borderColor: "#60A5FA",
+  },
+  dashboardCardPickup: {
+    backgroundColor: "#ECFDF5",
+    borderColor: "#34D399",
+  },
+  dashboardCardDelivery: {
+    backgroundColor: "#F5F3FF",
+    borderColor: "#A78BFA",
+  },
+  dashboardCardHighlighted: {
+    backgroundColor: "#FEF3C7",
+    borderColor: "#D97706",
+    borderWidth: 2,
+    borderLeftWidth: 7,
   },
   dashboardLabel: {
     color: colors.muted,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "800",
+    textAlign: "center",
     textTransform: "uppercase",
+  },
+  dashboardLabelHighlighted: {
+    color: "#92400E",
   },
   dashboardValue: {
     color: colors.text,
-    fontSize: 22,
+    fontSize: 34,
     fontWeight: "800",
+    lineHeight: 38,
+    textAlign: "center",
   },
-  dashboardNote: {
-    color: colors.muted,
-    fontSize: 13,
-    lineHeight: 18,
+  dashboardValueRequests: {
+    color: "#92400E",
+  },
+  dashboardValuePayment: {
+    color: "#1D4ED8",
+  },
+  dashboardValuePickup: {
+    color: "#047857",
+  },
+  dashboardValueDelivery: {
+    color: "#6D28D9",
+  },
+  dashboardValueHighlighted: {
+    color: "#78350F",
+  },
+  dashboardStatus: {
+    alignSelf: "flex-start",
+    backgroundColor: "rgba(255,255,255,0.7)",
+    borderColor: "rgba(15,23,42,0.08)",
+    borderRadius: 8,
+    borderWidth: 1,
+    color: colors.text,
+    fontSize: 11,
+    fontWeight: "800",
+    overflow: "hidden",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    textTransform: "uppercase",
+  },
+  dashboardStatusHighlighted: {
+    backgroundColor: "#F59E0B",
+    borderColor: "#F59E0B",
+    color: "#FFFFFF",
   },
   actionPanel: {
     backgroundColor: colors.surface,
