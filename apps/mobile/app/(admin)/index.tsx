@@ -123,18 +123,23 @@ export default function AdminHomeScreen() {
             "Create pickup or delivery batches and review submitted driver routes.",
           ]}
         />
-        <Link href="/(admin)/orders" style={styles.link}>
-          Incoming orders
-        </Link>
-        <Link href="/(admin)/driver-tracking" style={styles.link}>
-          Driver tracking
-        </Link>
-        <Link href="/(admin)/batches" style={styles.link}>
-          Batch management
-        </Link>
-        <Link href="/(admin)/configuration" style={styles.link}>
-          Business configuration
-        </Link>
+        <View style={styles.actionPanel}>
+          <Text style={styles.actionTitle}>Operations</Text>
+          <Link href="/(admin)/orders" style={styles.primaryAction}>
+            Open orders
+          </Link>
+          <View style={styles.actionGrid}>
+            <Link href="/(admin)/batches" style={styles.secondaryAction}>
+              Batch management
+            </Link>
+            <Link href="/(admin)/driver-tracking" style={styles.secondaryAction}>
+              Driver tracking
+            </Link>
+            <Link href="/(admin)/configuration" style={styles.secondaryAction}>
+              Business configuration
+            </Link>
+          </View>
+        </View>
       </View>
     </Screen>
   );
@@ -154,11 +159,6 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 16,
     lineHeight: 24,
-  },
-  link: {
-    color: colors.primary,
-    fontSize: 17,
-    fontWeight: "700",
   },
   dashboardGrid: {
     flexDirection: "row",
@@ -190,6 +190,46 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 13,
     lineHeight: 18,
+  },
+  actionPanel: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: spacing.sm,
+    padding: spacing.md,
+  },
+  actionTitle: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  primaryAction: {
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    color: colors.onPrimary,
+    fontSize: 18,
+    fontWeight: "800",
+    padding: spacing.md,
+    textAlign: "center",
+  },
+  actionGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  secondaryAction: {
+    backgroundColor: "#F8FAFC",
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    color: colors.text,
+    flexGrow: 1,
+    fontSize: 16,
+    fontWeight: "800",
+    minWidth: 180,
+    padding: spacing.md,
+    textAlign: "center",
   },
   error: {
     color: colors.danger,

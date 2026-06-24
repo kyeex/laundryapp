@@ -15,6 +15,7 @@ import {
   serviceAddOns,
   serviceCatalog,
 } from "@/data/serviceCatalog";
+import { getAddOnCategoryId } from "@/data/addOnCategories";
 import { dryCleaningItems } from "@/data/dryCleaningItems";
 import type {
   AddOn,
@@ -32,6 +33,25 @@ import {
 
 function sortBySortOrder<T extends { sortOrder: number }>(items: T[]) {
   return [...items].sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
+function mergeDefaultsById<T extends { id: string }>(defaults: T[], items: T[]) {
+  const itemById = new Map(items.map((item) => [item.id, item]));
+  const mergedDefaults = defaults.map((defaultItem) =>
+    itemById.get(defaultItem.id) ?? defaultItem,
+  );
+  const customItems = items.filter(
+    (item) => !defaults.some((defaultItem) => defaultItem.id === item.id),
+  );
+
+  return [...mergedDefaults, ...customItems];
+}
+
+function normalizeAddOnCategory(addOn: AddOn): AddOn {
+  return {
+    ...addOn,
+    category: getAddOnCategoryId(addOn),
+  };
 }
 
 const demoBusinessSettingsStorageKey = "laundryapp.demo.businessSettings.v1";
@@ -86,7 +106,10 @@ function getDemoItems<T>(storageKey: string, defaults: T[]) {
   }
 
   try {
-    return JSON.parse(storedItems) as T[];
+    return mergeDefaultsById(
+      defaults as Array<T & { id: string }>,
+      JSON.parse(storedItems) as Array<T & { id: string }>,
+    ) as T[];
   } catch {
     getStorage()?.removeItem(storageKey);
     return defaults;
@@ -184,21 +207,25 @@ export async function saveService(service: Service) {
 
 export async function getAddOns() {
   if (shouldUseDemoBackend) {
-    return sortBySortOrder(getDemoItems(demoAddOnsStorageKey, serviceAddOns));
+    return sortBySortOrder(
+      getDemoItems(demoAddOnsStorageKey, serviceAddOns).map(normalizeAddOnCategory),
+    );
   }
 
   const db = getFirebaseFirestore();
   const snapshot = await getDocs(collection(db, "addOns"));
 
   if (snapshot.empty) {
-    return sortBySortOrder(serviceAddOns);
+    return sortBySortOrder(serviceAddOns.map(normalizeAddOnCategory));
   }
 
-  return sortBySortOrder(
-    snapshot.docs.map((addOnDoc) => ({
+  const savedAddOns = snapshot.docs.map((addOnDoc) => ({
       id: addOnDoc.id,
       ...(addOnDoc.data() as Omit<AddOn, "id">),
-    })),
+    }));
+
+  return sortBySortOrder(
+    mergeDefaultsById(serviceAddOns, savedAddOns).map(normalizeAddOnCategory),
   );
 }
 
@@ -223,6 +250,7 @@ export async function saveAddOn(addOn: AddOn) {
     active: addOn.active,
     requiresOwnerConfirmation: addOn.requiresOwnerConfirmation,
     sortOrder: addOn.sortOrder,
+    category: getAddOnCategoryId(addOn),
     updatedAt: serverTimestamp(),
   });
 }

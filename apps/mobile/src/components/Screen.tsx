@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 
+import { CustomerHelpChat } from "./CustomerHelpChat";
 import { EnvironmentBanner } from "./EnvironmentBanner";
 
 type ScreenProps = PropsWithChildren<{
@@ -18,6 +19,7 @@ export function Screen({ children, scrollViewRef }: ScreenProps) {
         <EnvironmentBanner />
         {children}
       </ScrollView>
+      <CustomerHelpChat />
     </SafeAreaView>
   );
 }
@@ -26,6 +28,7 @@ const styles = StyleSheet.create({
   safeArea: {
     backgroundColor: colors.background,
     flex: 1,
+    position: "relative",
   },
   content: {
     flexGrow: 1,

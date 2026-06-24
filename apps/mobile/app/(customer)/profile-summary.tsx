@@ -8,6 +8,7 @@ import { useAuth } from "@/context/AuthContext";
 import {
   getCustomerProfileSummary,
   saveCustomerProfileSummary,
+  type CustomerPaymentMethod,
   type CustomerProfileSummary,
 } from "@/services/profileService";
 import { colors } from "@/theme/colors";
@@ -24,12 +25,21 @@ const emptyAddress: AddressInput = {
   deliveryInstructions: "",
 };
 
+const emptyPaymentMethod: CustomerPaymentMethod = {
+  cardholderName: "",
+  brand: "",
+  last4: "",
+  expirationMonth: "",
+  expirationYear: "",
+};
+
 function createEmptyProfile(): CustomerProfileSummary {
   return {
     displayName: "",
     phone: "",
     email: "",
     defaultAddress: emptyAddress,
+    paymentMethod: emptyPaymentMethod,
   };
 }
 
@@ -81,6 +91,16 @@ export default function CustomerProfileSummaryScreen() {
     }));
   }
 
+  function updatePaymentMethod(field: keyof CustomerPaymentMethod, value: string) {
+    setProfile((current) => ({
+      ...current,
+      paymentMethod: {
+        ...current.paymentMethod,
+        [field]: value,
+      },
+    }));
+  }
+
   async function handleSaveProfile() {
     if (!currentUser) {
       return;
@@ -91,7 +111,13 @@ export default function CustomerProfileSummaryScreen() {
     setIsSaving(true);
 
     try {
-      const savedProfile = await saveCustomerProfileSummary(currentUser.id, profile);
+      const savedProfile = await saveCustomerProfileSummary(currentUser.id, {
+        ...profile,
+        defaultAddress: {
+          ...profile.defaultAddress,
+          label: profile.defaultAddress.label.trim() || "Home",
+        },
+      });
       setProfile(savedProfile);
       setSuccess("Customer profile saved.");
     } catch (saveError) {
@@ -145,11 +171,6 @@ export default function CustomerProfileSummaryScreen() {
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Default address</Text>
               <FormTextInput
-                label="Address label"
-                onChangeText={(value) => updateAddress("label", value)}
-                value={profile.defaultAddress.label}
-              />
-              <FormTextInput
                 label="Street address"
                 onChangeText={(value) => updateAddress("street1", value)}
                 value={profile.defaultAddress.street1}
@@ -188,6 +209,59 @@ export default function CustomerProfileSummaryScreen() {
                 style={styles.textArea}
                 value={profile.defaultAddress.deliveryInstructions}
               />
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Payment method</Text>
+              <Text style={styles.muted}>
+                Save a card summary for checkout. Do not enter a full card number
+                or CVV in this demo field.
+              </Text>
+              <FormTextInput
+                label="Cardholder name"
+                onChangeText={(value) => updatePaymentMethod("cardholderName", value)}
+                value={profile.paymentMethod.cardholderName}
+              />
+              <FormTextInput
+                label="Card brand"
+                onChangeText={(value) => updatePaymentMethod("brand", value)}
+                placeholder="Visa, Mastercard, Amex"
+                value={profile.paymentMethod.brand}
+              />
+              <FormTextInput
+                keyboardType="number-pad"
+                label="Last 4 digits"
+                maxLength={4}
+                onChangeText={(value) => updatePaymentMethod("last4", value)}
+                placeholder="4242"
+                value={profile.paymentMethod.last4}
+              />
+              <View style={styles.row}>
+                <View style={styles.rowItem}>
+                  <FormTextInput
+                    keyboardType="number-pad"
+                    label="Exp month"
+                    maxLength={2}
+                    onChangeText={(value) =>
+                      updatePaymentMethod("expirationMonth", value)
+                    }
+                    placeholder="06"
+                    value={profile.paymentMethod.expirationMonth}
+                  />
+                </View>
+                <View style={styles.rowItem}>
+                  <FormTextInput
+                    keyboardType="number-pad"
+                    label="Exp year"
+                    maxLength={4}
+                    onChangeText={(value) =>
+                      updatePaymentMethod("expirationYear", value)
+                    }
+                    placeholder="2028"
+                    value={profile.paymentMethod.expirationYear}
+                  />
+                </View>
+              </View>
             </View>
 
             <AppButton
@@ -247,6 +321,11 @@ const styles = StyleSheet.create({
     minHeight: 92,
     paddingTop: spacing.md,
     textAlignVertical: "top",
+  },
+  muted: {
+    color: colors.muted,
+    fontSize: 14,
+    lineHeight: 20,
   },
   error: {
     color: colors.danger,

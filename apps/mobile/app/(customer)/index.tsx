@@ -145,18 +145,23 @@ export default function CustomerHomeScreen() {
             "Review the estimate, authorize demo payment, and track status.",
           ]}
         />
-        <Link href="/(customer)/new-order" style={styles.action}>
-          Start new order
-        </Link>
-        <Link href="/(customer)/profile-summary" style={styles.secondary}>
-          Customer Profile Summary
-        </Link>
-        <Link href="/(customer)/preferences" style={styles.secondary}>
-          Customer Preferences
-        </Link>
-        <Link href="/(customer)/my-orders" style={styles.secondary}>
-          View orders
-        </Link>
+        <View style={styles.actionPanel}>
+          <Text style={styles.actionTitle}>Quick actions</Text>
+          <Link href="/(customer)/new-order" style={styles.primaryAction}>
+            Start new order
+          </Link>
+          <View style={styles.actionGrid}>
+            <Link href="/(customer)/my-orders" style={styles.secondaryAction}>
+              View orders
+            </Link>
+            <Link href="/(customer)/profile-summary" style={styles.secondaryAction}>
+              Profile summary
+            </Link>
+            <Link href="/(customer)/preferences" style={styles.secondaryAction}>
+              Preferences
+            </Link>
+          </View>
+        </View>
       </View>
     </Screen>
   );
@@ -177,7 +182,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
   },
-  action: {
+  actionPanel: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: spacing.sm,
+    padding: spacing.md,
+  },
+  actionTitle: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  primaryAction: {
     backgroundColor: colors.primary,
     borderRadius: 8,
     color: colors.onPrimary,
@@ -186,10 +204,23 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     textAlign: "center",
   },
-  secondary: {
-    color: colors.primary,
-    fontSize: 17,
-    fontWeight: "700",
+  actionGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  secondaryAction: {
+    backgroundColor: "#F8FAFC",
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    color: colors.text,
+    flexGrow: 1,
+    fontSize: 16,
+    fontWeight: "800",
+    minWidth: 160,
+    padding: spacing.md,
+    textAlign: "center",
   },
   dashboardGrid: {
     flexDirection: "row",

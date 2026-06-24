@@ -30,6 +30,15 @@ export type CustomerProfileSummary = {
   phone: string;
   email: string;
   defaultAddress: AddressInput;
+  paymentMethod: CustomerPaymentMethod;
+};
+
+export type CustomerPaymentMethod = {
+  cardholderName: string;
+  brand: string;
+  last4: string;
+  expirationMonth: string;
+  expirationYear: string;
 };
 
 export type CustomerLaundryPreferences = {
@@ -50,6 +59,13 @@ const defaultCustomerAddress: AddressInput = {
   state: "NY",
   postalCode: "11231",
   deliveryInstructions: "Text when outside. Laundry bags are by the front door.",
+};
+const defaultPaymentMethod: CustomerPaymentMethod = {
+  cardholderName: "",
+  brand: "",
+  last4: "",
+  expirationMonth: "",
+  expirationYear: "",
 };
 const demoCustomerProfileStorageKey = "laundryapp.demo.customerProfile.v1";
 const demoLaundryPreferencesStorageKey = "laundryapp.demo.laundryPreferences.v1";
@@ -86,6 +102,22 @@ function mapUserProfile(id: string, data: DocumentData): AppUser {
   };
 }
 
+function normalizePaymentMethod(
+  paymentMethod: Partial<CustomerPaymentMethod> | undefined,
+) {
+  return {
+    cardholderName: paymentMethod?.cardholderName?.trim() ?? "",
+    brand: paymentMethod?.brand?.trim() ?? "",
+    last4: (paymentMethod?.last4 ?? "").replace(/\D/g, "").slice(-4),
+    expirationMonth: (paymentMethod?.expirationMonth ?? "")
+      .replace(/\D/g, "")
+      .slice(0, 2),
+    expirationYear: (paymentMethod?.expirationYear ?? "")
+      .replace(/\D/g, "")
+      .slice(0, 4),
+  };
+}
+
 export async function getUserProfile(userId: string) {
   if (shouldUseDemoBackend) {
     return Object.values(demoUsers).find((user) => user.id === userId) ?? null;
@@ -107,7 +139,15 @@ export async function getCustomerProfileSummary(userId: string) {
 
     if (storedProfile) {
       try {
-        return JSON.parse(storedProfile) as CustomerProfileSummary;
+        const parsedProfile = JSON.parse(storedProfile) as Partial<CustomerProfileSummary>;
+
+        return {
+          displayName: parsedProfile.displayName ?? "",
+          phone: parsedProfile.phone ?? "",
+          email: parsedProfile.email ?? "",
+          defaultAddress: parsedProfile.defaultAddress ?? defaultCustomerAddress,
+          paymentMethod: normalizePaymentMethod(parsedProfile.paymentMethod),
+        };
       } catch {
         getStorage()?.removeItem(demoCustomerProfileStorageKey);
       }
@@ -120,12 +160,17 @@ export async function getCustomerProfileSummary(userId: string) {
       phone: user.phone,
       email: user.email,
       defaultAddress: defaultCustomerAddress,
+      paymentMethod: defaultPaymentMethod,
     };
   }
 
   const db = getFirebaseFirestore();
   const user = await getUserProfile(userId);
   const addressSnapshot = await getDoc(doc(db, "addresses", `${userId}-default`));
+  const customerProfileSnapshot = await getDoc(doc(db, "customerProfiles", userId));
+  const customerProfileData = customerProfileSnapshot.data() as
+    | { paymentMethod?: Partial<CustomerPaymentMethod> }
+    | undefined;
 
   return {
     displayName: user?.displayName ?? "",
@@ -142,6 +187,7 @@ export async function getCustomerProfileSummary(userId: string) {
           postalCode: "",
           deliveryInstructions: "",
         },
+    paymentMethod: normalizePaymentMethod(customerProfileData?.paymentMethod),
   };
 }
 
@@ -157,6 +203,7 @@ export async function saveCustomerProfileSummary(
     displayName: profile.displayName.trim(),
     phone: profile.phone.trim(),
     email: profile.email.trim(),
+    paymentMethod: normalizePaymentMethod(profile.paymentMethod),
     defaultAddress: {
       ...profile.defaultAddress,
       label: profile.defaultAddress.label.trim() || "Home",
@@ -195,6 +242,7 @@ export async function saveCustomerProfileSummary(
     {
       userId,
       defaultAddressId: `${userId}-default`,
+      paymentMethod: normalizedProfile.paymentMethod,
       updatedAt: serverTimestamp(),
     },
     { merge: true },

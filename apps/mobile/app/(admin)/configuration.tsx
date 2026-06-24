@@ -1,10 +1,18 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 import { AppButton } from "@/components/AppButton";
 import { FormTextInput } from "@/components/FormTextInput";
 import { Screen } from "@/components/Screen";
 import { useAuth } from "@/context/AuthContext";
+import { addOnCategories, getAddOnCategoryId } from "@/data/addOnCategories";
 import { defaultBusinessSettings } from "@/data/serviceCatalog";
 import { recordAuditLog } from "@/services/auditLogService";
 import {
@@ -230,6 +238,7 @@ function summarizeConfigurationChanges(
       active: item.active,
       requiresOwnerConfirmation: item.requiresOwnerConfirmation,
       sortOrder: item.sortOrder,
+      category: getAddOnCategoryId(item),
     })),
     ...summarizeCatalogChanges(
       "Comforter sizes",
@@ -435,6 +444,7 @@ export default function AdminConfigurationScreen() {
         active: true,
         requiresOwnerConfirmation: false,
         sortOrder: current.length + 1,
+        category: "extras",
       },
     ]);
   }
@@ -468,6 +478,16 @@ export default function AdminConfigurationScreen() {
     )
     .map((weekday) => weekday.label)
     .join(", ");
+  const categorizedAddOns = useMemo(
+    () =>
+      addOnCategories
+        .map((category) => ({
+          ...category,
+          items: addOns.filter((addOn) => getAddOnCategoryId(addOn) === category.id),
+        }))
+        .filter((category) => category.items.length > 0),
+    [addOns],
+  );
 
   return (
     <Screen scrollViewRef={scrollViewRef}>
@@ -851,111 +871,176 @@ export default function AdminConfigurationScreen() {
             </View>
             <AppButton label="Create add-on" onPress={addNewAddOn} variant="secondary" />
           </View>
-          {addOns.map((addOn, index) => (
-            <View key={addOn.id} style={styles.catalogCard}>
-              <View style={styles.catalogHeader}>
-                <View style={styles.catalogTitleBlock}>
-                  <Text style={styles.itemTitle}>{addOn.name}</Text>
-                  <Text style={styles.itemMeta}>
-                    {addOn.requiresOwnerConfirmation
-                      ? "Owner confirms price"
-                      : addOn.price === null
-                        ? "No fixed price"
-                        : `$${addOn.price.toFixed(2)}`}
-                  </Text>
-                </View>
-                <Text
-                  style={[
-                    styles.statusChip,
-                    addOn.active ? styles.statusChipActive : styles.statusChipInactive,
-                  ]}
-                >
-                  {addOn.active ? "Active" : "Inactive"}
-                </Text>
+          {categorizedAddOns.map((category) => (
+            <View key={category.id} style={styles.catalogGroup}>
+              <View style={styles.catalogGroupHeader}>
+                <Text style={styles.catalogGroupTitle}>{category.title}</Text>
+                <Text style={styles.muted}>{category.description}</Text>
               </View>
-              <FormTextInput
-                label="Name"
-                onChangeText={(name) =>
-                  setAddOns((current) =>
-                    current.map((item) => (item.id === addOn.id ? { ...item, name } : item)),
-                  )
-                }
-                value={addOn.name}
-              />
-              <FormTextInput
-                label="Description"
-                onChangeText={(description) =>
-                  setAddOns((current) =>
-                    current.map((item) =>
-                      item.id === addOn.id ? { ...item, description } : item,
-                    ),
-                  )
-                }
-                value={addOn.description}
-              />
-              <FormTextInput
-                keyboardType="decimal-pad"
-                label="Price"
-                onChangeText={(value) =>
-                  setAddOns((current) =>
-                    current.map((item) =>
-                      item.id === addOn.id
-                        ? { ...item, price: parseOptionalPrice(value) }
-                        : item,
-                    ),
-                  )
-                }
-                placeholder="Owner confirms"
-                value={addOn.price?.toString() ?? ""}
-              />
-              <View style={styles.row}>
-                <View style={styles.rowItem}>
-                  <AppButton
-                    label={addOn.active ? "Deactivate" : "Activate"}
-                    onPress={() =>
-                      setAddOns((current) =>
-                        current.map((item) =>
-                          item.id === addOn.id ? { ...item, active: !item.active } : item,
-                        ),
-                      )
-                    }
-                    variant={addOn.active ? "secondary" : "primary"}
-                  />
-                </View>
-                <View style={styles.rowItem}>
-                  <AppButton
-                    label={addOn.requiresOwnerConfirmation ? "Owner confirms" : "Fixed price"}
-                    onPress={() =>
-                      setAddOns((current) =>
-                        current.map((item) =>
-                          item.id === addOn.id
-                            ? {
-                                ...item,
-                                requiresOwnerConfirmation:
-                                  !item.requiresOwnerConfirmation,
+              {category.items.map((addOn) => {
+                const originalIndex = addOns.findIndex((item) => item.id === addOn.id);
+                const activeCategory = getAddOnCategoryId(addOn);
+
+                return (
+                  <View key={addOn.id} style={styles.catalogCard}>
+                    <View style={styles.catalogHeader}>
+                      <View style={styles.catalogTitleBlock}>
+                        <Text style={styles.itemTitle}>{addOn.name}</Text>
+                        <Text style={styles.itemMeta}>
+                          {addOn.requiresOwnerConfirmation
+                            ? "Owner confirms price"
+                            : addOn.price === null
+                              ? "No fixed price"
+                              : `$${addOn.price.toFixed(2)}`}
+                        </Text>
+                      </View>
+                      <Text
+                        style={[
+                          styles.statusChip,
+                          addOn.active
+                            ? styles.statusChipActive
+                            : styles.statusChipInactive,
+                        ]}
+                      >
+                        {addOn.active ? "Active" : "Inactive"}
+                      </Text>
+                    </View>
+                    <View style={styles.categoryControl}>
+                      <Text style={styles.fieldLabel}>Customer menu category</Text>
+                      <View style={styles.categoryButtonGrid}>
+                        {addOnCategories.map((option) => {
+                          const selected = activeCategory === option.id;
+
+                          return (
+                            <Pressable
+                              accessibilityRole="button"
+                              key={option.id}
+                              onPress={() =>
+                                setAddOns((current) =>
+                                  current.map((item) =>
+                                    item.id === addOn.id
+                                      ? { ...item, category: option.id }
+                                      : item,
+                                  ),
+                                )
                               }
-                            : item,
-                        ),
-                      )
-                    }
-                    variant="secondary"
-                  />
-                </View>
-              </View>
-              <FormTextInput
-                keyboardType="number-pad"
-                label="Sort"
-                onChangeText={(value) =>
-                  setAddOns((current) =>
-                    current.map((item) =>
-                      item.id === addOn.id
-                        ? { ...item, sortOrder: Number.parseInt(value, 10) || index + 1 }
-                        : item,
-                    ),
-                  )
-                }
-                value={addOn.sortOrder.toString()}
-              />
+                              style={[
+                                styles.categoryButton,
+                                selected && styles.categoryButtonActive,
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.categoryButtonText,
+                                  selected && styles.categoryButtonTextActive,
+                                ]}
+                              >
+                                {option.title}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    </View>
+                    <FormTextInput
+                      label="Name"
+                      onChangeText={(name) =>
+                        setAddOns((current) =>
+                          current.map((item) =>
+                            item.id === addOn.id ? { ...item, name } : item,
+                          ),
+                        )
+                      }
+                      value={addOn.name}
+                    />
+                    <FormTextInput
+                      label="Description"
+                      onChangeText={(description) =>
+                        setAddOns((current) =>
+                          current.map((item) =>
+                            item.id === addOn.id ? { ...item, description } : item,
+                          ),
+                        )
+                      }
+                      value={addOn.description}
+                    />
+                    <FormTextInput
+                      keyboardType="decimal-pad"
+                      label="Price"
+                      onChangeText={(value) =>
+                        setAddOns((current) =>
+                          current.map((item) =>
+                            item.id === addOn.id
+                              ? { ...item, price: parseOptionalPrice(value) }
+                              : item,
+                          ),
+                        )
+                      }
+                      placeholder="Owner confirms"
+                      value={addOn.price?.toString() ?? ""}
+                    />
+                    <View style={styles.row}>
+                      <View style={styles.rowItem}>
+                        <AppButton
+                          label={addOn.active ? "Deactivate" : "Activate"}
+                          onPress={() =>
+                            setAddOns((current) =>
+                              current.map((item) =>
+                                item.id === addOn.id
+                                  ? { ...item, active: !item.active }
+                                  : item,
+                              ),
+                            )
+                          }
+                          variant={addOn.active ? "secondary" : "primary"}
+                        />
+                      </View>
+                      <View style={styles.rowItem}>
+                        <AppButton
+                          label={
+                            addOn.requiresOwnerConfirmation
+                              ? "Owner confirms"
+                              : "Fixed price"
+                          }
+                          onPress={() =>
+                            setAddOns((current) =>
+                              current.map((item) =>
+                                item.id === addOn.id
+                                  ? {
+                                      ...item,
+                                      requiresOwnerConfirmation:
+                                        !item.requiresOwnerConfirmation,
+                                    }
+                                  : item,
+                              ),
+                            )
+                          }
+                          variant="secondary"
+                        />
+                      </View>
+                    </View>
+                    <FormTextInput
+                      keyboardType="number-pad"
+                      label="Sort"
+                      onChangeText={(value) =>
+                        setAddOns((current) =>
+                          current.map((item) =>
+                            item.id === addOn.id
+                              ? {
+                                  ...item,
+                                  sortOrder:
+                                    Number.parseInt(value, 10) ||
+                                    (originalIndex >= 0 ? originalIndex + 1 : 1),
+                                }
+                              : item,
+                          ),
+                        )
+                      }
+                      value={addOn.sortOrder.toString()}
+                    />
+                  </View>
+                );
+              })}
             </View>
           ))}
         </View>
@@ -1276,6 +1361,22 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     padding: spacing.md,
   },
+  catalogGroup: {
+    gap: spacing.sm,
+  },
+  catalogGroupHeader: {
+    backgroundColor: "#F8FAFC",
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: spacing.xs,
+    padding: spacing.md,
+  },
+  catalogGroupTitle: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: "800",
+  },
   compactItem: {
     borderTopColor: colors.border,
     borderTopWidth: 1,
@@ -1308,6 +1409,41 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 13,
     fontWeight: "700",
+  },
+  categoryControl: {
+    gap: spacing.sm,
+  },
+  fieldLabel: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  categoryButtonGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  categoryButton: {
+    backgroundColor: "#F8FAFC",
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    minWidth: 132,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  categoryButtonActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  categoryButtonText: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  categoryButtonTextActive: {
+    color: colors.surface,
   },
   statusChip: {
     borderRadius: 8,

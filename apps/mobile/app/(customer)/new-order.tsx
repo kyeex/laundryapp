@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AppButton } from "@/components/AppButton";
 import { FormTextInput } from "@/components/FormTextInput";
@@ -8,6 +8,7 @@ import { Screen } from "@/components/Screen";
 import { SelectableOption } from "@/components/SelectableOption";
 import { useAuth } from "@/context/AuthContext";
 import { saveOrderDraft } from "@/data/orderDraftStore";
+import { addOnCategories, getAddOnCategoryId } from "@/data/addOnCategories";
 import { defaultBusinessSettings } from "@/data/serviceCatalog";
 import {
   calculateBillableLaundryWeight,
@@ -329,6 +330,19 @@ export default function NewOrderScreen() {
     parsedEstimatedWeight,
     pricingOptions,
   );
+
+  function adjustEstimatedWeight(delta: number) {
+    const currentWeight =
+      Number.isFinite(parsedEstimatedWeight) && parsedEstimatedWeight > 0
+        ? parsedEstimatedWeight
+        : businessSettings.deliveryMinimumPounds;
+    const nextWeight = Math.max(0, currentWeight + delta);
+
+    setEstimatedWeightPounds(
+      Number.isInteger(nextWeight) ? nextWeight.toString() : nextWeight.toFixed(1),
+    );
+  }
+
   const orderSubtotal = laundryEstimate + addOnsSubtotal + dryCleaningSubtotal;
   const parsedCustomGratuity = Number.parseFloat(customGratuityAmount);
   const gratuityAmount =
@@ -352,6 +366,16 @@ export default function NewOrderScreen() {
           isDateAfter(date.dateIso, scheduledPickupDate),
       })),
     [pickupCalendar, scheduledPickupDate],
+  );
+  const categorizedAddOns = useMemo(
+    () =>
+      addOnCategories
+        .map((category) => ({
+          ...category,
+          items: addOns.filter((addOn) => getAddOnCategoryId(addOn) === category.id),
+        }))
+        .filter((category) => category.items.length > 0),
+    [addOns],
   );
 
   useEffect(() => {
@@ -631,13 +655,35 @@ export default function NewOrderScreen() {
             minimum. Enter your best estimate now; the owner will confirm the
             final weight after pickup.
           </Text>
-          <FormTextInput
-            keyboardType="decimal-pad"
-            label="Estimated pounds"
-            onChangeText={setEstimatedWeightPounds}
-            placeholder="20"
-            value={estimatedWeightPounds}
-          />
+          <View style={styles.weightInputRow}>
+            <View style={styles.weightInputField}>
+              <FormTextInput
+                keyboardType="decimal-pad"
+                label="Estimated pounds"
+                onChangeText={setEstimatedWeightPounds}
+                placeholder="20"
+                value={estimatedWeightPounds}
+              />
+            </View>
+            <View style={styles.weightStepper}>
+              <Pressable
+                accessibilityLabel="Increase estimated pounds"
+                accessibilityRole="button"
+                onPress={() => adjustEstimatedWeight(1)}
+                style={styles.weightStepperButton}
+              >
+                <Text style={styles.weightStepperText}>↑</Text>
+              </Pressable>
+              <Pressable
+                accessibilityLabel="Decrease estimated pounds"
+                accessibilityRole="button"
+                onPress={() => adjustEstimatedWeight(-1)}
+                style={styles.weightStepperButton}
+              >
+                <Text style={styles.weightStepperText}>↓</Text>
+              </Pressable>
+            </View>
+          </View>
           <View style={styles.weightCounter}>
             <Text style={styles.counterLabel}>Laundry cost</Text>
             <Text style={styles.counterValue}>${laundryEstimate.toFixed(2)}</Text>
@@ -667,42 +713,93 @@ export default function NewOrderScreen() {
               </Text>
             </View>
           ) : null}
-          {addOns.map((addOn) => (
-            <View key={addOn.id} style={styles.optionGroup}>
-              <SelectableOption
-                description={addOn.description}
-                meta={
-                  addOn.id === "comforter"
-                    ? "Choose quantities"
-                    : formatPrice(addOn.price)
-                }
-                onPress={() => toggleAddOn(addOn.id)}
-                selected={selectedAddOnIds.includes(addOn.id)}
-                title={addOn.name}
-              />
-              {addOn.id !== "comforter" && selectedAddOnIds.includes(addOn.id)
-                ? renderQuantityControls(addOn.id)
-                : null}
-              {addOn.id === "comforter" && selectedAddOnIds.includes("comforter") ? (
-                <View style={styles.nestedOptions}>
-                  <Text style={styles.nestedTitle}>Comforter quantities</Text>
-                  {comforterSizes.map((size) => (
-                    <View style={styles.comforterSizeRow} key={size.id}>
-                      <View style={styles.comforterSizeText}>
-                        <Text style={styles.comforterSizeTitle}>{size.name}</Text>
-                        <Text style={styles.summaryMuted}>{size.description}</Text>
-                        <Text style={styles.summaryText}>
-                          ${size.price?.toFixed(2)} each
+          {categorizedAddOns.map((category) => (
+            <View key={category.id} style={styles.menuCategory}>
+              <View style={styles.menuCategoryHeader}>
+                <Text style={styles.menuCategoryTitle}>{category.title}</Text>
+                <Text style={styles.menuCategoryDescription}>
+                  {category.description}
+                </Text>
+              </View>
+              <View style={styles.menuGrid}>
+                {category.items.map((addOn) => {
+                  const selected = selectedAddOnIds.includes(addOn.id);
+                  const priceLabel =
+                    addOn.id === "comforter" ? "Choose sizes" : formatPrice(addOn.price);
+
+                  return (
+                    <View key={addOn.id} style={styles.menuItemWrapper}>
+                      <Pressable
+                        accessibilityRole="button"
+                        onPress={() => toggleAddOn(addOn.id)}
+                        style={[styles.menuItem, selected && styles.menuItemSelected]}
+                      >
+                        <View style={styles.menuItemHeader}>
+                          <Text
+                            style={[
+                              styles.menuItemTitle,
+                              selected && styles.menuItemTitleSelected,
+                            ]}
+                          >
+                            {addOn.name}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.menuItemPrice,
+                              selected && styles.menuItemPriceSelected,
+                            ]}
+                          >
+                            {priceLabel}
+                          </Text>
+                        </View>
+                        <Text
+                          style={[
+                            styles.menuItemDescription,
+                            selected && styles.menuItemDescriptionSelected,
+                          ]}
+                        >
+                          {addOn.description}
                         </Text>
-                      </View>
-                      {renderComforterQuantityControls(size.id)}
+                        <Text
+                          style={[
+                            styles.menuItemAction,
+                            selected && styles.menuItemActionSelected,
+                          ]}
+                        >
+                          {selected ? "Selected" : "Tap to add"}
+                        </Text>
+                      </Pressable>
+                      {addOn.id !== "comforter" && selected
+                        ? renderQuantityControls(addOn.id)
+                        : null}
+                      {addOn.id === "comforter" && selected ? (
+                        <View style={styles.nestedOptions}>
+                          <Text style={styles.nestedTitle}>Comforter quantities</Text>
+                          {comforterSizes.map((size) => (
+                            <View style={styles.comforterSizeRow} key={size.id}>
+                              <View style={styles.comforterSizeText}>
+                                <Text style={styles.comforterSizeTitle}>
+                                  {size.name}
+                                </Text>
+                                <Text style={styles.summaryMuted}>
+                                  {size.description}
+                                </Text>
+                                <Text style={styles.summaryText}>
+                                  ${size.price?.toFixed(2)} each
+                                </Text>
+                              </View>
+                              {renderComforterQuantityControls(size.id)}
+                            </View>
+                          ))}
+                          <Text style={styles.summaryMuted}>
+                            Add the exact mix you need, like 2 full, 1 queen, and 0 king.
+                          </Text>
+                        </View>
+                      ) : null}
                     </View>
-                  ))}
-                  <Text style={styles.summaryMuted}>
-                    Add the exact mix you need, like 2 full, 1 queen, and 0 king.
-                  </Text>
-                </View>
-              ) : null}
+                  );
+                })}
+              </View>
             </View>
           ))}
         </View>
@@ -742,12 +839,6 @@ export default function NewOrderScreen() {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Customer address</Text>
-          <FormTextInput
-            label="Label"
-            onChangeText={(value) => updateAddress("label", value)}
-            placeholder="Home"
-            value={address.label}
-          />
           <FormTextInput
             label="Street address"
             onChangeText={(value) => updateAddress("street1", value)}
@@ -1098,6 +1189,87 @@ const styles = StyleSheet.create({
   optionGroup: {
     gap: spacing.sm,
   },
+  menuCategory: {
+    gap: spacing.sm,
+  },
+  menuCategoryHeader: {
+    gap: spacing.xs,
+    paddingTop: spacing.xs,
+  },
+  menuCategoryTitle: {
+    color: colors.text,
+    fontSize: 17,
+    fontWeight: "800",
+  },
+  menuCategoryDescription: {
+    color: colors.muted,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  menuGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  menuItemWrapper: {
+    flexGrow: 1,
+    gap: spacing.sm,
+    minWidth: 240,
+  },
+  menuItem: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: spacing.sm,
+    minHeight: 132,
+    padding: spacing.md,
+  },
+  menuItemSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  menuItemHeader: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    gap: spacing.sm,
+    justifyContent: "space-between",
+  },
+  menuItemTitle: {
+    color: colors.text,
+    flex: 1,
+    fontSize: 16,
+    fontWeight: "800",
+    lineHeight: 21,
+  },
+  menuItemTitleSelected: {
+    color: colors.onPrimary,
+  },
+  menuItemPrice: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  menuItemPriceSelected: {
+    color: colors.onPrimary,
+  },
+  menuItemDescription: {
+    color: colors.muted,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  menuItemDescriptionSelected: {
+    color: "#D1FAE5",
+  },
+  menuItemAction: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  menuItemActionSelected: {
+    color: colors.onPrimary,
+  },
   nestedOptions: {
     borderColor: colors.border,
     borderLeftWidth: 3,
@@ -1170,6 +1342,36 @@ const styles = StyleSheet.create({
     minHeight: 96,
     paddingTop: spacing.md,
     textAlignVertical: "top",
+  },
+  weightInputRow: {
+    alignItems: "flex-end",
+    flexDirection: "row",
+    gap: spacing.sm,
+  },
+  weightInputField: {
+    flex: 1,
+    minWidth: 180,
+  },
+  weightStepper: {
+    flexDirection: "row",
+    gap: spacing.xs,
+    paddingBottom: 1,
+  },
+  weightStepperButton: {
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    height: 52,
+    justifyContent: "center",
+    width: 52,
+  },
+  weightStepperText: {
+    color: colors.text,
+    fontSize: 22,
+    fontWeight: "800",
+    lineHeight: 24,
   },
   weightCounter: {
     backgroundColor: colors.surface,

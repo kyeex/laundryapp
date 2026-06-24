@@ -10,6 +10,10 @@ import {
   confirmOrderPayment,
   createOrderPaymentIntent,
 } from "@/services/paymentService";
+import {
+  getCustomerProfileSummary,
+  type CustomerPaymentMethod,
+} from "@/services/profileService";
 import { initializeAndPresentPaymentSheet } from "@/services/stripePaymentSheet";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
@@ -19,6 +23,7 @@ export default function CustomerPayOrderScreen() {
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
   const { currentUser } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<CustomerPaymentMethod | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -33,8 +38,12 @@ export default function CustomerPayOrderScreen() {
     setIsLoading(true);
 
     try {
-      const customerOrder = await getCustomerOrderById(currentUser.id, orderId);
+      const [customerOrder, profile] = await Promise.all([
+        getCustomerOrderById(currentUser.id, orderId),
+        getCustomerProfileSummary(currentUser.id),
+      ]);
       setOrder(customerOrder);
+      setPaymentMethod(profile.paymentMethod);
     } catch (loadError) {
       const message =
         loadError instanceof Error
@@ -80,6 +89,9 @@ export default function CustomerPayOrderScreen() {
 
   const canPay =
     Boolean(order?.finalPrice) && order?.paymentStatus !== "paid" && !isPaying;
+  const hasSavedPaymentMethod = Boolean(
+    paymentMethod?.brand && paymentMethod.last4 && paymentMethod.expirationMonth,
+  );
 
   return (
     <Screen>
@@ -118,9 +130,35 @@ export default function CustomerPayOrderScreen() {
               </Text>
             </View>
 
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Payment method</Text>
+              {hasSavedPaymentMethod ? (
+                <>
+                  <Text style={styles.value}>
+                    {paymentMethod?.brand} ending in {paymentMethod?.last4}
+                  </Text>
+                  <Text style={styles.muted}>
+                    Expires {paymentMethod?.expirationMonth}/
+                    {paymentMethod?.expirationYear || "YYYY"}
+                  </Text>
+                </>
+              ) : (
+                <Text style={styles.muted}>
+                  No saved payment method yet. Add one from Customer Profile
+                  Summary, or continue with card checkout.
+                </Text>
+              )}
+            </View>
+
             <AppButton
               disabled={!canPay}
-              label={isPaying ? "Opening payment..." : "Pay with card"}
+              label={
+                isPaying
+                  ? "Opening payment..."
+                  : hasSavedPaymentMethod
+                    ? "Pay with saved method"
+                    : "Pay with card"
+              }
               onPress={handlePay}
             />
           </>
@@ -165,6 +203,12 @@ const styles = StyleSheet.create({
   muted: {
     color: colors.muted,
     fontSize: 15,
+    lineHeight: 22,
+  },
+  value: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: "800",
     lineHeight: 22,
   },
   error: {

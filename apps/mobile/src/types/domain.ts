@@ -40,6 +40,8 @@ export type Service = {
   sortOrder: number;
 };
 
+export type AddOnCategory = "washers" | "detergent" | "drying" | "extras";
+
 export type AddOn = {
   id: string;
   name: string;
@@ -48,6 +50,7 @@ export type AddOn = {
   active: boolean;
   requiresOwnerConfirmation: boolean;
   sortOrder: number;
+  category?: AddOnCategory;
   quantity?: number;
 };
 
