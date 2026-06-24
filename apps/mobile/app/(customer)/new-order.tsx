@@ -135,6 +135,8 @@ export default function NewOrderScreen() {
   const [finalReviewY, setFinalReviewY] = useState<number | null>(null);
   const [isFinalReviewVisible, setIsFinalReviewVisible] = useState(false);
   const [isLoadingConfig, setIsLoadingConfig] = useState(true);
+  const [showAllDropoffDates, setShowAllDropoffDates] = useState(false);
+  const [showAllPickupDates, setShowAllPickupDates] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -378,6 +380,24 @@ export default function NewOrderScreen() {
       })),
     [pickupCalendar, scheduledPickupDate],
   );
+  const visiblePickupCalendar = useMemo(() => {
+    const firstWeek = pickupCalendar.slice(0, 7);
+    const selectedIsHidden = Boolean(
+      scheduledPickupDate &&
+        !firstWeek.some((date) => date.dateIso === scheduledPickupDate),
+    );
+
+    return showAllPickupDates || selectedIsHidden ? pickupCalendar : firstWeek;
+  }, [pickupCalendar, scheduledPickupDate, showAllPickupDates]);
+  const visibleDropoffCalendar = useMemo(() => {
+    const firstWeek = dropoffCalendar.slice(0, 7);
+    const selectedIsHidden = Boolean(
+      scheduledDropoffDate &&
+        !firstWeek.some((date) => date.dateIso === scheduledDropoffDate),
+    );
+
+    return showAllDropoffDates || selectedIsHidden ? dropoffCalendar : firstWeek;
+  }, [dropoffCalendar, scheduledDropoffDate, showAllDropoffDates]);
   const categorizedAddOns = useMemo(
     () =>
       addOnCategories
@@ -711,69 +731,135 @@ export default function NewOrderScreen() {
               </Text>
             </View>
           ) : null}
-          {services.map((service) => (
-            <SelectableOption
-              description={service.description}
-              key={service.id}
-              onPress={() => selectService(service.id)}
-              selected={selectedServiceIds.includes(service.id)}
-              title={service.name}
-            />
-          ))}
+          <View style={styles.serviceGrid}>
+            {services.map((service) => {
+              const selected = selectedServiceIds.includes(service.id);
+
+              return (
+                <Pressable
+                  accessibilityRole="button"
+                  key={service.id}
+                  onPress={() => selectService(service.id)}
+                  style={[styles.serviceCard, selected && styles.serviceCardSelected]}
+                >
+                  <View style={styles.serviceCardHeader}>
+                    <Text
+                      style={[
+                        styles.serviceCardTitle,
+                        selected && styles.serviceCardTitleSelected,
+                      ]}
+                    >
+                      {service.name}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.serviceCardBadge,
+                        selected && styles.serviceCardBadgeSelected,
+                      ]}
+                    >
+                      {selected ? "Selected" : "Choose"}
+                    </Text>
+                  </View>
+                  <Text
+                    style={[
+                      styles.serviceCardDescription,
+                      selected && styles.serviceCardDescriptionSelected,
+                    ]}
+                  >
+                    {service.description}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Estimated weight</Text>
-          <Text style={styles.muted}>
-            Laundry is priced at ${businessSettings.laundryPricePerPound.toFixed(2)} per
-            pound. Delivery orders have a {businessSettings.deliveryMinimumPounds} lb
-            minimum. Enter your best estimate now; the owner will confirm the
-            final weight after pickup.
-          </Text>
-          <View style={styles.weightInputRow}>
-            <View style={styles.weightInputField}>
-              <FormTextInput
-                keyboardType="decimal-pad"
-                label="Estimated pounds"
-                onChangeText={setEstimatedWeightPounds}
-                placeholder="20"
-                value={estimatedWeightPounds}
-              />
-            </View>
-            <View style={styles.weightStepper}>
-              <Pressable
-                accessibilityLabel="Increase estimated pounds"
-                accessibilityRole="button"
-                onPress={() => adjustEstimatedWeight(1)}
-                style={styles.weightStepperButton}
-              >
-                <Text style={styles.weightStepperText}>↑</Text>
-              </Pressable>
-              <Pressable
-                accessibilityLabel="Decrease estimated pounds"
-                accessibilityRole="button"
-                onPress={() => adjustEstimatedWeight(-1)}
-                style={styles.weightStepperButton}
-              >
-                <Text style={styles.weightStepperText}>↓</Text>
-              </Pressable>
-            </View>
-          </View>
-          <View style={styles.weightCounter}>
-            <Text style={styles.counterLabel}>Laundry cost by weight</Text>
-            <Text style={styles.counterValue}>${laundryEstimate.toFixed(2)}</Text>
-            <Text style={styles.counterMeta}>
-              {Number.isFinite(parsedEstimatedWeight) && parsedEstimatedWeight > 0
-                ? `${billableLaundryWeight.toFixed(1)} billable lb x $${businessSettings.laundryPricePerPound.toFixed(2)}/lb`
-                : "Enter pounds to preview the wash-and-fold cost."}
-            </Text>
-            {Number.isFinite(parsedEstimatedWeight) &&
-            parsedEstimatedWeight > 0 &&
-            parsedEstimatedWeight < businessSettings.deliveryMinimumPounds ? (
-              <Text style={styles.counterMeta}>
-                {businessSettings.deliveryMinimumPounds} lb delivery minimum applies.
+        <View style={styles.weightSection}>
+          <View style={styles.weightLayout}>
+            <View style={styles.weightCard}>
+              <Text style={styles.weightEyebrow}>Estimated weight</Text>
+              <Text style={styles.weightTitle}>How many pounds?</Text>
+              <Text style={styles.weightDescription}>
+                ${businessSettings.laundryPricePerPound.toFixed(2)}/lb with a{" "}
+                {businessSettings.deliveryMinimumPounds} lb delivery minimum.
               </Text>
-            ) : null}
+              <View style={styles.weightInputRow}>
+                <View style={styles.weightInputField}>
+                  <FormTextInput
+                    keyboardType="decimal-pad"
+                    label="Estimated pounds"
+                    onChangeText={setEstimatedWeightPounds}
+                    placeholder="20"
+                    value={estimatedWeightPounds}
+                  />
+                </View>
+                <View style={styles.weightStepper}>
+                  <Pressable
+                    accessibilityLabel="Increase estimated pounds"
+                    accessibilityRole="button"
+                    onPress={() => adjustEstimatedWeight(1)}
+                    style={styles.weightStepperButton}
+                  >
+                    <Text style={styles.weightStepperText}>+</Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityLabel="Decrease estimated pounds"
+                    accessibilityRole="button"
+                    onPress={() => adjustEstimatedWeight(-1)}
+                    style={styles.weightStepperButton}
+                  >
+                    <Text style={styles.weightStepperText}>-</Text>
+                  </Pressable>
+                </View>
+              </View>
+              <View style={styles.weightCostCard}>
+                <Text style={styles.counterLabel}>Laundry cost by weight</Text>
+                <Text style={styles.weightCostValue}>
+                  ${laundryEstimate.toFixed(2)}
+                </Text>
+                <Text style={styles.weightCostMeta}>
+                  {Number.isFinite(parsedEstimatedWeight) && parsedEstimatedWeight > 0
+                    ? `${billableLaundryWeight.toFixed(1)} billable lb x $${businessSettings.laundryPricePerPound.toFixed(2)}/lb`
+                    : "Enter pounds to preview the wash-and-fold cost."}
+                </Text>
+                {Number.isFinite(parsedEstimatedWeight) &&
+                parsedEstimatedWeight > 0 &&
+                parsedEstimatedWeight < businessSettings.deliveryMinimumPounds ? (
+                  <Text style={styles.weightCostMeta}>
+                    {businessSettings.deliveryMinimumPounds} lb delivery minimum applies.
+                  </Text>
+                ) : null}
+              </View>
+            </View>
+            <View style={styles.weightVisualCard}>
+              <View style={styles.deliveryScene}>
+                <View style={styles.deliverySkyline}>
+                  <View style={styles.deliveryBuildingTall} />
+                  <View style={styles.deliveryBuildingShort} />
+                  <View style={styles.deliveryBuildingMid} />
+                </View>
+                <View style={styles.deliveryRouteLine} />
+                <View style={styles.deliveryTruck}>
+                  <View style={styles.deliveryTruckCab} />
+                  <View style={styles.deliveryTruckBox}>
+                    <Text style={styles.deliveryTruckText}>Laundry</Text>
+                  </View>
+                  <View style={styles.deliveryTruckWheelLeft} />
+                  <View style={styles.deliveryTruckWheelRight} />
+                </View>
+                <View style={styles.laundryBag}>
+                  <View style={styles.laundryBagHandle} />
+                  <Text style={styles.laundryBagText}>20 lb</Text>
+                </View>
+              </View>
+              <View style={styles.deliveryVisualCopy}>
+                <Text style={styles.deliveryVisualTitle}>Pickup to delivery</Text>
+                <Text style={styles.deliveryVisualText}>
+                  Estimate the bag weight now. The owner confirms the final
+                  weight after pickup.
+                </Text>
+              </View>
+            </View>
           </View>
         </View>
 
@@ -912,190 +998,401 @@ export default function NewOrderScreen() {
           </View>
         ) : null}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Customer address</Text>
-          <FormTextInput
-            label="Street address"
-            onChangeText={(value) => updateAddress("street1", value)}
-            placeholder="123 Main St"
-            value={address.street1}
-          />
-          <FormTextInput
-            label="Apt, suite, unit"
-            onChangeText={(value) => updateAddress("street2", value)}
-            placeholder="Apt 2B"
-            value={address.street2}
-          />
-          <View style={styles.row}>
-            <View style={styles.rowItem}>
-              <FormTextInput
-                label="City"
-                onChangeText={(value) => updateAddress("city", value)}
-                placeholder="City"
-                value={address.city}
-              />
+        <View style={styles.addressSection}>
+          <View style={styles.addressCard}>
+            <View style={styles.addressHeader}>
+              <View style={styles.addressHeaderCopy}>
+                <Text style={styles.addressEyebrow}>Pickup details</Text>
+                <Text style={styles.addressTitle}>Customer address</Text>
+                <Text style={styles.addressDescription}>
+                  Use the address where the laundry should be picked up and returned.
+                </Text>
+              </View>
             </View>
-            <View style={styles.shortItem}>
-              <FormTextInput
-                autoCapitalize="characters"
-                label="State"
-                maxLength={2}
-                onChangeText={(value) => updateAddress("state", value)}
-                placeholder="NY"
-                value={address.state}
-              />
-            </View>
-          </View>
-          <FormTextInput
-            keyboardType="number-pad"
-            label="ZIP code"
-            onChangeText={(value) => updateAddress("postalCode", value)}
-            placeholder="10001"
-            value={address.postalCode}
-          />
-          <FormTextInput
-            label="Delivery instructions"
-            multiline
-            onChangeText={(value) => updateAddress("deliveryInstructions", value)}
-            placeholder="Gate code, concierge, porch notes..."
-            style={styles.textArea}
-            value={address.deliveryInstructions}
-          />
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Pickup schedule</Text>
-          <Text style={styles.muted}>
-            Select an available pickup date from the next two weeks. Unavailable
-            days are controlled by the owner.
-          </Text>
-          <View style={styles.calendarGrid}>
-            {pickupCalendar.map((date) => (
-              <View key={date.dateIso} style={styles.calendarItem}>
-                <SelectableOption
-                  disabled={!date.available}
-                  meta={date.available ? "Available" : "Unavailable"}
-                  onPress={() => setScheduledPickupDate(date.dateIso)}
-                  selected={scheduledPickupDate === date.dateIso}
-                  title={date.label}
+            <View style={styles.addressFields}>
+              <View style={styles.addressPrimaryRow}>
+                <FormTextInput
+                  label="Street address"
+                  onChangeText={(value) => updateAddress("street1", value)}
+                  placeholder="123 Main St"
+                  value={address.street1}
+                />
+                <FormTextInput
+                  label="Apt, suite, unit"
+                  onChangeText={(value) => updateAddress("street2", value)}
+                  placeholder="Apt 2B"
+                  value={address.street2}
                 />
               </View>
-            ))}
-          </View>
-          {pickupCalendar.some((date) => date.available) ? (
-            <Text style={styles.summaryMuted}>
-              Selected pickup date:{" "}
-              {scheduledPickupDate ? formatDisplayDate(scheduledPickupDate) : "Choose a date"}
-            </Text>
-          ) : (
-            <Text style={styles.error}>
-              No pickup dates are available. The owner can reopen dates in Business
-              Configuration, or the customer should contact the laundromat.
-            </Text>
-          )}
-          <View style={styles.optionGrid}>
-            {pickupWindows.map((window) => (
-              <SelectableOption
-                key={window.id}
-                onPress={() => setScheduledPickupWindow(window.label)}
-                selected={scheduledPickupWindow === window.label}
-                title={window.label}
-              />
-            ))}
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Drop-off schedule</Text>
-          <Text style={styles.muted}>
-            Choose when the cleaned order should be dropped off. Drop-off must
-            be after the pickup date and within the next two weeks.
-          </Text>
-          <View style={styles.calendarGrid}>
-            {dropoffCalendar.map((date) => (
-              <View key={date.dateIso} style={styles.calendarItem}>
-                <SelectableOption
-                  disabled={!date.available}
-                  meta={date.available ? "Available" : "Unavailable"}
-                  onPress={() => setScheduledDropoffDate(date.dateIso)}
-                  selected={scheduledDropoffDate === date.dateIso}
-                  title={date.label}
-                />
+              <View style={styles.addressLocationRow}>
+                <View style={styles.addressCityField}>
+                  <FormTextInput
+                    label="City"
+                    onChangeText={(value) => updateAddress("city", value)}
+                    placeholder="City"
+                    value={address.city}
+                  />
+                </View>
+                <View style={styles.addressStateField}>
+                  <FormTextInput
+                    autoCapitalize="characters"
+                    label="State"
+                    maxLength={2}
+                    onChangeText={(value) => updateAddress("state", value)}
+                    placeholder="NY"
+                    value={address.state}
+                  />
+                </View>
+                <View style={styles.addressZipField}>
+                  <FormTextInput
+                    keyboardType="number-pad"
+                    label="ZIP code"
+                    onChangeText={(value) => updateAddress("postalCode", value)}
+                    placeholder="10001"
+                    value={address.postalCode}
+                  />
+                </View>
               </View>
-            ))}
-          </View>
-          {dropoffCalendar.some((date) => date.available) ? (
-            <Text style={styles.summaryMuted}>
-              Selected drop-off date:{" "}
-              {scheduledDropoffDate ? formatDisplayDate(scheduledDropoffDate) : "Choose a date"}
-            </Text>
-          ) : (
-            <Text style={styles.error}>
-              No drop-off dates are available after the selected pickup date. Choose
-              an earlier pickup date, or ask the owner to update service availability.
-            </Text>
-          )}
-          <View style={styles.optionGrid}>
-            {pickupWindows.map((window) => (
-              <SelectableOption
-                key={window.id}
-                onPress={() => setScheduledDropoffWindow(window.label)}
-                selected={scheduledDropoffWindow === window.label}
-                title={window.label}
+              <FormTextInput
+                label="Delivery instructions"
+                multiline
+                onChangeText={(value) => updateAddress("deliveryInstructions", value)}
+                placeholder="Gate code, concierge, porch notes..."
+                style={styles.addressTextArea}
+                value={address.deliveryInstructions}
               />
-            ))}
+            </View>
           </View>
-          <FormTextInput
-            label="Laundry notes"
-            multiline
-            onChangeText={setCustomerNotes}
-            placeholder="Detergent preferences, item notes, pickup details..."
-            style={styles.textArea}
-            value={customerNotes}
-          />
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Gratuity</Text>
-          <Text style={styles.muted}>
-            Add an optional gratuity for the driver or service team. Suggested
-            amounts are based on the current order subtotal.
-          </Text>
-          <View style={styles.optionGrid}>
+        <View style={styles.scheduleCard}>
+          <View style={styles.scheduleHeader}>
+            <View style={styles.scheduleHeaderCopy}>
+              <Text style={styles.scheduleEyebrow}>Step 1</Text>
+              <Text style={styles.scheduleTitle}>Pickup schedule</Text>
+              <Text style={styles.scheduleDescription}>
+                Choose an available pickup date from the next two weeks.
+              </Text>
+            </View>
+            <View style={styles.scheduleSummary}>
+              <Text style={styles.scheduleSummaryLabel}>Selected pickup</Text>
+              <Text style={styles.scheduleSummaryValue}>
+                {scheduledPickupDate
+                  ? formatDisplayDate(scheduledPickupDate)
+                  : "Choose date"}
+              </Text>
+              <Text style={styles.scheduleSummaryMeta}>
+                {scheduledPickupWindow || "Choose time"}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.schedulePanel}>
+            <Text style={styles.schedulePanelTitle}>Date</Text>
+            <View style={styles.scheduleDateGrid}>
+              {visiblePickupCalendar.map((date) => {
+                const selected = scheduledPickupDate === date.dateIso;
+
+                return (
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={!date.available}
+                    key={date.dateIso}
+                    onPress={() => setScheduledPickupDate(date.dateIso)}
+                    style={[
+                      styles.scheduleDateButton,
+                      selected && styles.scheduleDateButtonSelected,
+                      !date.available && styles.scheduleDateButtonDisabled,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.scheduleDateDay,
+                        selected && styles.scheduleDateTextSelected,
+                        !date.available && styles.scheduleDateTextDisabled,
+                      ]}
+                    >
+                      {date.dayName}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.scheduleDateText,
+                        selected && styles.scheduleDateTextSelected,
+                        !date.available && styles.scheduleDateTextDisabled,
+                      ]}
+                    >
+                      {formatDisplayDate(date.dateIso)}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.scheduleDateStatus,
+                        selected && styles.scheduleDateTextSelected,
+                        !date.available && styles.scheduleDateTextDisabled,
+                      ]}
+                    >
+                      {date.available ? "Open" : "Closed"}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            {pickupCalendar.length > 7 ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setShowAllPickupDates((current) => !current)}
+                style={styles.scheduleRevealButton}
+              >
+                <Text style={styles.scheduleRevealText}>
+                  {showAllPickupDates
+                    ? "Show fewer dates"
+                    : `Show ${pickupCalendar.length - 7} more dates`}
+                </Text>
+              </Pressable>
+            ) : null}
+            {!pickupCalendar.some((date) => date.available) ? (
+              <Text style={styles.error}>
+                No pickup dates are available. The owner can reopen dates in Business
+                Configuration, or the customer should contact the laundromat.
+              </Text>
+            ) : null}
+          </View>
+
+          <View style={styles.schedulePanel}>
+            <Text style={styles.schedulePanelTitle}>Time window</Text>
+            <View style={styles.scheduleTimeGrid}>
+              {pickupWindows.map((window) => {
+                const selected = scheduledPickupWindow === window.label;
+
+                return (
+                  <Pressable
+                    accessibilityRole="button"
+                    key={window.id}
+                    onPress={() => setScheduledPickupWindow(window.label)}
+                    style={[
+                      styles.scheduleTimeButton,
+                      selected && styles.scheduleTimeButtonSelected,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.scheduleTimeText,
+                        selected && styles.scheduleTimeTextSelected,
+                      ]}
+                    >
+                      {window.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.scheduleCard}>
+          <View style={styles.scheduleHeader}>
+            <View style={styles.scheduleHeaderCopy}>
+              <Text style={styles.scheduleEyebrow}>Step 2</Text>
+              <Text style={styles.scheduleTitle}>Drop-off schedule</Text>
+              <Text style={styles.scheduleDescription}>
+                Select a return date after pickup, then choose a delivery window.
+              </Text>
+            </View>
+            <View style={styles.scheduleSummary}>
+              <Text style={styles.scheduleSummaryLabel}>Selected drop-off</Text>
+              <Text style={styles.scheduleSummaryValue}>
+                {scheduledDropoffDate
+                  ? formatDisplayDate(scheduledDropoffDate)
+                  : "Choose date"}
+              </Text>
+              <Text style={styles.scheduleSummaryMeta}>
+                {scheduledDropoffWindow || "Choose time"}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.schedulePanel}>
+            <Text style={styles.schedulePanelTitle}>Date</Text>
+            <View style={styles.scheduleDateGrid}>
+              {visibleDropoffCalendar.map((date) => {
+                const selected = scheduledDropoffDate === date.dateIso;
+
+                return (
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={!date.available}
+                    key={date.dateIso}
+                    onPress={() => setScheduledDropoffDate(date.dateIso)}
+                    style={[
+                      styles.scheduleDateButton,
+                      selected && styles.scheduleDateButtonSelected,
+                      !date.available && styles.scheduleDateButtonDisabled,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.scheduleDateDay,
+                        selected && styles.scheduleDateTextSelected,
+                        !date.available && styles.scheduleDateTextDisabled,
+                      ]}
+                    >
+                      {date.dayName}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.scheduleDateText,
+                        selected && styles.scheduleDateTextSelected,
+                        !date.available && styles.scheduleDateTextDisabled,
+                      ]}
+                    >
+                      {formatDisplayDate(date.dateIso)}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.scheduleDateStatus,
+                        selected && styles.scheduleDateTextSelected,
+                        !date.available && styles.scheduleDateTextDisabled,
+                      ]}
+                    >
+                      {date.available ? "Open" : "Closed"}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            {dropoffCalendar.length > 7 ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setShowAllDropoffDates((current) => !current)}
+                style={styles.scheduleRevealButton}
+              >
+                <Text style={styles.scheduleRevealText}>
+                  {showAllDropoffDates
+                    ? "Show fewer dates"
+                    : `Show ${dropoffCalendar.length - 7} more dates`}
+                </Text>
+              </Pressable>
+            ) : null}
+            {!dropoffCalendar.some((date) => date.available) ? (
+              <Text style={styles.error}>
+                No drop-off dates are available after the selected pickup date. Choose
+                an earlier pickup date, or ask the owner to update service availability.
+              </Text>
+            ) : null}
+          </View>
+
+          <View style={styles.schedulePanel}>
+            <Text style={styles.schedulePanelTitle}>Time window</Text>
+            <View style={styles.scheduleTimeGrid}>
+              {pickupWindows.map((window) => {
+                const selected = scheduledDropoffWindow === window.label;
+
+                return (
+                  <Pressable
+                    accessibilityRole="button"
+                    key={window.id}
+                    onPress={() => setScheduledDropoffWindow(window.label)}
+                    style={[
+                      styles.scheduleTimeButton,
+                      selected && styles.scheduleTimeButtonSelected,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.scheduleTimeText,
+                        selected && styles.scheduleTimeTextSelected,
+                      ]}
+                    >
+                      {window.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
+          <View style={styles.schedulePanel}>
+            <Text style={styles.schedulePanelTitle}>Laundry notes</Text>
+            <FormTextInput
+              label="Notes for this order"
+              multiline
+              onChangeText={setCustomerNotes}
+              placeholder="Detergent preferences, item notes, pickup details..."
+              style={styles.textArea}
+              value={customerNotes}
+            />
+          </View>
+        </View>
+
+        <View style={styles.gratuityCard}>
+          <View style={styles.gratuityHeader}>
+            <View style={styles.gratuityHeaderCopy}>
+              <Text style={styles.gratuityEyebrow}>Optional</Text>
+              <Text style={styles.gratuityTitle}>Gratuity</Text>
+              <Text style={styles.gratuityDescription}>
+                Suggested amounts are based on the current subtotal.
+              </Text>
+            </View>
+            <View style={styles.gratuityAmountCard}>
+              <Text style={styles.gratuityAmountLabel}>Tip</Text>
+              <Text style={styles.gratuityAmountValue}>
+                ${gratuityAmount.toFixed(2)}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.gratuityOptions}>
             {businessSettings.gratuityRateOptions.map((rate) => {
               const amount = orderSubtotal * rate;
+              const selected = selectedGratuityRate === rate;
               const percentLabel = `${Math.round(rate * 100)}%`;
 
               return (
-                <SelectableOption
-                  description={`Adds $${amount.toFixed(2)} to this order.`}
+                <Pressable
+                  accessibilityRole="button"
                   key={rate}
-                  meta={`$${amount.toFixed(2)}`}
                   onPress={() => {
                     setSelectedGratuityRate(rate);
                     setCustomGratuityAmount("");
                   }}
-                  selected={selectedGratuityRate === rate}
-                  title={percentLabel}
-                />
+                  style={[
+                    styles.gratuityOption,
+                    selected && styles.gratuityOptionSelected,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.gratuityOptionPercent,
+                      selected && styles.gratuityOptionPercentSelected,
+                    ]}
+                  >
+                    {percentLabel}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.gratuityOptionAmount,
+                      selected && styles.gratuityOptionAmountSelected,
+                    ]}
+                  >
+                    ${amount.toFixed(2)}
+                  </Text>
+                </Pressable>
               );
             })}
           </View>
-          <FormTextInput
-            keyboardType="decimal-pad"
-            label="Custom gratuity"
-            onChangeText={(value) => {
-              setSelectedGratuityRate(null);
-              setCustomGratuityAmount(value);
-            }}
-            placeholder="0.00"
-            value={customGratuityAmount}
-          />
-          <View style={styles.weightCounter}>
-            <Text style={styles.counterLabel}>Gratuity</Text>
-            <Text style={styles.counterValue}>${gratuityAmount.toFixed(2)}</Text>
-            <Text style={styles.counterMeta}>
-              Order subtotal before gratuity: ${orderSubtotal.toFixed(2)}
+          <View style={styles.gratuityCustomRow}>
+            <View style={styles.gratuityCustomInput}>
+              <FormTextInput
+                keyboardType="decimal-pad"
+                label="Custom gratuity"
+                onChangeText={(value) => {
+                  setSelectedGratuityRate(null);
+                  setCustomGratuityAmount(value);
+                }}
+                placeholder="0.00"
+                value={customGratuityAmount}
+              />
+            </View>
+            <Text style={styles.gratuitySubtotal}>
+              Subtotal before tip: ${orderSubtotal.toFixed(2)}
             </Text>
           </View>
         </View>
@@ -1310,11 +1607,245 @@ const styles = StyleSheet.create({
   shortItem: {
     width: 88,
   },
+  addressSection: {
+    alignItems: "stretch",
+  },
+  addressCard: {
+    backgroundColor: "#F8FAFC",
+    borderColor: "#E2E8F0",
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: spacing.md,
+    padding: spacing.md,
+  },
+  addressHeader: {
+    borderBottomColor: "#E2E8F0",
+    borderBottomWidth: 1,
+    paddingBottom: spacing.sm,
+  },
+  addressHeaderCopy: {
+    gap: spacing.xs,
+  },
+  addressEyebrow: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  addressTitle: {
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: "800",
+  },
+  addressDescription: {
+    color: colors.muted,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  addressFields: {
+    gap: spacing.sm,
+  },
+  addressPrimaryRow: {
+    gap: spacing.sm,
+  },
+  addressLocationRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  addressCityField: {
+    flex: 2,
+    minWidth: 180,
+  },
+  addressStateField: {
+    flex: 1,
+    minWidth: 104,
+  },
+  addressZipField: {
+    flex: 1,
+    minWidth: 136,
+  },
+  addressTextArea: {
+    minHeight: 84,
+    paddingTop: spacing.md,
+    textAlignVertical: "top",
+  },
   optionGrid: {
     gap: spacing.sm,
   },
   optionGroup: {
     gap: spacing.sm,
+  },
+  gratuityCard: {
+    backgroundColor: "#F8FAFC",
+    borderColor: "#E2E8F0",
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: spacing.md,
+    padding: spacing.md,
+  },
+  gratuityHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.md,
+    justifyContent: "space-between",
+  },
+  gratuityHeaderCopy: {
+    flex: 1,
+    gap: spacing.xs,
+    minWidth: 220,
+  },
+  gratuityEyebrow: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  gratuityTitle: {
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: "800",
+  },
+  gratuityDescription: {
+    color: colors.muted,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  gratuityAmountCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    minWidth: 140,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  gratuityAmountLabel: {
+    color: colors.muted,
+    fontSize: 11,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  gratuityAmountValue: {
+    color: colors.primary,
+    fontSize: 24,
+    fontWeight: "800",
+  },
+  gratuityOptions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  gratuityOption: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    flexGrow: 1,
+    minWidth: 112,
+    padding: spacing.sm,
+  },
+  gratuityOptionSelected: {
+    backgroundColor: "#ECFDF5",
+    borderColor: colors.primary,
+    borderWidth: 2,
+  },
+  gratuityOptionPercent: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  gratuityOptionPercentSelected: {
+    color: colors.primary,
+  },
+  gratuityOptionAmount: {
+    color: colors.muted,
+    fontSize: 13,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  gratuityOptionAmountSelected: {
+    color: colors.text,
+  },
+  gratuityCustomRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  gratuityCustomInput: {
+    flex: 1,
+    minWidth: 220,
+  },
+  gratuitySubtotal: {
+    color: colors.muted,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  serviceGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  serviceCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    flex: 1,
+    gap: spacing.sm,
+    minHeight: 132,
+    minWidth: 240,
+    padding: spacing.md,
+  },
+  serviceCardSelected: {
+    backgroundColor: "#ECFDF5",
+    borderColor: colors.primary,
+    borderWidth: 2,
+  },
+  serviceCardHeader: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    gap: spacing.sm,
+    justifyContent: "space-between",
+  },
+  serviceCardTitle: {
+    color: colors.text,
+    flex: 1,
+    fontSize: 18,
+    fontWeight: "800",
+    lineHeight: 23,
+  },
+  serviceCardTitleSelected: {
+    color: colors.primary,
+  },
+  serviceCardBadge: {
+    backgroundColor: "#F8FAFC",
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    color: colors.muted,
+    fontSize: 11,
+    fontWeight: "800",
+    overflow: "hidden",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    textTransform: "uppercase",
+  },
+  serviceCardBadgeSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+    color: colors.onPrimary,
+  },
+  serviceCardDescription: {
+    color: colors.muted,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  serviceCardDescriptionSelected: {
+    color: colors.text,
   },
   menuCategory: {
     gap: spacing.sm,
@@ -1457,6 +1988,179 @@ const styles = StyleSheet.create({
     minWidth: 32,
     textAlign: "center",
   },
+  scheduleCard: {
+    backgroundColor: "#F8FAFC",
+    borderColor: "#E2E8F0",
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: spacing.md,
+    padding: spacing.md,
+  },
+  scheduleHeader: {
+    alignItems: "stretch",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.md,
+    justifyContent: "space-between",
+  },
+  scheduleHeaderCopy: {
+    flex: 1,
+    gap: spacing.xs,
+    minWidth: 220,
+  },
+  scheduleEyebrow: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  scheduleTitle: {
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: "800",
+  },
+  scheduleDescription: {
+    color: colors.muted,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  scheduleSummary: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    minWidth: 190,
+    padding: spacing.sm,
+  },
+  scheduleSummaryLabel: {
+    color: colors.muted,
+    fontSize: 11,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  scheduleSummaryValue: {
+    color: colors.text,
+    fontSize: 17,
+    fontWeight: "800",
+  },
+  scheduleSummaryMeta: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  schedulePanel: {
+    gap: spacing.sm,
+  },
+  schedulePanelTitle: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  scheduleDateGrid: {
+    alignSelf: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+    justifyContent: "center",
+    maxWidth: 874,
+    width: "100%",
+  },
+  scheduleDateButton: {
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    flexBasis: 118,
+    flexGrow: 0,
+    height: 86,
+    justifyContent: "center",
+    padding: spacing.sm,
+  },
+  scheduleDateButtonSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  scheduleDateButtonDisabled: {
+    backgroundColor: "#F1F5F9",
+    borderColor: "#E2E8F0",
+  },
+  scheduleDateDay: {
+    color: colors.muted,
+    fontSize: 11,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  scheduleDateText: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  scheduleDateStatus: {
+    color: colors.primary,
+    fontSize: 11,
+    fontWeight: "800",
+    marginTop: 2,
+    textAlign: "center",
+    textTransform: "uppercase",
+  },
+  scheduleDateTextSelected: {
+    color: colors.onPrimary,
+  },
+  scheduleDateTextDisabled: {
+    color: "#94A3B8",
+  },
+  scheduleTimeGrid: {
+    alignSelf: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+    justifyContent: "center",
+    maxWidth: 548,
+    width: "100%",
+  },
+  scheduleTimeButton: {
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    flexBasis: 172,
+    flexGrow: 0,
+    height: 52,
+    justifyContent: "center",
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  scheduleTimeButtonSelected: {
+    backgroundColor: "#ECFDF5",
+    borderColor: colors.primary,
+    borderWidth: 2,
+  },
+  scheduleTimeText: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  scheduleTimeTextSelected: {
+    color: colors.primary,
+  },
+  scheduleRevealButton: {
+    alignSelf: "center",
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  scheduleRevealText: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "800",
+  },
   calendarGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -1470,35 +2174,242 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     textAlignVertical: "top",
   },
-  weightInputRow: {
-    alignItems: "flex-end",
+  weightSection: {
+    alignItems: "stretch",
+  },
+  weightLayout: {
+    alignItems: "stretch",
     flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.md,
+  },
+  weightCard: {
+    backgroundColor: "#F8FAFC",
+    borderColor: "#E2E8F0",
+    borderRadius: 8,
+    borderWidth: 1,
+    flex: 1.1,
+    gap: spacing.md,
+    minWidth: 300,
+    padding: spacing.md,
+  },
+  weightEyebrow: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  weightTitle: {
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: "800",
+  },
+  weightDescription: {
+    color: colors.muted,
+    fontSize: 14,
+    lineHeight: 20,
+    maxWidth: 460,
+  },
+  weightInputRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: spacing.sm,
+    maxWidth: 520,
+    width: "100%",
   },
   weightInputField: {
     flex: 1,
-    minWidth: 180,
+    minWidth: 170,
   },
   weightStepper: {
     flexDirection: "row",
     gap: spacing.xs,
-    paddingBottom: 1,
   },
   weightStepperButton: {
     alignItems: "center",
-    backgroundColor: "#F8FAFC",
+    backgroundColor: colors.surface,
     borderColor: colors.border,
     borderRadius: 8,
     borderWidth: 1,
-    height: 52,
+    height: 44,
     justifyContent: "center",
-    width: 52,
+    width: 44,
   },
   weightStepperText: {
     color: colors.text,
     fontSize: 22,
     fontWeight: "800",
     lineHeight: 24,
+  },
+  weightCostCard: {
+    backgroundColor: colors.surface,
+    borderColor: "#E2E8F0",
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: spacing.xs,
+    padding: spacing.sm,
+    width: "100%",
+  },
+  weightCostValue: {
+    color: colors.primary,
+    fontSize: 30,
+    fontWeight: "800",
+    lineHeight: 34,
+  },
+  weightCostMeta: {
+    color: colors.muted,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  weightVisualCard: {
+    backgroundColor: colors.surface,
+    borderColor: "#E2E8F0",
+    borderRadius: 8,
+    borderWidth: 1,
+    flex: 0.9,
+    gap: spacing.md,
+    justifyContent: "space-between",
+    minHeight: 260,
+    minWidth: 280,
+    overflow: "hidden",
+    padding: spacing.md,
+  },
+  deliveryScene: {
+    backgroundColor: "#ECFDF5",
+    borderColor: "#BBF7D0",
+    borderRadius: 8,
+    borderWidth: 1,
+    height: 170,
+    overflow: "hidden",
+    position: "relative",
+  },
+  deliverySkyline: {
+    alignItems: "flex-end",
+    bottom: 48,
+    flexDirection: "row",
+    gap: 7,
+    left: spacing.md,
+    position: "absolute",
+  },
+  deliveryBuildingTall: {
+    backgroundColor: "#D1FAE5",
+    borderRadius: 6,
+    height: 72,
+    width: 32,
+  },
+  deliveryBuildingShort: {
+    backgroundColor: "#A7F3D0",
+    borderRadius: 6,
+    height: 48,
+    width: 34,
+  },
+  deliveryBuildingMid: {
+    backgroundColor: "#D1FAE5",
+    borderRadius: 6,
+    height: 58,
+    width: 30,
+  },
+  deliveryRouteLine: {
+    backgroundColor: "#86EFAC",
+    bottom: 34,
+    height: 4,
+    left: spacing.md,
+    position: "absolute",
+    right: spacing.md,
+  },
+  deliveryTruck: {
+    bottom: 36,
+    height: 54,
+    position: "absolute",
+    right: spacing.lg,
+    width: 146,
+  },
+  deliveryTruckCab: {
+    backgroundColor: colors.primary,
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 4,
+    bottom: 10,
+    height: 34,
+    position: "absolute",
+    right: 0,
+    width: 44,
+  },
+  deliveryTruckBox: {
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderColor: colors.primary,
+    borderRadius: 8,
+    borderWidth: 2,
+    bottom: 10,
+    height: 40,
+    justifyContent: "center",
+    left: 0,
+    position: "absolute",
+    width: 104,
+  },
+  deliveryTruckText: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  deliveryTruckWheelLeft: {
+    backgroundColor: colors.text,
+    borderRadius: 8,
+    bottom: 0,
+    height: 16,
+    left: 20,
+    position: "absolute",
+    width: 16,
+  },
+  deliveryTruckWheelRight: {
+    backgroundColor: colors.text,
+    borderRadius: 8,
+    bottom: 0,
+    height: 16,
+    position: "absolute",
+    right: 20,
+    width: 16,
+  },
+  laundryBag: {
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderColor: "#A7F3D0",
+    borderRadius: 8,
+    borderWidth: 2,
+    bottom: 52,
+    height: 58,
+    justifyContent: "center",
+    left: "43%",
+    position: "absolute",
+    width: 50,
+  },
+  laundryBagHandle: {
+    borderColor: "#A7F3D0",
+    borderRadius: 9,
+    borderWidth: 2,
+    height: 18,
+    position: "absolute",
+    top: -10,
+    width: 24,
+  },
+  laundryBagText: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  deliveryVisualCopy: {
+    gap: spacing.xs,
+  },
+  deliveryVisualTitle: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  deliveryVisualText: {
+    color: colors.muted,
+    fontSize: 14,
+    lineHeight: 20,
   },
   weightCounter: {
     backgroundColor: colors.surface,
