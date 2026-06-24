@@ -1,6 +1,15 @@
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type LayoutChangeEvent,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from "react-native";
 
 import { AppButton } from "@/components/AppButton";
 import { FormTextInput } from "@/components/FormTextInput";
@@ -123,6 +132,8 @@ export default function NewOrderScreen() {
   const [customGratuityAmount, setCustomGratuityAmount] = useState("");
   const [customerNotes, setCustomerNotes] = useState("");
   const [error, setError] = useState("");
+  const [finalReviewY, setFinalReviewY] = useState<number | null>(null);
+  const [isFinalReviewVisible, setIsFinalReviewVisible] = useState(false);
   const [isLoadingConfig, setIsLoadingConfig] = useState(true);
 
   useEffect(() => {
@@ -587,6 +598,28 @@ export default function NewOrderScreen() {
     router.push("/(customer)/order-review");
   }
 
+  function handleFinalReviewLayout(event: LayoutChangeEvent) {
+    setFinalReviewY(event.nativeEvent.layout.y);
+  }
+
+  function handleNewOrderScroll(
+    event: NativeSyntheticEvent<NativeScrollEvent>,
+  ) {
+    if (finalReviewY === null) {
+      return;
+    }
+
+    const { contentOffset, layoutMeasurement } = event.nativeEvent;
+    const reviewEntranceY = Math.max(0, finalReviewY - spacing.lg);
+
+    const nextIsFinalReviewVisible =
+      contentOffset.y + layoutMeasurement.height >= reviewEntranceY;
+
+    setIsFinalReviewVisible((current) =>
+      current === nextIsFinalReviewVisible ? current : nextIsFinalReviewVisible,
+    );
+  }
+
   const missingReviewRequirements = [
     !currentUser ? "Sign in as a customer." : "",
     !selectedServiceIds.length ? "Choose a service." : "",
@@ -612,8 +645,50 @@ export default function NewOrderScreen() {
   ].filter(Boolean);
   const isMissingRequiredInfo = missingReviewRequirements.length > 0;
 
+  const fixedReviewSummary = (
+    <View pointerEvents="box-none" style={styles.fixedReviewShell}>
+      <View style={styles.fixedReviewCard}>
+        <View style={styles.fixedReviewHeader}>
+          <Text style={styles.fixedReviewTitle}>Estimated cost</Text>
+          <Text style={styles.fixedReviewTotal}>
+            ${estimatedOrderTotal.toFixed(2)}
+          </Text>
+        </View>
+        <View style={styles.fixedReviewGrid}>
+          <View style={styles.fixedReviewItem}>
+            <Text style={styles.fixedReviewLabel}>Laundry</Text>
+            <Text style={styles.fixedReviewValue}>${laundryEstimate.toFixed(2)}</Text>
+          </View>
+          <View style={styles.fixedReviewItem}>
+            <Text style={styles.fixedReviewLabel}>Add-ons</Text>
+            <Text style={styles.fixedReviewValue}>${addOnsSubtotal.toFixed(2)}</Text>
+          </View>
+          <View style={styles.fixedReviewItem}>
+            <Text style={styles.fixedReviewLabel}>Dry clean</Text>
+            <Text style={styles.fixedReviewValue}>
+              ${dryCleaningSubtotal.toFixed(2)}
+            </Text>
+          </View>
+          <View style={styles.fixedReviewItem}>
+            <Text style={styles.fixedReviewLabel}>Tip</Text>
+            <Text style={styles.fixedReviewValue}>${gratuityAmount.toFixed(2)}</Text>
+          </View>
+        </View>
+        <Text style={styles.fixedReviewMeta}>
+          {Number.isFinite(parsedEstimatedWeight) && parsedEstimatedWeight > 0
+            ? `${billableLaundryWeight.toFixed(1)} billable lb at $${businessSettings.laundryPricePerPound.toFixed(2)}/lb`
+            : "Enter estimated pounds to calculate laundry."}
+        </Text>
+      </View>
+    </View>
+  );
+
   return (
-    <Screen>
+    <Screen
+      fixedContent={isFinalReviewVisible ? null : fixedReviewSummary}
+      onScroll={handleNewOrderScroll}
+      scrollEventThrottle={16}
+    >
       <View style={styles.content}>
         <View style={styles.header}>
           <Text style={styles.title}>New order</Text>
@@ -685,7 +760,7 @@ export default function NewOrderScreen() {
             </View>
           </View>
           <View style={styles.weightCounter}>
-            <Text style={styles.counterLabel}>Laundry cost</Text>
+            <Text style={styles.counterLabel}>Laundry cost by weight</Text>
             <Text style={styles.counterValue}>${laundryEstimate.toFixed(2)}</Text>
             <Text style={styles.counterMeta}>
               {Number.isFinite(parsedEstimatedWeight) && parsedEstimatedWeight > 0
@@ -1025,8 +1100,48 @@ export default function NewOrderScreen() {
           </View>
         </View>
 
-        <View style={styles.summary}>
-          <Text style={styles.summaryTitle}>Review</Text>
+        <View onLayout={handleFinalReviewLayout} style={styles.summary}>
+          <View style={styles.summaryHeader}>
+            <View style={styles.summaryHeaderCopy}>
+              <Text style={styles.summaryEyebrow}>Final review</Text>
+              <Text style={styles.summaryTitle}>Estimated cost</Text>
+              <Text style={styles.summaryMuted}>
+                Confirm the live estimate before moving to payment review.
+              </Text>
+            </View>
+            <View style={styles.summaryTotalCard}>
+              <Text style={styles.summaryTotalLabel}>Estimated total</Text>
+              <Text style={styles.summaryTotalAmount}>
+                ${estimatedOrderTotal.toFixed(2)}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.summaryHighlightGrid}>
+            <View style={styles.summaryHighlight}>
+              <Text style={styles.summaryHighlightLabel}>Billable weight</Text>
+              <Text style={styles.summaryHighlightValue}>
+                {Number.isFinite(parsedEstimatedWeight) && parsedEstimatedWeight > 0
+                  ? `${billableLaundryWeight.toFixed(1)} lb`
+                  : "Pending"}
+              </Text>
+            </View>
+            <View style={styles.summaryHighlight}>
+              <Text style={styles.summaryHighlightLabel}>Rate</Text>
+              <Text style={styles.summaryHighlightValue}>
+                ${businessSettings.laundryPricePerPound.toFixed(2)}/lb
+              </Text>
+            </View>
+            <View style={styles.summaryHighlight}>
+              <Text style={styles.summaryHighlightLabel}>Minimum</Text>
+              <Text style={styles.summaryHighlightValue}>
+                {businessSettings.deliveryMinimumPounds} lb
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.summarySection}>
+            <Text style={styles.summarySectionTitle}>Cost breakdown</Text>
           <View style={styles.summaryLine}>
             <Text style={styles.summaryText}>Laundry estimate</Text>
             <Text style={styles.summaryText}>${laundryEstimate.toFixed(2)}</Text>
@@ -1044,7 +1159,12 @@ export default function NewOrderScreen() {
               {businessSettings.deliveryMinimumPounds} lb delivery minimum applies.
             </Text>
           ) : null}
+          </View>
+
           <View style={styles.summaryDivider} />
+
+          <View style={styles.summarySection}>
+            <Text style={styles.summarySectionTitle}>Selected extras</Text>
           <View style={styles.summaryLine}>
             <Text style={styles.summaryText}>Add-ons</Text>
             <Text style={styles.summaryText}>${addOnsSubtotal.toFixed(2)}</Text>
@@ -1066,7 +1186,12 @@ export default function NewOrderScreen() {
               </View>
             ))
           )}
+          </View>
+
           <View style={styles.summaryDivider} />
+
+          <View style={styles.summarySection}>
+            <Text style={styles.summarySectionTitle}>Dry cleaning</Text>
           <View style={styles.summaryLine}>
             <Text style={styles.summaryText}>Dry cleaning items</Text>
             <Text style={styles.summaryText}>${dryCleaningSubtotal.toFixed(2)}</Text>
@@ -1086,7 +1211,11 @@ export default function NewOrderScreen() {
               </View>
             ))
           )}
+          </View>
+
           <View style={styles.summaryDivider} />
+
+          <View style={styles.summarySection}>
           <View style={styles.summaryLine}>
             <Text style={styles.summaryText}>Subtotal</Text>
             <Text style={styles.summaryText}>${orderSubtotal.toFixed(2)}</Text>
@@ -1095,10 +1224,8 @@ export default function NewOrderScreen() {
             <Text style={styles.summaryText}>Gratuity</Text>
             <Text style={styles.summaryText}>${gratuityAmount.toFixed(2)}</Text>
           </View>
-          <View style={styles.summaryDivider} />
-          <Text style={styles.summaryTotal}>
-            Estimated total: ${estimatedOrderTotal.toFixed(2)}
-          </Text>
+          </View>
+
           <Text style={styles.summaryMuted}>
             Final invoice may change after the owner confirms actual weight,
             garments, and owner-confirmed add-ons.
@@ -1402,12 +1529,83 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 8,
     borderWidth: 1,
-    gap: spacing.xs,
+    gap: spacing.md,
     padding: spacing.md,
+  },
+  summaryHeader: {
+    alignItems: "stretch",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.md,
+    justifyContent: "space-between",
+  },
+  summaryHeaderCopy: {
+    flex: 1,
+    gap: spacing.xs,
+    minWidth: 220,
+  },
+  summaryEyebrow: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
   },
   summaryTitle: {
     color: colors.text,
-    fontSize: 18,
+    fontSize: 24,
+    fontWeight: "800",
+  },
+  summaryTotalCard: {
+    backgroundColor: "#ECFDF5",
+    borderColor: "#A7F3D0",
+    borderRadius: 8,
+    borderWidth: 1,
+    justifyContent: "center",
+    minWidth: 190,
+    padding: spacing.md,
+  },
+  summaryTotalLabel: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  summaryTotalAmount: {
+    color: colors.primary,
+    fontSize: 30,
+    fontWeight: "800",
+  },
+  summaryHighlightGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  summaryHighlight: {
+    backgroundColor: "#F8FAFC",
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    flex: 1,
+    minWidth: 140,
+    padding: spacing.sm,
+  },
+  summaryHighlightLabel: {
+    color: colors.muted,
+    fontSize: 11,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  summaryHighlightValue: {
+    color: colors.text,
+    fontSize: 17,
+    fontWeight: "800",
+  },
+  summarySection: {
+    gap: spacing.xs,
+  },
+  summarySectionTitle: {
+    color: colors.text,
+    fontSize: 15,
     fontWeight: "800",
   },
   summaryText: {
@@ -1426,15 +1624,79 @@ const styles = StyleSheet.create({
     height: 1,
     marginVertical: spacing.xs,
   },
-  summaryTotal: {
-    color: colors.primary,
-    fontSize: 20,
-    fontWeight: "800",
-  },
   summaryMuted: {
     color: colors.muted,
     fontSize: 14,
     lineHeight: 20,
+  },
+  fixedReviewShell: {
+    alignItems: "flex-end",
+    backgroundColor: colors.background,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.sm,
+    paddingTop: spacing.sm,
+  },
+  fixedReviewCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: spacing.xs,
+    maxWidth: 420,
+    padding: spacing.sm,
+    width: "100%",
+    shadowColor: "#0F172A",
+    shadowOffset: { height: 2, width: 0 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+  },
+  fixedReviewHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: spacing.md,
+    justifyContent: "space-between",
+  },
+  fixedReviewTitle: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  fixedReviewTotal: {
+    color: colors.text,
+    fontSize: 21,
+    fontWeight: "800",
+  },
+  fixedReviewGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  fixedReviewItem: {
+    backgroundColor: "#F8FAFC",
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    flex: 1,
+    minWidth: 78,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  fixedReviewLabel: {
+    color: colors.muted,
+    fontSize: 10,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  fixedReviewValue: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  fixedReviewMeta: {
+    color: colors.muted,
+    fontSize: 11,
+    lineHeight: 15,
   },
   error: {
     color: colors.danger,
