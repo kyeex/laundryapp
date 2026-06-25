@@ -19,6 +19,7 @@ export default function CustomerLayout() {
           name="recurring-orders"
           options={{ title: "Recurring orders" }}
         />
+        <Stack.Screen name="rewards" options={{ title: "Rewards" }} />
         <Stack.Screen
           name="preferences"
           options={{ title: "Customer preferences" }}

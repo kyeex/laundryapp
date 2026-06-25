@@ -192,6 +192,9 @@ export default function AdminHomeScreen() {
             <Link href="/(admin)/driver-tracking" style={styles.secondaryAction}>
               Driver tracking
             </Link>
+            <Link href="/(admin)/reports" style={styles.secondaryAction}>
+              Reports
+            </Link>
             <Link href="/(admin)/recurring-orders" style={styles.secondaryAction}>
               Recurring orders
             </Link>

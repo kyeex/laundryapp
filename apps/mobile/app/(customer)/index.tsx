@@ -7,6 +7,7 @@ import { DemoWalkthrough } from "@/components/DemoWalkthrough";
 import { Screen } from "@/components/Screen";
 import { useAuth } from "@/context/AuthContext";
 import { getCustomerOrders } from "@/services/orderService";
+import { getCustomerLoyaltyRewards } from "@/services/loyaltyRewardsService";
 import { getCustomerProfileSummary } from "@/services/profileService";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
@@ -39,6 +40,7 @@ function DashboardCard({
 export default function CustomerHomeScreen() {
   const { currentUser } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
+  const [rewardsPoints, setRewardsPoints] = useState(0);
   const [profileComplete, setProfileComplete] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -70,6 +72,19 @@ export default function CustomerHomeScreen() {
             address.postalCode,
         ),
       );
+
+      try {
+        const rewards = await getCustomerLoyaltyRewards(
+          currentUser.id,
+          profile.displayName ||
+            currentUser.displayName ||
+            currentUser.email ||
+            "Customer",
+        );
+        setRewardsPoints(rewards.pointsBalance);
+      } catch {
+        setRewardsPoints(0);
+      }
     } catch (loadError) {
       const message =
         loadError instanceof Error
@@ -119,6 +134,11 @@ export default function CustomerHomeScreen() {
             note={profileComplete ? "Ready for fast checkout." : "Add phone and default address."}
             value={profileComplete ? "Complete" : "Needs attention"}
           />
+          <DashboardCard
+            label="Rewards"
+            note="Earn points and preview future laundry credits."
+            value={`${rewardsPoints}`}
+          />
         </View>
         <DemoWalkthrough
           title="Customer demo path"
@@ -145,6 +165,9 @@ export default function CustomerHomeScreen() {
             </Link>
             <Link href="/(customer)/recurring-orders" style={styles.secondaryAction}>
               Recurring orders
+            </Link>
+            <Link href="/(customer)/rewards" style={styles.secondaryAction}>
+              Rewards
             </Link>
           </View>
         </View>
