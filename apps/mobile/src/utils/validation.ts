@@ -102,6 +102,29 @@ export function validateBusinessSettings(settings: BusinessSettings) {
   requireText(settings.businessName, "Business name");
   validatePositiveNumber(settings.laundryPricePerPound, "Laundry price per pound");
   validatePositiveNumber(settings.deliveryMinimumPounds, "Delivery minimum pounds");
+  validatePositiveNumber(
+    settings.loyaltyRewards.pointsPerDollar,
+    "Rewards points per dollar",
+  );
+  validatePositiveNumber(
+    settings.loyaltyRewards.pointsPerRewardDollar,
+    "Rewards points per reward dollar",
+  );
+
+  if (
+    !Number.isFinite(settings.loyaltyRewards.signupBonusPoints) ||
+    settings.loyaltyRewards.signupBonusPoints < 0
+  ) {
+    throw new Error("Signup bonus points must be zero or greater.");
+  }
+
+  if (
+    settings.loyaltyRewards.expirationMonths !== null &&
+    (!Number.isFinite(settings.loyaltyRewards.expirationMonths) ||
+      settings.loyaltyRewards.expirationMonths <= 0)
+  ) {
+    throw new Error("Rewards expiration months must be blank or greater than zero.");
+  }
 
   settings.gratuityRateOptions.forEach((rate) => {
     if (!Number.isFinite(rate) || rate < 0) {

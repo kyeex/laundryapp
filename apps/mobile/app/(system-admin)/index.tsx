@@ -105,6 +105,9 @@ export default function SystemAdminHomeScreen() {
           <Link href="/(system-admin)/audit-logs" style={styles.card}>
             Audit logs
           </Link>
+          <Link href="/(system-admin)/rewards" style={styles.card}>
+            Rewards management
+          </Link>
           <Link href="/(system-admin)/users" style={styles.card}>
             User management
           </Link>

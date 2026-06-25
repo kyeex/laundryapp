@@ -4,6 +4,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
 import { AppButton } from "@/components/AppButton";
 import { Screen } from "@/components/Screen";
+import { shouldUseDemoBackend } from "@/config/firebase";
 import { useAuth } from "@/context/AuthContext";
 import { getCustomerOrderById } from "@/services/orderService";
 import {
@@ -14,16 +15,33 @@ import {
   getCustomerProfileSummary,
   type CustomerPaymentMethod,
 } from "@/services/profileService";
+import {
+  calculatePointsForRewardCredit,
+  calculateRewardCredit,
+  getCustomerLoyaltyRewards,
+  getLoyaltyRewardSettings,
+  redeemRewardsForOrder,
+  type LoyaltyRewardsAccount,
+} from "@/services/loyaltyRewardsService";
 import { initializeAndPresentPaymentSheet } from "@/services/stripePaymentSheet";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
-import type { Order } from "@/types/domain";
+import type { LoyaltyRewardSettings, Order } from "@/types/domain";
+
+const rewardCreditOptions = [0, 1, 2, 5, 10];
 
 export default function CustomerPayOrderScreen() {
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
   const { currentUser } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<CustomerPaymentMethod | null>(null);
+  const [rewardsAccount, setRewardsAccount] = useState<LoyaltyRewardsAccount | null>(
+    null,
+  );
+  const [rewardSettings, setRewardSettings] = useState<LoyaltyRewardSettings | null>(
+    null,
+  );
+  const [selectedRewardCredit, setSelectedRewardCredit] = useState(0);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -42,8 +60,18 @@ export default function CustomerPayOrderScreen() {
         getCustomerOrderById(currentUser.id, orderId),
         getCustomerProfileSummary(currentUser.id),
       ]);
+      const [customerRewards, settings] = await Promise.all([
+        getCustomerLoyaltyRewards(
+          currentUser.id,
+          currentUser.displayName || currentUser.email || "Customer",
+        ),
+        getLoyaltyRewardSettings(),
+      ]);
       setOrder(customerOrder);
       setPaymentMethod(profile.paymentMethod);
+      setRewardsAccount(customerRewards);
+      setRewardSettings(settings);
+      setSelectedRewardCredit(0);
     } catch (loadError) {
       const message =
         loadError instanceof Error
@@ -69,9 +97,22 @@ export default function CustomerPayOrderScreen() {
     setIsPaying(true);
 
     try {
-      const paymentSetup = await createOrderPaymentIntent(order.id);
+      const paymentSetup = await createOrderPaymentIntent(
+        order.id,
+        selectedRewardCredit,
+      );
       await initializeAndPresentPaymentSheet(paymentSetup);
       await confirmOrderPayment(order.id);
+
+      if (shouldUseDemoBackend && selectedRewardCredit > 0) {
+        await redeemRewardsForOrder({
+          actorId: currentUser.id,
+          customerId: currentUser.id,
+          customerName: currentUser.displayName || currentUser.email || "Customer",
+          orderId: order.id,
+          rewardCreditDollars: selectedRewardCredit,
+        });
+      }
 
       setSuccess("Payment complete.");
       router.replace({
@@ -89,6 +130,12 @@ export default function CustomerPayOrderScreen() {
 
   const canPay =
     Boolean(order?.finalPrice) && order?.paymentStatus !== "paid" && !isPaying;
+  const availableRewardCredit =
+    rewardsAccount && rewardSettings
+      ? calculateRewardCredit(rewardsAccount.pointsBalance, rewardSettings)
+      : 0;
+  const finalPrice = order?.finalPrice ?? 0;
+  const payableAmount = Math.max(0, finalPrice - selectedRewardCredit);
   const hasSavedPaymentMethod = Boolean(
     paymentMethod?.brand && paymentMethod.last4 && paymentMethod.expirationMonth,
   );
@@ -128,6 +175,44 @@ export default function CustomerPayOrderScreen() {
                 Stripe PaymentSheet will open after the backend creates a secure
                 PaymentIntent for this order.
               </Text>
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Apply rewards</Text>
+              <Text style={styles.muted}>
+                {rewardsAccount
+                  ? `${rewardsAccount.pointsBalance} points available. Choose a credit to apply before checkout.`
+                  : "Rewards are loading for this customer."}
+              </Text>
+              <View style={styles.rewardGrid}>
+                {rewardCreditOptions.map((credit) => {
+                  const pointsNeeded = rewardSettings
+                    ? calculatePointsForRewardCredit(credit, rewardSettings)
+                    : credit * 100;
+                  const disabled =
+                    credit > availableRewardCredit || credit > finalPrice || isPaying;
+                  const selected = selectedRewardCredit === credit;
+
+                  return (
+                    <AppButton
+                      disabled={disabled}
+                      key={credit}
+                      label={
+                        credit === 0 ? "No credit" : `$${credit} (${pointsNeeded} pts)`
+                      }
+                      onPress={() => setSelectedRewardCredit(credit)}
+                      variant={selected ? "primary" : "secondary"}
+                    />
+                  );
+                })}
+              </View>
+              <View style={styles.paymentSummary}>
+                <Text style={styles.value}>Final price: ${finalPrice.toFixed(2)}</Text>
+                <Text style={styles.value}>
+                  Rewards credit: -${selectedRewardCredit.toFixed(2)}
+                </Text>
+                <Text style={styles.totalDue}>Amount due: ${payableAmount.toFixed(2)}</Text>
+              </View>
             </View>
 
             <View style={styles.card}>
@@ -172,6 +257,24 @@ const styles = StyleSheet.create({
   content: {
     gap: spacing.md,
     paddingTop: spacing.lg,
+  },
+  rewardGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  paymentSummary: {
+    backgroundColor: "#F8FAFC",
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: spacing.xs,
+    padding: spacing.md,
+  },
+  totalDue: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: "900",
   },
   header: {
     gap: spacing.xs,

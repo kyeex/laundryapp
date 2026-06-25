@@ -195,6 +195,9 @@ export default function AdminHomeScreen() {
             <Link href="/(admin)/reports" style={styles.secondaryAction}>
               Reports
             </Link>
+            <Link href="/(admin)/rewards" style={styles.secondaryAction}>
+              Rewards
+            </Link>
             <Link href="/(admin)/recurring-orders" style={styles.secondaryAction}>
               Recurring orders
             </Link>

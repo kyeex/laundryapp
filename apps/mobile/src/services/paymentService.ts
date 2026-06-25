@@ -5,6 +5,7 @@ import type { PaymentSheetSetup } from "@/types/domain";
 
 type CreatePaymentIntentRequest = {
   orderId: string;
+  rewardCreditDollars?: number;
 };
 
 type CreatePaymentIntentResponse = PaymentSheetSetup;
@@ -12,13 +13,16 @@ type ConfirmPaymentResponse = {
   status: "paid";
 };
 
-export async function createOrderPaymentIntent(orderId: string) {
+export async function createOrderPaymentIntent(
+  orderId: string,
+  rewardCreditDollars = 0,
+) {
   const createPaymentIntent = httpsCallable<
     CreatePaymentIntentRequest,
     CreatePaymentIntentResponse
   >(getFirebaseFunctions(), "createPaymentIntent");
 
-  const response = await createPaymentIntent({ orderId });
+  const response = await createPaymentIntent({ orderId, rewardCreditDollars });
 
   return response.data;
 }

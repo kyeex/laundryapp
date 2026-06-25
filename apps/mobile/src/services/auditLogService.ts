@@ -18,7 +18,8 @@ type AuditResourceType =
   | "catalog"
   | "configuration"
   | "user"
-  | "payment";
+  | "payment"
+  | "rewards";
 
 export type AuditLogInput = {
   actorId: string;

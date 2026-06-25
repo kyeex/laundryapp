@@ -9,6 +9,7 @@ export default function SystemAdminLayout() {
         <Stack.Screen name="index" options={{ title: "Admin panel" }} />
         <Stack.Screen name="audit-logs" options={{ title: "Audit logs" }} />
         <Stack.Screen name="demo-control" options={{ title: "Demo control center" }} />
+        <Stack.Screen name="rewards" options={{ title: "Rewards" }} />
         <Stack.Screen name="users" options={{ title: "User management" }} />
         <Stack.Screen name="permissions" options={{ title: "Permissions" }} />
       </Stack>

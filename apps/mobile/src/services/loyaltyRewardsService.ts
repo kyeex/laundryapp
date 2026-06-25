@@ -1,25 +1,45 @@
 import {
+  collection,
   doc,
   getDoc,
+  getDocs,
+  limit,
+  orderBy,
+  query,
+  runTransaction,
   serverTimestamp,
   setDoc,
+  where,
   type DocumentData,
 } from "firebase/firestore";
 
 import { getFirebaseFirestore, shouldUseDemoBackend } from "@/config/firebase";
+import { defaultBusinessSettings } from "@/data/serviceCatalog";
+import type { AppUser, LoyaltyRewardSettings, Order, UserRole } from "@/types/domain";
+
+import { recordAuditLog } from "./auditLogService";
+import { getBusinessSettings } from "./configurationService";
 
 export type LoyaltyRewardEventType =
   | "earned"
   | "redeemed"
   | "adjusted"
-  | "signup_bonus";
+  | "signup_bonus"
+  | "expired";
 
 export type LoyaltyRewardEvent = {
   id: string;
-  type: LoyaltyRewardEventType;
-  label: string;
-  points: number;
   createdAt?: Date | null;
+  createdBy?: string;
+  customerId: string;
+  customerName: string;
+  expiresAt?: Date | null;
+  label: string;
+  orderId?: string | null;
+  points: number;
+  reason?: string;
+  redemptionDollars?: number;
+  type: LoyaltyRewardEventType;
 };
 
 export type LoyaltyRewardsAccount = {
@@ -56,9 +76,24 @@ export const loyaltyTiers: LoyaltyTier[] = [
   },
 ];
 
-const demoRewardsStorageKey = "laundryapp.demo.loyaltyRewards.v1";
-const pointsPerDollar = 1;
-const pointsPerRewardDollar = 100;
+export type RewardAdjustmentInput = {
+  actor: Pick<AppUser, "id" | "role">;
+  customerId: string;
+  customerName: string;
+  points: number;
+  reason: string;
+};
+
+export type RewardRedemptionInput = {
+  actorId: string;
+  customerId: string;
+  customerName: string;
+  orderId: string;
+  rewardCreditDollars: number;
+};
+
+const demoRewardsStorageKey = "laundryapp.demo.loyaltyRewards.v2";
+const demoRewardEventsStorageKey = "laundryapp.demo.loyaltyRewardEvents.v1";
 
 function getStorage() {
   try {
@@ -82,6 +117,8 @@ function getDefaultRewardsAccount(
       {
         id: "demo-reward-welcome",
         type: "signup_bonus",
+        customerId,
+        customerName,
         label: "Welcome bonus",
         points: 50,
         createdAt: new Date("2026-06-10T09:00:00"),
@@ -89,6 +126,8 @@ function getDefaultRewardsAccount(
       {
         id: "demo-reward-order",
         type: "earned",
+        customerId,
+        customerName,
         label: "Completed laundry order",
         points: 82,
         createdAt: new Date("2026-06-18T16:30:00"),
@@ -96,6 +135,8 @@ function getDefaultRewardsAccount(
       {
         id: "demo-reward-repeat",
         type: "earned",
+        customerId,
+        customerName,
         label: "Repeat customer bonus",
         points: 53,
         createdAt: new Date("2026-06-22T11:15:00"),
@@ -111,17 +152,35 @@ function normalizeRewardsAccount(data: LoyaltyRewardsAccount): LoyaltyRewardsAcc
     pointsBalance: Math.max(0, Math.round(data.pointsBalance || 0)),
     lifetimePoints: Math.max(0, Math.round(data.lifetimePoints || 0)),
     redeemedPoints: Math.max(0, Math.round(data.redeemedPoints || 0)),
-    recentActivity: (data.recentActivity ?? []).slice(0, 8).map((event) => ({
+    recentActivity: (data.recentActivity ?? []).slice(0, 12).map((event) => ({
       ...event,
       createdAt:
         typeof event.createdAt === "string"
           ? new Date(event.createdAt)
           : event.createdAt ?? null,
+      expiresAt:
+        typeof event.expiresAt === "string"
+          ? new Date(event.expiresAt)
+          : event.expiresAt ?? null,
     })),
     updatedAt:
       typeof data.updatedAt === "string"
         ? new Date(data.updatedAt)
         : data.updatedAt ?? null,
+  };
+}
+
+function normalizeRewardEvent(event: LoyaltyRewardEvent): LoyaltyRewardEvent {
+  return {
+    ...event,
+    createdAt:
+      typeof event.createdAt === "string"
+        ? new Date(event.createdAt)
+        : event.createdAt ?? null,
+    expiresAt:
+      typeof event.expiresAt === "string"
+        ? new Date(event.expiresAt)
+        : event.expiresAt ?? null,
   };
 }
 
@@ -139,12 +198,35 @@ function mapRewardsAccount(
       (event: DocumentData): LoyaltyRewardEvent => ({
         id: event.id ?? `reward-${Date.now()}`,
         type: event.type ?? "earned",
+        customerId,
+        customerName: data.customerName ?? "Customer",
         label: event.label ?? "Rewards activity",
         points: event.points ?? 0,
         createdAt: event.createdAt?.toDate?.() ?? null,
+        expiresAt: event.expiresAt?.toDate?.() ?? null,
+        orderId: event.orderId ?? null,
+        reason: event.reason ?? "",
+        redemptionDollars: event.redemptionDollars ?? 0,
       }),
     ),
     updatedAt: data.updatedAt?.toDate?.() ?? null,
+  });
+}
+
+function mapRewardEvent(id: string, data: DocumentData): LoyaltyRewardEvent {
+  return normalizeRewardEvent({
+    id,
+    createdAt: data.createdAt?.toDate?.() ?? null,
+    createdBy: data.createdBy ?? "",
+    customerId: data.customerId ?? "",
+    customerName: data.customerName ?? "Customer",
+    expiresAt: data.expiresAt?.toDate?.() ?? null,
+    label: data.label ?? "Rewards activity",
+    orderId: data.orderId ?? null,
+    points: data.points ?? 0,
+    reason: data.reason ?? "",
+    redemptionDollars: data.redemptionDollars ?? 0,
+    type: data.type ?? "earned",
   });
 }
 
@@ -167,22 +249,126 @@ function saveDemoRewardsDirectory(accounts: LoyaltyRewardsAccount[]) {
   getStorage()?.setItem(demoRewardsStorageKey, JSON.stringify(accounts));
 }
 
-export function getRewardsTier(points: number) {
-  return [...loyaltyTiers]
+function getDemoRewardEvents() {
+  const storedEvents = getStorage()?.getItem(demoRewardEventsStorageKey);
+
+  if (!storedEvents) {
+    return [] as LoyaltyRewardEvent[];
+  }
+
+  try {
+    return (JSON.parse(storedEvents) as LoyaltyRewardEvent[]).map(normalizeRewardEvent);
+  } catch {
+    getStorage()?.removeItem(demoRewardEventsStorageKey);
+    return [];
+  }
+}
+
+function saveDemoRewardEvents(events: LoyaltyRewardEvent[]) {
+  getStorage()?.setItem(demoRewardEventsStorageKey, JSON.stringify(events));
+}
+
+function getConfiguredTiers(settings?: LoyaltyRewardSettings) {
+  const tierSettings = settings ?? defaultBusinessSettings.loyaltyRewards;
+
+  return [
+    {
+      ...loyaltyTiers[0],
+      minimumPoints: tierSettings.tierThresholds.freshStart,
+    },
+    {
+      ...loyaltyTiers[1],
+      minimumPoints: tierSettings.tierThresholds.foldFavorite,
+    },
+    {
+      ...loyaltyTiers[2],
+      minimumPoints: tierSettings.tierThresholds.laundryLoyalist,
+    },
+  ];
+}
+
+function getEventExpirationDate(settings: LoyaltyRewardSettings) {
+  if (!settings.expirationMonths) {
+    return null;
+  }
+
+  const expiration = new Date();
+  expiration.setMonth(expiration.getMonth() + settings.expirationMonths);
+
+  return expiration;
+}
+
+function upsertDemoAccount(account: LoyaltyRewardsAccount) {
+  const accounts = getDemoRewardsDirectory();
+
+  saveDemoRewardsDirectory(
+    accounts.some((current) => current.customerId === account.customerId)
+      ? accounts.map((current) =>
+          current.customerId === account.customerId ? account : current,
+        )
+      : [...accounts, account],
+  );
+}
+
+function applyDemoEvent(
+  account: LoyaltyRewardsAccount,
+  event: LoyaltyRewardEvent,
+) {
+  const nextAccount = normalizeRewardsAccount({
+    ...account,
+    lifetimePoints:
+      event.points > 0 ? account.lifetimePoints + event.points : account.lifetimePoints,
+    pointsBalance: Math.max(0, account.pointsBalance + event.points),
+    redeemedPoints:
+      event.type === "redeemed"
+        ? account.redeemedPoints + Math.abs(event.points)
+        : account.redeemedPoints,
+    recentActivity: [event, ...account.recentActivity].slice(0, 12),
+    updatedAt: new Date(),
+  });
+  const events = getDemoRewardEvents();
+
+  if (!events.some((current) => current.id === event.id)) {
+    saveDemoRewardEvents([event, ...events]);
+  }
+  upsertDemoAccount(nextAccount);
+
+  return nextAccount;
+}
+
+export async function getLoyaltyRewardSettings() {
+  return (await getBusinessSettings()).loyaltyRewards;
+}
+
+export function getRewardsTier(points: number, settings?: LoyaltyRewardSettings) {
+  return [...getConfiguredTiers(settings)]
     .reverse()
-    .find((tier) => points >= tier.minimumPoints) ?? loyaltyTiers[0];
+    .find((tier) => points >= tier.minimumPoints) ?? getConfiguredTiers(settings)[0];
 }
 
-export function getNextRewardsTier(points: number) {
-  return loyaltyTiers.find((tier) => tier.minimumPoints > points) ?? null;
+export function getNextRewardsTier(points: number, settings?: LoyaltyRewardSettings) {
+  return getConfiguredTiers(settings).find((tier) => tier.minimumPoints > points) ?? null;
 }
 
-export function calculateRewardCredit(points: number) {
-  return Math.floor(points / pointsPerRewardDollar);
+export function calculateRewardCredit(
+  points: number,
+  settings = defaultBusinessSettings.loyaltyRewards,
+) {
+  return Math.floor(points / settings.pointsPerRewardDollar);
 }
 
-export function calculateEarnedPoints(orderTotal: number) {
-  return Math.max(0, Math.floor(orderTotal * pointsPerDollar));
+export function calculatePointsForRewardCredit(
+  creditDollars: number,
+  settings = defaultBusinessSettings.loyaltyRewards,
+) {
+  return Math.max(0, Math.round(creditDollars * settings.pointsPerRewardDollar));
+}
+
+export function calculateEarnedPoints(
+  orderTotal: number,
+  settings = defaultBusinessSettings.loyaltyRewards,
+) {
+  return Math.max(0, Math.floor(orderTotal * settings.pointsPerDollar));
 }
 
 export async function getCustomerLoyaltyRewards(
@@ -219,11 +405,59 @@ export async function getCustomerLoyaltyRewards(
   return mapRewardsAccount(customerId, snapshot.data());
 }
 
+export async function getCustomerRewardEvents(customerId: string, maxCount = 50) {
+  if (shouldUseDemoBackend) {
+    const account = await getCustomerLoyaltyRewards(customerId);
+    const savedEvents = getDemoRewardEvents().filter(
+      (event) => event.customerId === customerId,
+    );
+    const seededEvents =
+      savedEvents.length > 0 ? savedEvents : account.recentActivity;
+
+    return seededEvents.slice(0, maxCount);
+  }
+
+  const db = getFirebaseFirestore();
+  const eventsQuery = query(
+    collection(db, "loyaltyRewardEvents"),
+    where("customerId", "==", customerId),
+    orderBy("createdAt", "desc"),
+    limit(maxCount),
+  );
+  const snapshot = await getDocs(eventsQuery);
+
+  return snapshot.docs.map((eventDoc) => mapRewardEvent(eventDoc.id, eventDoc.data()));
+}
+
+export async function getLoyaltyRewardsDirectory() {
+  if (shouldUseDemoBackend) {
+    const accounts = getDemoRewardsDirectory();
+
+    if (accounts.length > 0) {
+      return accounts.map(normalizeRewardsAccount);
+    }
+
+    const seeded = [getDefaultRewardsAccount("demo-customer", "Jamie Rivera")];
+    saveDemoRewardsDirectory(seeded);
+    return seeded;
+  }
+
+  const db = getFirebaseFirestore();
+  const snapshot = await getDocs(collection(db, "loyaltyRewards"));
+
+  return snapshot.docs
+    .map((accountDoc) => mapRewardsAccount(accountDoc.id, accountDoc.data()))
+    .sort((firstAccount, secondAccount) =>
+      firstAccount.customerName.localeCompare(secondAccount.customerName),
+    );
+}
+
 export async function previewRedeemRewardCredit(
   account: LoyaltyRewardsAccount,
   creditDollars: number,
 ) {
-  const pointsToRedeem = creditDollars * pointsPerRewardDollar;
+  const settings = await getLoyaltyRewardSettings();
+  const pointsToRedeem = calculatePointsForRewardCredit(creditDollars, settings);
 
   if (pointsToRedeem <= 0) {
     throw new Error("Choose a reward credit before redeeming.");
@@ -234,7 +468,7 @@ export async function previewRedeemRewardCredit(
   }
 
   if (!shouldUseDemoBackend) {
-    throw new Error("Real reward redemption will be handled by the payment backend.");
+    return normalizeRewardsAccount(account);
   }
 
   const nextAccount = normalizeRewardsAccount({
@@ -245,6 +479,8 @@ export async function previewRedeemRewardCredit(
       {
         id: `reward-redemption-${Date.now()}`,
         type: "redeemed",
+        customerId: account.customerId,
+        customerName: account.customerName,
         label: `$${creditDollars.toFixed(2)} reward credit preview`,
         points: -pointsToRedeem,
         createdAt: new Date(),
@@ -264,6 +500,299 @@ export async function previewRedeemRewardCredit(
   );
 
   return nextAccount;
+}
+
+export async function redeemRewardsForOrder(input: RewardRedemptionInput) {
+  const settings = await getLoyaltyRewardSettings();
+  const pointsToRedeem = calculatePointsForRewardCredit(
+    input.rewardCreditDollars,
+    settings,
+  );
+
+  if (!settings.enabled || pointsToRedeem <= 0) {
+    return null;
+  }
+
+  const account = await getCustomerLoyaltyRewards(
+    input.customerId,
+    input.customerName,
+  );
+
+  if (account.pointsBalance < pointsToRedeem) {
+    throw new Error("Not enough rewards points for that credit.");
+  }
+
+  const event: LoyaltyRewardEvent = {
+    id: `redeem-${input.orderId}`,
+    createdAt: new Date(),
+    createdBy: input.actorId,
+    customerId: input.customerId,
+    customerName: input.customerName,
+    label: `$${input.rewardCreditDollars.toFixed(2)} reward credit for order`,
+    orderId: input.orderId,
+    points: -pointsToRedeem,
+    redemptionDollars: input.rewardCreditDollars,
+    type: "redeemed",
+  };
+
+  if (shouldUseDemoBackend) {
+    if (getDemoRewardEvents().some((current) => current.id === event.id)) {
+      return account;
+    }
+
+    return applyDemoEvent(account, event);
+  }
+
+  const db = getFirebaseFirestore();
+  const accountRef = doc(db, "loyaltyRewards", input.customerId);
+  const eventRef = doc(db, "loyaltyRewardEvents", event.id);
+
+  await runTransaction(db, async (transaction) => {
+    const [accountSnapshot, eventSnapshot] = await Promise.all([
+      transaction.get(accountRef),
+      transaction.get(eventRef),
+    ]);
+
+    if (eventSnapshot.exists()) {
+      return;
+    }
+
+    const currentAccount = accountSnapshot.exists()
+      ? mapRewardsAccount(accountSnapshot.id, accountSnapshot.data())
+      : account;
+
+    if (currentAccount.pointsBalance < pointsToRedeem) {
+      throw new Error("Not enough rewards points for that credit.");
+    }
+
+    const nextRecentActivity = [event, ...currentAccount.recentActivity].slice(0, 12);
+
+    transaction.set(
+      accountRef,
+      {
+        customerId: input.customerId,
+        customerName: input.customerName,
+        lifetimePoints: currentAccount.lifetimePoints,
+        pointsBalance: currentAccount.pointsBalance - pointsToRedeem,
+        recentActivity: nextRecentActivity,
+        redeemedPoints: currentAccount.redeemedPoints + pointsToRedeem,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+    transaction.set(eventRef, {
+      ...event,
+      createdAt: serverTimestamp(),
+      expiresAt: null,
+    });
+  });
+
+  await recordAuditLog({
+    actorId: input.actorId,
+    actorRole: "customer",
+    action: "rewards.redeemed",
+    resourceType: "rewards",
+    resourceId: input.customerId,
+    summary: `Redeemed ${pointsToRedeem} rewards points for order ${input.orderId}.`,
+    metadata: {
+      customerId: input.customerId,
+      orderId: input.orderId,
+      points: pointsToRedeem,
+      rewardCreditDollars: input.rewardCreditDollars,
+    },
+  });
+
+  return getCustomerLoyaltyRewards(input.customerId, input.customerName);
+}
+
+export async function awardOrderRewardsForPaidOrder(input: {
+  actorId: string;
+  actorRole: Extract<UserRole, "owner" | "admin">;
+  order: Order;
+}) {
+  const settings = await getLoyaltyRewardSettings();
+
+  if (!settings.enabled || input.order.paymentStatus !== "paid") {
+    return null;
+  }
+
+  const orderValue = input.order.finalPrice ?? input.order.estimatedSubtotal;
+  const earnedPoints = calculateEarnedPoints(orderValue, settings);
+
+  if (earnedPoints <= 0) {
+    return null;
+  }
+
+  const account = await getCustomerLoyaltyRewards(
+    input.order.customerId,
+    input.order.customerName,
+  );
+  const event: LoyaltyRewardEvent = {
+    id: `earn-${input.order.id}`,
+    createdAt: new Date(),
+    createdBy: input.actorId,
+    customerId: input.order.customerId,
+    customerName: input.order.customerName,
+    expiresAt: getEventExpirationDate(settings),
+    label: `Earned from order ${input.order.orderNumber ?? input.order.id}`,
+    orderId: input.order.id,
+    points: earnedPoints,
+    type: "earned",
+  };
+
+  if (shouldUseDemoBackend) {
+    if (getDemoRewardEvents().some((current) => current.id === event.id)) {
+      return account;
+    }
+
+    return applyDemoEvent(account, event);
+  }
+
+  const db = getFirebaseFirestore();
+  const accountRef = doc(db, "loyaltyRewards", input.order.customerId);
+  const eventRef = doc(db, "loyaltyRewardEvents", event.id);
+
+  await runTransaction(db, async (transaction) => {
+    const [accountSnapshot, eventSnapshot] = await Promise.all([
+      transaction.get(accountRef),
+      transaction.get(eventRef),
+    ]);
+
+    if (eventSnapshot.exists()) {
+      return;
+    }
+
+    const currentAccount = accountSnapshot.exists()
+      ? mapRewardsAccount(accountSnapshot.id, accountSnapshot.data())
+      : account;
+    const nextRecentActivity = [event, ...currentAccount.recentActivity].slice(0, 12);
+
+    transaction.set(
+      accountRef,
+      {
+        customerId: input.order.customerId,
+        customerName: input.order.customerName,
+        lifetimePoints: currentAccount.lifetimePoints + earnedPoints,
+        pointsBalance: currentAccount.pointsBalance + earnedPoints,
+        recentActivity: nextRecentActivity,
+        redeemedPoints: currentAccount.redeemedPoints,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+    transaction.set(eventRef, {
+      ...event,
+      createdAt: serverTimestamp(),
+      expiresAt: event.expiresAt,
+    });
+  });
+
+  await recordAuditLog({
+    actorId: input.actorId,
+    actorRole: input.actorRole,
+    action: "rewards.earned",
+    resourceType: "rewards",
+    resourceId: input.order.customerId,
+    summary: `Awarded ${earnedPoints} points for a paid order.`,
+    metadata: {
+      customerId: input.order.customerId,
+      orderId: input.order.id,
+      points: earnedPoints,
+    },
+  });
+
+  return getCustomerLoyaltyRewards(input.order.customerId, input.order.customerName);
+}
+
+export async function adjustCustomerRewards(input: RewardAdjustmentInput) {
+  if (!["owner", "admin"].includes(input.actor.role)) {
+    throw new Error("Only owner or admin users can adjust rewards.");
+  }
+
+  if (!Number.isFinite(input.points) || input.points === 0) {
+    throw new Error("Enter a non-zero point adjustment.");
+  }
+
+  if (!input.reason.trim()) {
+    throw new Error("Adjustment reason is required.");
+  }
+
+  const account = await getCustomerLoyaltyRewards(input.customerId, input.customerName);
+
+  if (account.pointsBalance + input.points < 0) {
+    throw new Error("This adjustment would make the rewards balance negative.");
+  }
+
+  const event: LoyaltyRewardEvent = {
+    id: `adjust-${Date.now()}`,
+    createdAt: new Date(),
+    createdBy: input.actor.id,
+    customerId: input.customerId,
+    customerName: input.customerName,
+    label: input.points > 0 ? "Manual points added" : "Manual points removed",
+    points: Math.round(input.points),
+    reason: input.reason.trim(),
+    type: "adjusted",
+  };
+
+  if (shouldUseDemoBackend) {
+    const nextAccount = applyDemoEvent(account, event);
+    return nextAccount;
+  }
+
+  const db = getFirebaseFirestore();
+  const accountRef = doc(db, "loyaltyRewards", input.customerId);
+  const eventRef = doc(db, "loyaltyRewardEvents", event.id);
+
+  await runTransaction(db, async (transaction) => {
+    const accountSnapshot = await transaction.get(accountRef);
+    const currentAccount = accountSnapshot.exists()
+      ? mapRewardsAccount(accountSnapshot.id, accountSnapshot.data())
+      : account;
+    const nextBalance = currentAccount.pointsBalance + event.points;
+
+    if (nextBalance < 0) {
+      throw new Error("This adjustment would make the rewards balance negative.");
+    }
+
+    transaction.set(
+      accountRef,
+      {
+        customerId: input.customerId,
+        customerName: input.customerName,
+        lifetimePoints:
+          event.points > 0
+            ? currentAccount.lifetimePoints + event.points
+            : currentAccount.lifetimePoints,
+        pointsBalance: nextBalance,
+        recentActivity: [event, ...currentAccount.recentActivity].slice(0, 12),
+        redeemedPoints: currentAccount.redeemedPoints,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+    transaction.set(eventRef, {
+      ...event,
+      createdAt: serverTimestamp(),
+      expiresAt: null,
+    });
+  });
+
+  await recordAuditLog({
+    actorId: input.actor.id,
+    actorRole: input.actor.role,
+    action: "rewards.adjusted",
+    resourceType: "rewards",
+    resourceId: input.customerId,
+    summary: `Adjusted rewards by ${event.points} points.`,
+    metadata: {
+      customerId: input.customerId,
+      points: event.points,
+      reason: event.reason,
+    },
+  });
+
+  return getCustomerLoyaltyRewards(input.customerId, input.customerName);
 }
 
 export async function saveLoyaltyRewardsAccount(account: LoyaltyRewardsAccount) {

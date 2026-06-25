@@ -7,13 +7,17 @@ import { useAuth } from "@/context/AuthContext";
 import {
   calculateRewardCredit,
   getCustomerLoyaltyRewards,
+  getCustomerRewardEvents,
+  getLoyaltyRewardSettings,
   getNextRewardsTier,
   getRewardsTier,
   previewRedeemRewardCredit,
+  type LoyaltyRewardEvent,
   type LoyaltyRewardsAccount,
 } from "@/services/loyaltyRewardsService";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
+import type { LoyaltyRewardSettings } from "@/types/domain";
 
 const rewardCreditOptions = [1, 2, 5];
 
@@ -24,6 +28,8 @@ function formatActivityPoints(points: number) {
 export default function CustomerRewardsScreen() {
   const { currentUser } = useAuth();
   const [account, setAccount] = useState<LoyaltyRewardsAccount | null>(null);
+  const [events, setEvents] = useState<LoyaltyRewardEvent[]>([]);
+  const [settings, setSettings] = useState<LoyaltyRewardSettings | null>(null);
   const [selectedCredit, setSelectedCredit] = useState(1);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -39,12 +45,18 @@ export default function CustomerRewardsScreen() {
     setIsLoading(true);
 
     try {
-      setAccount(
-        await getCustomerLoyaltyRewards(
+      const [customerRewards, rewardEvents, rewardSettings] = await Promise.all([
+        getCustomerLoyaltyRewards(
           currentUser.id,
           currentUser.displayName || currentUser.email || "Customer",
         ),
-      );
+        getCustomerRewardEvents(currentUser.id, 75),
+        getLoyaltyRewardSettings(),
+      ]);
+
+      setAccount(customerRewards);
+      setEvents(rewardEvents);
+      setSettings(rewardSettings);
     } catch (loadError) {
       const message =
         loadError instanceof Error ? loadError.message : "Unable to load rewards.";
@@ -59,19 +71,24 @@ export default function CustomerRewardsScreen() {
   }, [loadRewards]);
 
   const currentTier = useMemo(
-    () => getRewardsTier(account?.lifetimePoints ?? 0),
-    [account?.lifetimePoints],
+    () => getRewardsTier(account?.lifetimePoints ?? 0, settings ?? undefined),
+    [account?.lifetimePoints, settings],
   );
   const nextTier = useMemo(
-    () => getNextRewardsTier(account?.lifetimePoints ?? 0),
-    [account?.lifetimePoints],
+    () => getNextRewardsTier(account?.lifetimePoints ?? 0, settings ?? undefined),
+    [account?.lifetimePoints, settings],
   );
   const pointsToNextTier = nextTier
     ? Math.max(0, nextTier.minimumPoints - (account?.lifetimePoints ?? 0))
     : 0;
-  const availableCredit = calculateRewardCredit(account?.pointsBalance ?? 0);
+  const availableCredit = calculateRewardCredit(
+    account?.pointsBalance ?? 0,
+    settings ?? undefined,
+  );
   const canRedeemSelectedCredit =
-    account !== null && account.pointsBalance >= selectedCredit * 100;
+    account !== null &&
+    settings !== null &&
+    account.pointsBalance >= selectedCredit * settings.pointsPerRewardDollar;
 
   async function handleRedeemPreview() {
     if (!account) {
@@ -85,6 +102,7 @@ export default function CustomerRewardsScreen() {
     try {
       const nextAccount = await previewRedeemRewardCredit(account, selectedCredit);
       setAccount(nextAccount);
+      setEvents(await getCustomerRewardEvents(account.customerId, 75));
       setMessage(`Previewed a $${selectedCredit.toFixed(2)} reward credit.`);
     } catch (redeemError) {
       const message =
@@ -165,8 +183,9 @@ export default function CustomerRewardsScreen() {
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Redeem rewards</Text>
               <Text style={styles.muted}>
-                Every 100 points can become $1.00 in laundry credit. Real
-                redemption will connect to checkout in the payment phase.
+                Every {settings?.pointsPerRewardDollar ?? 100} points can become
+                $1.00 in laundry credit. Real redemption is available on the order
+                payment page after the owner saves a final price.
               </Text>
               <View style={styles.creditGrid}>
                 {rewardCreditOptions.map((credit) => {
@@ -196,7 +215,7 @@ export default function CustomerRewardsScreen() {
                           selected && styles.creditMetaSelected,
                         ]}
                       >
-                        {credit * 100} points
+                        {credit * (settings?.pointsPerRewardDollar ?? 100)} points
                       </Text>
                     </Pressable>
                   );
@@ -214,10 +233,14 @@ export default function CustomerRewardsScreen() {
               <View style={styles.earnGrid}>
                 <View style={styles.earnItem}>
                   <Text style={styles.earnValue}>1x</Text>
-                  <Text style={styles.earnText}>1 point per $1 spent</Text>
+                  <Text style={styles.earnText}>
+                    {settings?.pointsPerDollar ?? 1} point per $1 spent
+                  </Text>
                 </View>
                 <View style={styles.earnItem}>
-                  <Text style={styles.earnValue}>50</Text>
+                  <Text style={styles.earnValue}>
+                    {settings?.signupBonusPoints ?? 50}
+                  </Text>
                   <Text style={styles.earnText}>Welcome bonus points</Text>
                 </View>
                 <View style={styles.earnItem}>
@@ -229,16 +252,15 @@ export default function CustomerRewardsScreen() {
 
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Recent activity</Text>
-              {account.recentActivity.length === 0 ? (
+              {events.length === 0 ? (
                 <View style={styles.empty}>
                   <Text style={styles.emptyTitle}>No rewards activity yet</Text>
                   <Text style={styles.muted}>
-                    Completed paid orders will add points here once rewards are
-                    connected to production checkout.
+                    Completed paid orders and reward redemptions will appear here.
                   </Text>
                 </View>
               ) : null}
-              {account.recentActivity.map((event) => (
+              {events.map((event) => (
                 <View key={event.id} style={styles.activityRow}>
                   <View style={styles.activityCopy}>
                     <Text style={styles.activityLabel}>{event.label}</Text>
@@ -246,6 +268,7 @@ export default function CustomerRewardsScreen() {
                       {event.createdAt
                         ? event.createdAt.toLocaleDateString("en-US")
                         : "Recent"}
+                      {event.reason ? ` · ${event.reason}` : ""}
                     </Text>
                   </View>
                   <Text

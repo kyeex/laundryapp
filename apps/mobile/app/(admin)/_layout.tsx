@@ -12,6 +12,7 @@ export default function AdminLayout() {
         <Stack.Screen name="driver-tracking" options={{ title: "Driver tracking" }} />
         <Stack.Screen name="batches" options={{ title: "Batches" }} />
         <Stack.Screen name="reports" options={{ title: "Reports" }} />
+        <Stack.Screen name="rewards" options={{ title: "Rewards" }} />
         <Stack.Screen
           name="recurring-orders"
           options={{ title: "Recurring orders" }}

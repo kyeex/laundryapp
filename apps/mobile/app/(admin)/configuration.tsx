@@ -79,6 +79,15 @@ function parseUnavailableDates(value: string) {
     .filter(Boolean);
 }
 
+function parseNullableNumber(value: string) {
+  if (!value.trim()) {
+    return null;
+  }
+
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function createCatalogId(prefix: string) {
   return `${prefix}-${Date.now()}`;
 }
@@ -221,6 +230,14 @@ function summarizeConfigurationChanges(
     )
   ) {
     changes.push("Blocked pickup dates updated.");
+  }
+
+  if (
+    valuesChanged(previous.settings.loyaltyRewards, current.settings.loyaltyRewards)
+  ) {
+    changes.push(
+      `Rewards rules updated: ${current.settings.loyaltyRewards.pointsPerDollar} point(s) per $1, ${current.settings.loyaltyRewards.pointsPerRewardDollar} points per reward dollar.`,
+    );
   }
 
   changes.push(
@@ -554,6 +571,12 @@ export default function AdminConfigurationScreen() {
             <Text style={styles.summaryLabel}>Pickup windows</Text>
             <Text style={styles.summaryValue}>{activePickupWindowCount}</Text>
           </View>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryLabel}>Rewards</Text>
+            <Text style={styles.summaryValue}>
+              {settings.loyaltyRewards.enabled ? "On" : "Off"}
+            </Text>
+          </View>
         </View>
 
         <View style={styles.sectionHeader}>
@@ -633,6 +656,174 @@ export default function AdminConfigurationScreen() {
                 .map((rate) => Math.round(rate * 100).toString())
                 .join(", ")}
             />
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Rewards rules</Text>
+            <Text style={styles.muted}>
+              These settings control how customers earn, redeem, and progress
+              through loyalty tiers.
+            </Text>
+            <AppButton
+              label={settings.loyaltyRewards.enabled ? "Rewards enabled" : "Rewards disabled"}
+              onPress={() =>
+                setSettings((current) => ({
+                  ...current,
+                  loyaltyRewards: {
+                    ...current.loyaltyRewards,
+                    enabled: !current.loyaltyRewards.enabled,
+                  },
+                }))
+              }
+              variant={settings.loyaltyRewards.enabled ? "primary" : "secondary"}
+            />
+            <View style={styles.row}>
+              <View style={styles.rowItem}>
+                <FormTextInput
+                  keyboardType="decimal-pad"
+                  label="Points per $1 spent"
+                  onChangeText={(value) =>
+                    setSettings((current) => ({
+                      ...current,
+                      loyaltyRewards: {
+                        ...current.loyaltyRewards,
+                        pointsPerDollar: parseRequiredNumber(
+                          value,
+                          current.loyaltyRewards.pointsPerDollar,
+                        ),
+                      },
+                    }))
+                  }
+                  value={settings.loyaltyRewards.pointsPerDollar.toString()}
+                />
+              </View>
+              <View style={styles.rowItem}>
+                <FormTextInput
+                  keyboardType="number-pad"
+                  label="Points per $1 credit"
+                  onChangeText={(value) =>
+                    setSettings((current) => ({
+                      ...current,
+                      loyaltyRewards: {
+                        ...current.loyaltyRewards,
+                        pointsPerRewardDollar: parseRequiredNumber(
+                          value,
+                          current.loyaltyRewards.pointsPerRewardDollar,
+                        ),
+                      },
+                    }))
+                  }
+                  value={settings.loyaltyRewards.pointsPerRewardDollar.toString()}
+                />
+              </View>
+            </View>
+            <View style={styles.row}>
+              <View style={styles.rowItem}>
+                <FormTextInput
+                  keyboardType="number-pad"
+                  label="Signup bonus points"
+                  onChangeText={(value) =>
+                    setSettings((current) => ({
+                      ...current,
+                      loyaltyRewards: {
+                        ...current.loyaltyRewards,
+                        signupBonusPoints: parseRequiredNumber(
+                          value,
+                          current.loyaltyRewards.signupBonusPoints,
+                        ),
+                      },
+                    }))
+                  }
+                  value={settings.loyaltyRewards.signupBonusPoints.toString()}
+                />
+              </View>
+              <View style={styles.rowItem}>
+                <FormTextInput
+                  keyboardType="number-pad"
+                  label="Expiration months"
+                  onChangeText={(value) =>
+                    setSettings((current) => ({
+                      ...current,
+                      loyaltyRewards: {
+                        ...current.loyaltyRewards,
+                        expirationMonths: parseNullableNumber(value),
+                      },
+                    }))
+                  }
+                  placeholder="Blank means no expiration"
+                  value={settings.loyaltyRewards.expirationMonths?.toString() ?? ""}
+                />
+              </View>
+            </View>
+            <Text style={styles.fieldLabel}>Tier thresholds</Text>
+            <View style={styles.row}>
+              <View style={styles.rowItem}>
+                <FormTextInput
+                  keyboardType="number-pad"
+                  label="Fresh Start"
+                  onChangeText={(value) =>
+                    setSettings((current) => ({
+                      ...current,
+                      loyaltyRewards: {
+                        ...current.loyaltyRewards,
+                        tierThresholds: {
+                          ...current.loyaltyRewards.tierThresholds,
+                          freshStart: parseRequiredNumber(
+                            value,
+                            current.loyaltyRewards.tierThresholds.freshStart,
+                          ),
+                        },
+                      },
+                    }))
+                  }
+                  value={settings.loyaltyRewards.tierThresholds.freshStart.toString()}
+                />
+              </View>
+              <View style={styles.rowItem}>
+                <FormTextInput
+                  keyboardType="number-pad"
+                  label="Fold Favorite"
+                  onChangeText={(value) =>
+                    setSettings((current) => ({
+                      ...current,
+                      loyaltyRewards: {
+                        ...current.loyaltyRewards,
+                        tierThresholds: {
+                          ...current.loyaltyRewards.tierThresholds,
+                          foldFavorite: parseRequiredNumber(
+                            value,
+                            current.loyaltyRewards.tierThresholds.foldFavorite,
+                          ),
+                        },
+                      },
+                    }))
+                  }
+                  value={settings.loyaltyRewards.tierThresholds.foldFavorite.toString()}
+                />
+              </View>
+              <View style={styles.rowItem}>
+                <FormTextInput
+                  keyboardType="number-pad"
+                  label="Laundry Loyalist"
+                  onChangeText={(value) =>
+                    setSettings((current) => ({
+                      ...current,
+                      loyaltyRewards: {
+                        ...current.loyaltyRewards,
+                        tierThresholds: {
+                          ...current.loyaltyRewards.tierThresholds,
+                          laundryLoyalist: parseRequiredNumber(
+                            value,
+                            current.loyaltyRewards.tierThresholds.laundryLoyalist,
+                          ),
+                        },
+                      },
+                    }))
+                  }
+                  value={settings.loyaltyRewards.tierThresholds.laundryLoyalist.toString()}
+                />
+              </View>
+            </View>
           </View>
         </View>
 

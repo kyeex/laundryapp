@@ -76,6 +76,19 @@ export type PickupAvailability = {
   unavailableDates: string[];
 };
 
+export type LoyaltyRewardSettings = {
+  enabled: boolean;
+  pointsPerDollar: number;
+  pointsPerRewardDollar: number;
+  signupBonusPoints: number;
+  tierThresholds: {
+    freshStart: number;
+    foldFavorite: number;
+    laundryLoyalist: number;
+  };
+  expirationMonths: number | null;
+};
+
 export type BusinessSettings = {
   businessName: string;
   phone: string;
@@ -83,6 +96,7 @@ export type BusinessSettings = {
   laundryPricePerPound: number;
   deliveryMinimumPounds: number;
   gratuityRateOptions: number[];
+  loyaltyRewards: LoyaltyRewardSettings;
   pickupAvailability: PickupAvailability;
 };
 
@@ -151,6 +165,9 @@ export type Order = {
   estimatedSubtotal: number;
   paymentStatus: PaymentStatus;
   finalPrice: number | null;
+  rewardCreditAmount?: number;
+  rewardPointsRedeemed?: number;
+  rewardRedemptionId?: string | null;
   pickupBatchId?: string | null;
   deliveryBatchId?: string | null;
   assignedPickupDriverId?: string | null;

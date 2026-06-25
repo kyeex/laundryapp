@@ -185,6 +185,18 @@ export const defaultBusinessSettings: BusinessSettings = {
   laundryPricePerPound: 2,
   deliveryMinimumPounds: 20,
   gratuityRateOptions: [0.15, 0.2, 0.25],
+  loyaltyRewards: {
+    enabled: true,
+    pointsPerDollar: 1,
+    pointsPerRewardDollar: 100,
+    signupBonusPoints: 50,
+    tierThresholds: {
+      freshStart: 0,
+      foldFavorite: 250,
+      laundryLoyalist: 750,
+    },
+    expirationMonths: null,
+  },
   pickupAvailability: {
     availableWeekdays: [1, 2, 3, 4, 5, 6],
     unavailableDates: [],

@@ -84,12 +84,22 @@ function getDemoBusinessSettings() {
   }
 
   try {
+    const parsedSettings = JSON.parse(storedSettings) as Partial<BusinessSettings>;
+
     return {
       ...defaultBusinessSettings,
-      ...(JSON.parse(storedSettings) as Partial<BusinessSettings>),
+      ...parsedSettings,
+      loyaltyRewards: {
+        ...defaultBusinessSettings.loyaltyRewards,
+        ...parsedSettings.loyaltyRewards,
+        tierThresholds: {
+          ...defaultBusinessSettings.loyaltyRewards.tierThresholds,
+          ...parsedSettings.loyaltyRewards?.tierThresholds,
+        },
+      },
       pickupAvailability: {
         ...defaultBusinessSettings.pickupAvailability,
-        ...(JSON.parse(storedSettings) as Partial<BusinessSettings>).pickupAvailability,
+        ...parsedSettings.pickupAvailability,
       },
     };
   } catch {
@@ -312,6 +322,15 @@ export async function getBusinessSettings() {
   return {
     ...defaultBusinessSettings,
     ...(snapshot.data() as Partial<BusinessSettings>),
+    loyaltyRewards: {
+      ...defaultBusinessSettings.loyaltyRewards,
+      ...(snapshot.data() as Partial<BusinessSettings>).loyaltyRewards,
+      tierThresholds: {
+        ...defaultBusinessSettings.loyaltyRewards.tierThresholds,
+        ...(snapshot.data() as Partial<BusinessSettings>).loyaltyRewards
+          ?.tierThresholds,
+      },
+    },
     pickupAvailability: {
       ...defaultBusinessSettings.pickupAvailability,
       ...(snapshot.data() as Partial<BusinessSettings>).pickupAvailability,
@@ -336,6 +355,7 @@ export async function saveBusinessSettings(settings: BusinessSettings) {
     laundryPricePerPound: settings.laundryPricePerPound,
     deliveryMinimumPounds: settings.deliveryMinimumPounds,
     gratuityRateOptions: settings.gratuityRateOptions,
+    loyaltyRewards: settings.loyaltyRewards,
     pickupAvailability: settings.pickupAvailability,
     updatedAt: serverTimestamp(),
   });

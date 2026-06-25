@@ -33,6 +33,7 @@ import type {
 import { validateCreateOrderInput, validateMoney } from "@/utils/validation";
 
 import { recordAuditLog } from "./auditLogService";
+import { awardOrderRewardsForPaidOrder } from "./loyaltyRewardsService";
 
 function calculateEstimatedSubtotal(addOns: CreateOrderInput["selectedAddOns"]) {
   return addOns.reduce(
@@ -105,6 +106,9 @@ export function mapOrder(id: string, data: DocumentData): Order {
     estimatedSubtotal: data.estimatedSubtotal ?? 0,
     paymentStatus: data.paymentStatus ?? "unpaid",
     finalPrice: data.finalPrice ?? null,
+    rewardCreditAmount: data.rewardCreditAmount ?? 0,
+    rewardPointsRedeemed: data.rewardPointsRedeemed ?? 0,
+    rewardRedemptionId: data.rewardRedemptionId ?? null,
     pickupBatchId: data.pickupBatchId ?? null,
     deliveryBatchId: data.deliveryBatchId ?? null,
     assignedPickupDriverId: data.assignedPickupDriverId ?? null,
@@ -170,6 +174,9 @@ export async function createCustomerOrder(customer: AppUser, input: CreateOrderI
     estimatedSubtotal,
     finalPrice: null,
     paymentStatus: "unpaid",
+    rewardCreditAmount: 0,
+    rewardPointsRedeemed: 0,
+    rewardRedemptionId: null,
     pickupBatchId: null,
     deliveryBatchId: null,
     assignedPickupDriverId: null,
@@ -408,6 +415,15 @@ export async function finalizeOrderPayment(input: {
     }
 
     markDemoOrderPaid(input.orderId);
+    const paidOrder = getDemoOrderById(input.orderId);
+
+    if (paidOrder) {
+      await awardOrderRewardsForPaidOrder({
+        actorId: input.ownerId,
+        actorRole: "owner",
+        order: paidOrder,
+      });
+    }
     return;
   }
 
@@ -453,6 +469,16 @@ export async function finalizeOrderPayment(input: {
       finalPrice: order.finalPrice,
       fromStatus: order.status,
       toStatus: "paid",
+    },
+  });
+
+  await awardOrderRewardsForPaidOrder({
+    actorId: input.ownerId,
+    actorRole: "owner",
+    order: {
+      ...order,
+      paymentStatus: "paid",
+      status: "paid",
     },
   });
 }
