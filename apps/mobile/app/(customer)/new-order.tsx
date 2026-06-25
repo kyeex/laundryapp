@@ -131,15 +131,12 @@ function ServiceGraphic({
         ]}
       >
       {includesDryCleaning ? (
-        <View style={styles.serviceShirt}>
-          <View style={styles.serviceShirtCollarLeft} />
-          <View style={styles.serviceShirtCollarRight} />
-          <View style={styles.serviceShirtSleeveLeft} />
-          <View style={styles.serviceShirtSleeveRight} />
-          <View style={styles.serviceShirtPlacket} />
-          <View style={[styles.serviceShirtButton, styles.serviceShirtButtonTop]} />
-          <View style={[styles.serviceShirtButton, styles.serviceShirtButtonMid]} />
-          <View style={[styles.serviceShirtButton, styles.serviceShirtButtonBottom]} />
+        <View style={styles.serviceTShirt}>
+          <View style={styles.serviceTShirtNeck} />
+          <View style={styles.serviceTShirtLeftSleeve} />
+          <View style={styles.serviceTShirtRightSleeve} />
+          <View style={styles.serviceTShirtShoulderLine} />
+          <View style={styles.serviceTShirtHem} />
         </View>
       ) : null}
       <View
@@ -924,7 +921,7 @@ export default function NewOrderScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Add-ons</Text>
+          <Text style={styles.sectionTitle}>Customize your laundry experience</Text>
           {addOns.length === 0 && !isLoadingConfig ? (
             <View style={styles.emptyInline}>
               <Text style={styles.emptyInlineTitle}>No add-ons available</Text>
@@ -1943,7 +1940,7 @@ const styles = StyleSheet.create({
   serviceGraphicDryCleaning: {
     backgroundColor: "#F5F3FF",
     borderColor: "#DDD6FE",
-    width: 118,
+    width: 128,
   },
   serviceGraphicSelected: {
     backgroundColor: colors.surface,
@@ -1963,7 +1960,9 @@ const styles = StyleSheet.create({
   },
   serviceWasherDryCleaning: {
     alignSelf: "flex-start",
-    marginLeft: 6,
+    height: 54,
+    marginLeft: 4,
+    width: 50,
   },
   serviceWasherTopBar: {
     alignItems: "center",
@@ -2030,95 +2029,78 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: 9,
   },
-  serviceShirt: {
-    backgroundColor: "#EDE9FE",
-    borderColor: "#8B5CF6",
-    borderRadius: 7,
-    borderTopLeftRadius: 4,
-    borderTopRightRadius: 4,
-    borderWidth: 1,
-    height: 48,
+  serviceTShirt: {
+    backgroundColor: "#F8FAFC",
+    borderColor: "#7C3AED",
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 8,
+    borderTopLeftRadius: 5,
+    borderTopRightRadius: 5,
+    borderWidth: 2,
+    height: 38,
     overflow: "visible",
     position: "absolute",
-    right: 9,
-    top: 23,
-    width: 36,
+    right: 14,
+    top: 28,
+    width: 34,
     zIndex: 4,
   },
-  serviceShirtCollarLeft: {
-    backgroundColor: colors.surface,
-    borderColor: "#8B5CF6",
-    borderRightWidth: 1,
-    borderTopWidth: 1,
-    height: 12,
-    left: 8,
-    position: "absolute",
-    top: -1,
-    transform: [{ rotate: "35deg" }],
-    width: 11,
-  },
-  serviceShirtCollarRight: {
-    backgroundColor: colors.surface,
-    borderColor: "#8B5CF6",
+  serviceTShirtNeck: {
+    backgroundColor: "#F5F3FF",
+    borderColor: "#7C3AED",
+    borderBottomColor: "#7C3AED",
+    borderBottomLeftRadius: 999,
+    borderBottomRightRadius: 999,
     borderLeftWidth: 1,
-    borderTopWidth: 1,
-    height: 12,
+    borderRightWidth: 1,
+    borderBottomWidth: 2,
+    height: 10,
+    left: 10,
     position: "absolute",
-    right: 8,
-    top: -1,
-    transform: [{ rotate: "-35deg" }],
-    width: 11,
+    top: -2,
+    width: 14,
   },
-  serviceShirtSleeveLeft: {
-    backgroundColor: "#DDD6FE",
-    borderColor: "#8B5CF6",
-    borderRadius: 5,
-    borderWidth: 1,
-    height: 18,
-    left: -8,
+  serviceTShirtLeftSleeve: {
+    backgroundColor: "#F8FAFC",
+    borderColor: "#7C3AED",
+    borderRadius: 7,
+    borderWidth: 2,
+    height: 17,
+    left: -9,
     position: "absolute",
-    top: 11,
-    transform: [{ rotate: "12deg" }],
+    top: 6,
+    transform: [{ rotate: "18deg" }],
     width: 13,
   },
-  serviceShirtSleeveRight: {
-    backgroundColor: "#DDD6FE",
-    borderColor: "#8B5CF6",
-    borderRadius: 5,
-    borderWidth: 1,
-    height: 18,
+  serviceTShirtRightSleeve: {
+    backgroundColor: "#F8FAFC",
+    borderColor: "#7C3AED",
+    borderRadius: 7,
+    borderWidth: 2,
+    height: 17,
     position: "absolute",
-    right: -8,
-    top: 11,
-    transform: [{ rotate: "-12deg" }],
+    right: -9,
+    top: 6,
+    transform: [{ rotate: "-18deg" }],
     width: 13,
   },
-  serviceShirtPlacket: {
-    backgroundColor: "#A78BFA",
-    bottom: 5,
-    left: 17,
-    position: "absolute",
-    top: 13,
-    width: 1,
-  },
-  serviceShirtButton: {
-    backgroundColor: colors.surface,
-    borderColor: "#8B5CF6",
+  serviceTShirtShoulderLine: {
+    backgroundColor: "#DDD6FE",
     borderRadius: 999,
-    borderWidth: 1,
-    height: 4,
-    left: 15,
+    height: 2,
+    left: 7,
     position: "absolute",
-    width: 4,
+    right: 7,
+    top: 12,
   },
-  serviceShirtButtonTop: {
-    top: 17,
-  },
-  serviceShirtButtonMid: {
-    top: 25,
-  },
-  serviceShirtButtonBottom: {
-    top: 33,
+  serviceTShirtHem: {
+    backgroundColor: "#DDD6FE",
+    borderRadius: 999,
+    bottom: 6,
+    height: 2,
+    left: 7,
+    position: "absolute",
+    right: 7,
   },
   serviceIcon: {
     backgroundColor: "#ECFDF5",
