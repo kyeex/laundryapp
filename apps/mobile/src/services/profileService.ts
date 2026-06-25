@@ -251,6 +251,52 @@ export async function saveCustomerProfileSummary(
   return normalizedProfile;
 }
 
+export async function saveCustomerPaymentMethod(
+  userId: string,
+  paymentMethod: CustomerPaymentMethod,
+) {
+  const normalizedPaymentMethod = normalizePaymentMethod(paymentMethod);
+
+  if (shouldUseDemoBackend) {
+    const storedProfile = getStorage()?.getItem(demoCustomerProfileStorageKey);
+    let currentProfile: CustomerProfileSummary | null = null;
+
+    if (storedProfile) {
+      try {
+        currentProfile = JSON.parse(storedProfile) as CustomerProfileSummary;
+      } catch {
+        getStorage()?.removeItem(demoCustomerProfileStorageKey);
+      }
+    }
+
+    const user = demoUsers.customer;
+    const nextProfile: CustomerProfileSummary = {
+      displayName: currentProfile?.displayName ?? user.displayName,
+      phone: currentProfile?.phone ?? user.phone,
+      email: currentProfile?.email ?? user.email,
+      defaultAddress: currentProfile?.defaultAddress ?? defaultCustomerAddress,
+      paymentMethod: normalizedPaymentMethod,
+    };
+
+    getStorage()?.setItem(demoCustomerProfileStorageKey, JSON.stringify(nextProfile));
+    return normalizedPaymentMethod;
+  }
+
+  const db = getFirebaseFirestore();
+
+  await setDoc(
+    doc(db, "customerProfiles", userId),
+    {
+      userId,
+      paymentMethod: normalizedPaymentMethod,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  return normalizedPaymentMethod;
+}
+
 export async function getCustomerLaundryPreferences(userId: string) {
   if (shouldUseDemoBackend) {
     const storedPreferences = getStorage()?.getItem(demoLaundryPreferencesStorageKey);

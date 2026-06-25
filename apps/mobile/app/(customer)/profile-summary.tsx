@@ -8,7 +8,6 @@ import { useAuth } from "@/context/AuthContext";
 import {
   getCustomerProfileSummary,
   saveCustomerProfileSummary,
-  type CustomerPaymentMethod,
   type CustomerProfileSummary,
 } from "@/services/profileService";
 import { colors } from "@/theme/colors";
@@ -25,21 +24,19 @@ const emptyAddress: AddressInput = {
   deliveryInstructions: "",
 };
 
-const emptyPaymentMethod: CustomerPaymentMethod = {
-  cardholderName: "",
-  brand: "",
-  last4: "",
-  expirationMonth: "",
-  expirationYear: "",
-};
-
 function createEmptyProfile(): CustomerProfileSummary {
   return {
     displayName: "",
     phone: "",
     email: "",
     defaultAddress: emptyAddress,
-    paymentMethod: emptyPaymentMethod,
+    paymentMethod: {
+      cardholderName: "",
+      brand: "",
+      last4: "",
+      expirationMonth: "",
+      expirationYear: "",
+    },
   };
 }
 
@@ -91,16 +88,6 @@ export default function CustomerProfileSummaryScreen() {
     }));
   }
 
-  function updatePaymentMethod(field: keyof CustomerPaymentMethod, value: string) {
-    setProfile((current) => ({
-      ...current,
-      paymentMethod: {
-        ...current.paymentMethod,
-        [field]: value,
-      },
-    }));
-  }
-
   async function handleSaveProfile() {
     if (!currentUser) {
       return;
@@ -131,6 +118,13 @@ export default function CustomerProfileSummaryScreen() {
     }
   }
 
+  const address = profile.defaultAddress;
+  const contactComplete = Boolean(profile.displayName && profile.email && profile.phone);
+  const addressComplete = Boolean(
+    address.street1 && address.city && address.state && address.postalCode,
+  );
+  const profileReady = contactComplete && addressComplete;
+
   return (
     <Screen>
       <View style={styles.content}>
@@ -147,128 +141,148 @@ export default function CustomerProfileSummaryScreen() {
 
         {!isLoading ? (
           <>
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Contact</Text>
-              <FormTextInput
-                label="Name"
-                onChangeText={(value) => updateProfileField("displayName", value)}
-                value={profile.displayName}
-              />
-              <FormTextInput
-                inputMode="email"
-                label="Email"
-                onChangeText={(value) => updateProfileField("email", value)}
-                value={profile.email}
-              />
-              <FormTextInput
-                inputMode="tel"
-                label="Phone"
-                onChangeText={(value) => updateProfileField("phone", value)}
-                value={profile.phone}
-              />
-            </View>
-
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Default address</Text>
-              <FormTextInput
-                label="Street address"
-                onChangeText={(value) => updateAddress("street1", value)}
-                value={profile.defaultAddress.street1}
-              />
-              <FormTextInput
-                label="Apt, suite, unit"
-                onChangeText={(value) => updateAddress("street2", value)}
-                value={profile.defaultAddress.street2}
-              />
-              <View style={styles.row}>
-                <View style={styles.rowItem}>
-                  <FormTextInput
-                    label="City"
-                    onChangeText={(value) => updateAddress("city", value)}
-                    value={profile.defaultAddress.city}
-                  />
-                </View>
-                <View style={styles.stateItem}>
-                  <FormTextInput
-                    label="State"
-                    maxLength={2}
-                    onChangeText={(value) => updateAddress("state", value)}
-                    value={profile.defaultAddress.state}
-                  />
-                </View>
+            <View style={styles.readinessPanel}>
+              <View style={styles.readinessCopy}>
+                <Text style={styles.eyebrow}>Profile readiness</Text>
+                <Text style={styles.readinessTitle}>
+                  {profileReady ? "Ready for checkout" : "A few details need attention"}
+                </Text>
+                <Text style={styles.readinessText}>
+                  These details help prefill new orders and reduce repeated typing.
+                </Text>
               </View>
-              <FormTextInput
-                label="ZIP code"
-                onChangeText={(value) => updateAddress("postalCode", value)}
-                value={profile.defaultAddress.postalCode}
-              />
-              <FormTextInput
-                label="Delivery instructions"
-                multiline
-                onChangeText={(value) => updateAddress("deliveryInstructions", value)}
-                style={styles.textArea}
-                value={profile.defaultAddress.deliveryInstructions}
-              />
+              <View style={styles.readinessStatusRow}>
+                <Text
+                  style={[
+                    styles.statusPill,
+                    contactComplete ? styles.statusPillComplete : styles.statusPillOpen,
+                  ]}
+                >
+                  Contact {contactComplete ? "complete" : "needed"}
+                </Text>
+                <Text
+                  style={[
+                    styles.statusPill,
+                    addressComplete ? styles.statusPillComplete : styles.statusPillOpen,
+                  ]}
+                >
+                  Address {addressComplete ? "complete" : "needed"}
+                </Text>
+              </View>
             </View>
 
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Payment method</Text>
-              <Text style={styles.muted}>
-                Save a card summary for checkout. Do not enter a full card number
-                or CVV in this demo field.
-              </Text>
-              <FormTextInput
-                label="Cardholder name"
-                onChangeText={(value) => updatePaymentMethod("cardholderName", value)}
-                value={profile.paymentMethod.cardholderName}
-              />
-              <FormTextInput
-                label="Card brand"
-                onChangeText={(value) => updatePaymentMethod("brand", value)}
-                placeholder="Visa, Mastercard, Amex"
-                value={profile.paymentMethod.brand}
-              />
-              <FormTextInput
-                keyboardType="number-pad"
-                label="Last 4 digits"
-                maxLength={4}
-                onChangeText={(value) => updatePaymentMethod("last4", value)}
-                placeholder="4242"
-                value={profile.paymentMethod.last4}
-              />
-              <View style={styles.row}>
-                <View style={styles.rowItem}>
-                  <FormTextInput
-                    keyboardType="number-pad"
-                    label="Exp month"
-                    maxLength={2}
-                    onChangeText={(value) =>
-                      updatePaymentMethod("expirationMonth", value)
-                    }
-                    placeholder="06"
-                    value={profile.paymentMethod.expirationMonth}
-                  />
-                </View>
-                <View style={styles.rowItem}>
-                  <FormTextInput
-                    keyboardType="number-pad"
-                    label="Exp year"
-                    maxLength={4}
-                    onChangeText={(value) =>
-                      updatePaymentMethod("expirationYear", value)
-                    }
-                    placeholder="2028"
-                    value={profile.paymentMethod.expirationYear}
-                  />
+            <View style={styles.formPanel}>
+              <View style={styles.formPanelHeader}>
+                <Text style={styles.eyebrow}>Account details</Text>
+                <Text style={styles.formPanelTitle}>Contact information</Text>
+                <Text style={styles.formPanelDescription}>
+                  Keep your name, email, and phone current for order updates.
+                </Text>
+              </View>
+              <View style={styles.formFields}>
+                <FormTextInput
+                  label="Name"
+                  onChangeText={(value) => updateProfileField("displayName", value)}
+                  placeholder="Name"
+                  value={profile.displayName}
+                />
+                <View style={styles.responsiveRow}>
+                  <View style={styles.flexField}>
+                    <FormTextInput
+                      inputMode="email"
+                      label="Email"
+                      onChangeText={(value) => updateProfileField("email", value)}
+                      placeholder="Email"
+                      value={profile.email}
+                    />
+                  </View>
+                  <View style={styles.flexField}>
+                    <FormTextInput
+                      inputMode="tel"
+                      label="Phone"
+                      onChangeText={(value) => updateProfileField("phone", value)}
+                      placeholder="Phone"
+                      value={profile.phone}
+                    />
+                  </View>
                 </View>
               </View>
             </View>
 
-            <AppButton
-              disabled={isSaving}
-              label={isSaving ? "Saving..." : "Save profile summary"}
-              onPress={handleSaveProfile}
-            />
+            <View style={styles.formPanel}>
+              <View style={styles.formPanelHeader}>
+                <Text style={styles.eyebrow}>Service address</Text>
+                <Text style={styles.formPanelTitle}>Default address</Text>
+                <Text style={styles.formPanelDescription}>
+                  This address can prefill pickup and delivery details on new orders.
+                </Text>
+              </View>
+              <View style={styles.formFields}>
+                <View style={styles.addressLineGroup}>
+                  <FormTextInput
+                    label="Street address"
+                    onChangeText={(value) => updateAddress("street1", value)}
+                    placeholder="Street address"
+                    value={profile.defaultAddress.street1}
+                  />
+                  <FormTextInput
+                    label="Apt, suite, unit"
+                    onChangeText={(value) => updateAddress("street2", value)}
+                    placeholder="Apt, suite, unit"
+                    value={profile.defaultAddress.street2}
+                  />
+                </View>
+                <View style={styles.addressLocationRow}>
+                  <View style={styles.addressCityField}>
+                    <FormTextInput
+                      label="City"
+                      onChangeText={(value) => updateAddress("city", value)}
+                      placeholder="City"
+                      value={profile.defaultAddress.city}
+                    />
+                  </View>
+                  <View style={styles.addressStateField}>
+                    <FormTextInput
+                      label="State"
+                      maxLength={2}
+                      onChangeText={(value) => updateAddress("state", value)}
+                      placeholder="State"
+                      value={profile.defaultAddress.state}
+                    />
+                  </View>
+                  <View style={styles.addressZipField}>
+                    <FormTextInput
+                      label="ZIP code"
+                      onChangeText={(value) => updateAddress("postalCode", value)}
+                      placeholder="ZIP code"
+                      value={profile.defaultAddress.postalCode}
+                    />
+                  </View>
+                </View>
+                <FormTextInput
+                  label="Delivery instructions"
+                  multiline
+                  onChangeText={(value) => updateAddress("deliveryInstructions", value)}
+                  placeholder="Gate code, pickup notes, delivery instructions..."
+                  style={styles.textArea}
+                  value={profile.defaultAddress.deliveryInstructions}
+                />
+              </View>
+            </View>
+
+            <View style={styles.savePanel}>
+              <View style={styles.saveCopy}>
+                <Text style={styles.saveTitle}>Save profile details</Text>
+                <Text style={styles.saveText}>
+                  Changes apply to future orders and customer checkout defaults.
+                </Text>
+              </View>
+              <AppButton
+                disabled={isSaving}
+                label={isSaving ? "Saving..." : "Save profile summary"}
+                onPress={handleSaveProfile}
+              />
+            </View>
           </>
         ) : null}
       </View>
@@ -294,7 +308,62 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
   },
-  card: {
+  readinessPanel: {
+    backgroundColor: "#F8FAFC",
+    borderColor: "#E2E8F0",
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.md,
+    justifyContent: "space-between",
+    padding: spacing.md,
+  },
+  readinessCopy: {
+    flex: 1,
+    gap: spacing.xs,
+    minWidth: 240,
+  },
+  eyebrow: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  readinessTitle: {
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: "800",
+  },
+  readinessText: {
+    color: colors.muted,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  readinessStatusRow: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  statusPill: {
+    borderRadius: 8,
+    fontSize: 12,
+    fontWeight: "800",
+    overflow: "hidden",
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    textTransform: "uppercase",
+  },
+  statusPillComplete: {
+    backgroundColor: "#DCFCE7",
+    color: colors.success,
+  },
+  statusPillOpen: {
+    backgroundColor: "#FEF3C7",
+    color: "#92400E",
+  },
+  formPanel: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderRadius: 8,
@@ -302,27 +371,82 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     padding: spacing.md,
   },
-  cardTitle: {
+  formPanelHeader: {
+    borderBottomColor: colors.border,
+    borderBottomWidth: 1,
+    gap: spacing.xs,
+    paddingBottom: spacing.sm,
+  },
+  formPanelTitle: {
     color: colors.text,
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "800",
   },
-  row: {
-    flexDirection: "row",
+  formPanelDescription: {
+    color: colors.muted,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  formFields: {
     gap: spacing.sm,
   },
-  rowItem: {
-    flex: 1,
+  responsiveRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
   },
-  stateItem: {
-    width: 96,
+  flexField: {
+    flex: 1,
+    minWidth: 220,
+  },
+  addressLineGroup: {
+    gap: spacing.sm,
+  },
+  addressLocationRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  addressCityField: {
+    flex: 2,
+    minWidth: 180,
+  },
+  addressStateField: {
+    flex: 1,
+    minWidth: 104,
+  },
+  addressZipField: {
+    flex: 1,
+    minWidth: 136,
   },
   textArea: {
-    minHeight: 92,
+    minHeight: 96,
     paddingTop: spacing.md,
     textAlignVertical: "top",
   },
-  muted: {
+  savePanel: {
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    borderColor: "#E2E8F0",
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.md,
+    justifyContent: "space-between",
+    padding: spacing.md,
+  },
+  saveCopy: {
+    flex: 1,
+    gap: spacing.xs,
+    minWidth: 220,
+  },
+  saveTitle: {
+    color: colors.text,
+    fontSize: 17,
+    fontWeight: "800",
+  },
+  saveText: {
     color: colors.muted,
     fontSize: 14,
     lineHeight: 20,

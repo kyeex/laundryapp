@@ -7,10 +7,7 @@ import { DemoWalkthrough } from "@/components/DemoWalkthrough";
 import { Screen } from "@/components/Screen";
 import { useAuth } from "@/context/AuthContext";
 import { getCustomerOrders } from "@/services/orderService";
-import {
-  getCustomerLaundryPreferences,
-  getCustomerProfileSummary,
-} from "@/services/profileService";
+import { getCustomerProfileSummary } from "@/services/profileService";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import type { Order } from "@/types/domain";
@@ -43,7 +40,6 @@ export default function CustomerHomeScreen() {
   const { currentUser } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [profileComplete, setProfileComplete] = useState(false);
-  const [preferencesComplete, setPreferencesComplete] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
@@ -56,10 +52,9 @@ export default function CustomerHomeScreen() {
     setIsLoading(true);
 
     try {
-      const [customerOrders, profile, preferences] = await Promise.all([
+      const [customerOrders, profile] = await Promise.all([
         getCustomerOrders(currentUser.id),
         getCustomerProfileSummary(currentUser.id),
-        getCustomerLaundryPreferences(currentUser.id),
       ]);
       const address = profile.defaultAddress;
 
@@ -74,9 +69,6 @@ export default function CustomerHomeScreen() {
             address.state &&
             address.postalCode,
         ),
-      );
-      setPreferencesComplete(
-        Object.values(preferences).some((value) => value.trim().length > 0),
       );
     } catch (loadError) {
       const message =
@@ -127,20 +119,11 @@ export default function CustomerHomeScreen() {
             note={profileComplete ? "Ready for fast checkout." : "Add phone and default address."}
             value={profileComplete ? "Complete" : "Needs attention"}
           />
-          <DashboardCard
-            label="Preferences"
-            note={
-              preferencesComplete
-                ? "Laundry notes can populate new orders."
-                : "Save detergent, folding, and care preferences."
-            }
-            value={preferencesComplete ? "Saved" : "Not set"}
-          />
         </View>
         <DemoWalkthrough
           title="Customer demo path"
           steps={[
-            "Confirm profile and laundry preferences.",
+            "Confirm profile and payment method.",
             "Place a wash and fold order with add-ons.",
             "Review the estimate, authorize demo payment, and track status.",
           ]}
@@ -152,13 +135,16 @@ export default function CustomerHomeScreen() {
           </Link>
           <View style={styles.actionGrid}>
             <Link href="/(customer)/my-orders" style={styles.secondaryAction}>
-              View orders
+              View order history
             </Link>
             <Link href="/(customer)/profile-summary" style={styles.secondaryAction}>
               Profile summary
             </Link>
-            <Link href="/(customer)/preferences" style={styles.secondaryAction}>
-              Preferences
+            <Link href="/(customer)/payment-method" style={styles.secondaryAction}>
+              Payment method
+            </Link>
+            <Link href="/(customer)/recurring-orders" style={styles.secondaryAction}>
+              Recurring orders
             </Link>
           </View>
         </View>

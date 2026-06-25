@@ -48,31 +48,35 @@ function DashboardCard({
         highlighted && styles.dashboardCardHighlighted,
       ]}
     >
-      <Text
-        style={[
-          styles.dashboardLabel,
-          highlighted && styles.dashboardLabelHighlighted,
-        ]}
-      >
-        {label}
-      </Text>
-      <Text
-        style={[
-          styles.dashboardValue,
-          valueToneStyle,
-          highlighted && styles.dashboardValueHighlighted,
-        ]}
-      >
-        {value}
-      </Text>
-      <Text
-        style={[
-          styles.dashboardStatus,
-          highlighted && styles.dashboardStatusHighlighted,
-        ]}
-      >
-        {highlighted ? "Review" : value > 0 ? "Open" : "Clear"}
-      </Text>
+      <View style={styles.dashboardCardContent}>
+        <View style={styles.dashboardTextGroup}>
+          <Text
+            style={[
+              styles.dashboardLabel,
+              highlighted && styles.dashboardLabelHighlighted,
+            ]}
+          >
+            {label}
+          </Text>
+          <Text
+            style={[
+              styles.dashboardStatus,
+              highlighted && styles.dashboardStatusHighlighted,
+            ]}
+          >
+            {highlighted ? "Review" : value > 0 ? "Open" : "Clear"}
+          </Text>
+        </View>
+        <Text
+          style={[
+            styles.dashboardValue,
+            valueToneStyle,
+            highlighted && styles.dashboardValueHighlighted,
+          ]}
+        >
+          {value}
+        </Text>
+      </View>
     </Link>
   );
 }
@@ -188,6 +192,9 @@ export default function AdminHomeScreen() {
             <Link href="/(admin)/driver-tracking" style={styles.secondaryAction}>
               Driver tracking
             </Link>
+            <Link href="/(admin)/recurring-orders" style={styles.secondaryAction}>
+              Recurring orders
+            </Link>
             <Link href="/(admin)/configuration" style={styles.secondaryAction}>
               Business configuration
             </Link>
@@ -232,18 +239,31 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   dashboardCard: {
-    alignItems: "center",
+    alignItems: "stretch",
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderRadius: 8,
     borderWidth: 1,
     borderLeftWidth: 5,
+    flexBasis: 136,
     flexGrow: 1,
-    gap: spacing.xs,
+    flexShrink: 1,
     justifyContent: "center",
-    minHeight: 104,
-    minWidth: 138,
+    minHeight: 96,
+    minWidth: 150,
     padding: spacing.sm,
+  },
+  dashboardCardContent: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: spacing.sm,
+    justifyContent: "space-between",
+    width: "100%",
+  },
+  dashboardTextGroup: {
+    flex: 1,
+    gap: spacing.xs,
+    minWidth: 0,
   },
   dashboardCardRequests: {
     backgroundColor: "#FFFBEB",
@@ -269,20 +289,24 @@ const styles = StyleSheet.create({
   },
   dashboardLabel: {
     color: colors.muted,
-    fontSize: 11,
-    fontWeight: "800",
-    textAlign: "center",
+    flexShrink: 1,
+    fontSize: 10,
+    fontWeight: "900",
+    lineHeight: 13,
+    textAlign: "left",
     textTransform: "uppercase",
+    width: "100%",
   },
   dashboardLabelHighlighted: {
     color: "#92400E",
   },
   dashboardValue: {
     color: colors.text,
-    fontSize: 34,
-    fontWeight: "800",
-    lineHeight: 38,
-    textAlign: "center",
+    fontSize: 44,
+    fontWeight: "900",
+    lineHeight: 48,
+    minWidth: 54,
+    textAlign: "right",
   },
   dashboardValueRequests: {
     color: "#92400E",
@@ -306,11 +330,13 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     color: colors.text,
-    fontSize: 11,
-    fontWeight: "800",
+    fontSize: 10,
+    fontWeight: "900",
+    lineHeight: 12,
     overflow: "hidden",
-    paddingHorizontal: 8,
+    paddingHorizontal: 7,
     paddingVertical: 3,
+    textAlign: "left",
     textTransform: "uppercase",
   },
   dashboardStatusHighlighted: {

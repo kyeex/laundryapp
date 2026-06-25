@@ -31,11 +31,7 @@ import {
   getActiveServices,
   getBusinessSettings,
 } from "@/services/configurationService";
-import {
-  getCustomerProfileSummary,
-  getCustomerLaundryPreferences,
-  type CustomerLaundryPreferences,
-} from "@/services/profileService";
+import { getCustomerProfileSummary } from "@/services/profileService";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import type {
@@ -86,19 +82,84 @@ function formatPrice(price: number | null) {
   return `$${price.toFixed(2)}`;
 }
 
-function formatPreferencesForOrderNotes(preferences: CustomerLaundryPreferences) {
-  return [
-    ["Detergent", preferences.detergentPreference],
-    ["Fabric softener", preferences.fabricSoftenerPreference],
-    ["Scent", preferences.scentPreference],
-    ["Folding", preferences.foldingPreference],
-    ["Hangers", preferences.hangerPreference],
-    ["Separation", preferences.separationPreference],
-    ["Special instructions", preferences.specialInstructions],
-  ]
-    .filter(([, value]) => value.trim())
-    .map(([label, value]) => `${label}: ${value.trim()}`)
-    .join("\n");
+function getInitialIconLabel(value: string) {
+  const words = value
+    .replace(/[^A-Za-z0-9 ]/g, " ")
+    .split(" ")
+    .filter(Boolean);
+
+  return words
+    .slice(0, 2)
+    .map((word) => word[0]?.toUpperCase())
+    .join("");
+}
+
+function getAddOnIconLabel(addOn: AddOn) {
+  const addOnIcons: Record<string, string> = {
+    "blanket-wash": "BL",
+    comforter: "CO",
+    "dry-high-heat": "HH",
+    "dry-low-heat": "LH",
+    "dry-medium-heat": "MH",
+    "large-washer": "LW",
+    "medium-washer": "MW",
+    "rush-service": "RS",
+    "sensitive-skin-detergent": "SS",
+    "separate-colors": "SC",
+    "small-washer": "SW",
+    "tide-detergent": "TD",
+  };
+
+  return addOnIcons[addOn.id] ?? getInitialIconLabel(addOn.name);
+}
+
+function ServiceGraphic({
+  selected,
+  serviceId,
+}: {
+  selected: boolean;
+  serviceId: string;
+}) {
+  const includesDryCleaning = serviceId === "wash-fold-dry-cleaning";
+
+  return (
+      <View
+        style={[
+          styles.serviceGraphic,
+          includesDryCleaning && styles.serviceGraphicDryCleaning,
+          selected && styles.serviceGraphicSelected,
+        ]}
+      >
+      {includesDryCleaning ? (
+        <View style={styles.serviceShirt}>
+          <View style={styles.serviceShirtCollarLeft} />
+          <View style={styles.serviceShirtCollarRight} />
+          <View style={styles.serviceShirtSleeveLeft} />
+          <View style={styles.serviceShirtSleeveRight} />
+          <View style={styles.serviceShirtPlacket} />
+          <View style={[styles.serviceShirtButton, styles.serviceShirtButtonTop]} />
+          <View style={[styles.serviceShirtButton, styles.serviceShirtButtonMid]} />
+          <View style={[styles.serviceShirtButton, styles.serviceShirtButtonBottom]} />
+        </View>
+      ) : null}
+      <View
+        style={[
+          styles.serviceWasher,
+          includesDryCleaning && styles.serviceWasherDryCleaning,
+        ]}
+      >
+        <View style={styles.serviceWasherTopBar}>
+          <View style={styles.serviceWasherKnob} />
+          <View style={styles.serviceWasherLight} />
+        </View>
+        <View style={styles.serviceWasherDoor}>
+          <View style={styles.serviceWasherWater} />
+          <View style={styles.serviceWasherShine} />
+        </View>
+        <View style={styles.serviceWasherBaseShadow} />
+      </View>
+    </View>
+  );
 }
 
 export default function NewOrderScreen() {
@@ -234,11 +295,7 @@ export default function NewOrderScreen() {
 
     async function loadCustomerDefaults() {
       try {
-        const [profile, preferences] = await Promise.all([
-          getCustomerProfileSummary(customerId),
-          getCustomerLaundryPreferences(customerId),
-        ]);
-        const preferenceNotes = formatPreferencesForOrderNotes(preferences);
+        const profile = await getCustomerProfileSummary(customerId);
 
         if (!mounted) {
           return;
@@ -250,10 +307,6 @@ export default function NewOrderScreen() {
 
           return hasStartedAddress ? current : profile.defaultAddress;
         });
-
-        if (preferenceNotes) {
-          setCustomerNotes((current) => current || preferenceNotes);
-        }
       } catch {
         // Customer defaults are helpful, not required to place an order.
       }
@@ -743,14 +796,17 @@ export default function NewOrderScreen() {
                   style={[styles.serviceCard, selected && styles.serviceCardSelected]}
                 >
                   <View style={styles.serviceCardHeader}>
-                    <Text
-                      style={[
-                        styles.serviceCardTitle,
-                        selected && styles.serviceCardTitleSelected,
-                      ]}
-                    >
-                      {service.name}
-                    </Text>
+                    <View style={styles.serviceCardTitleRow}>
+                      <ServiceGraphic selected={selected} serviceId={service.id} />
+                      <Text
+                        style={[
+                          styles.serviceCardTitle,
+                          selected && styles.serviceCardTitleSelected,
+                        ]}
+                      >
+                        {service.name}
+                      </Text>
+                    </View>
                     <Text
                       style={[
                         styles.serviceCardBadge,
@@ -833,14 +889,15 @@ export default function NewOrderScreen() {
             </View>
             <View style={styles.weightVisualCard}>
               <View style={styles.deliveryScene}>
-                <View style={styles.deliverySkyline}>
-                  <View style={styles.deliveryBuildingTall} />
-                  <View style={styles.deliveryBuildingShort} />
-                  <View style={styles.deliveryBuildingMid} />
-                </View>
-                <View style={styles.deliveryRouteLine} />
+                <View style={styles.deliverySun} />
+                <View style={styles.deliveryCloudLeft} />
+                <View style={styles.deliveryCloudRight} />
+                <View style={styles.deliveryRoadGlow} />
+                <View style={styles.deliveryRoad} />
+                <View style={styles.deliveryRoadStripe} />
                 <View style={styles.deliveryTruck}>
                   <View style={styles.deliveryTruckCab} />
+                  <View style={styles.deliveryTruckWindow} />
                   <View style={styles.deliveryTruckBox}>
                     <Text style={styles.deliveryTruckText}>Laundry</Text>
                   </View>
@@ -850,6 +907,9 @@ export default function NewOrderScreen() {
                 <View style={styles.laundryBag}>
                   <View style={styles.laundryBagHandle} />
                   <Text style={styles.laundryBagText}>20 lb</Text>
+                </View>
+                <View style={styles.deliveryPin}>
+                  <Text style={styles.deliveryPinText}>Pickup</Text>
                 </View>
               </View>
               <View style={styles.deliveryVisualCopy}>
@@ -896,14 +956,24 @@ export default function NewOrderScreen() {
                         style={[styles.menuItem, selected && styles.menuItemSelected]}
                       >
                         <View style={styles.menuItemHeader}>
-                          <Text
-                            style={[
-                              styles.menuItemTitle,
-                              selected && styles.menuItemTitleSelected,
-                            ]}
-                          >
-                            {addOn.name}
-                          </Text>
+                          <View style={styles.menuItemTitleRow}>
+                            <Text
+                              style={[
+                                styles.addOnIcon,
+                                selected && styles.addOnIconSelected,
+                              ]}
+                            >
+                              {getAddOnIconLabel(addOn)}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.menuItemTitle,
+                                selected && styles.menuItemTitleSelected,
+                              ]}
+                            >
+                              {addOn.name}
+                            </Text>
+                          </View>
                           <Text
                             style={[
                               styles.menuItemPrice,
@@ -1014,13 +1084,13 @@ export default function NewOrderScreen() {
                 <FormTextInput
                   label="Street address"
                   onChangeText={(value) => updateAddress("street1", value)}
-                  placeholder="123 Main St"
+                  placeholder="Street address"
                   value={address.street1}
                 />
                 <FormTextInput
                   label="Apt, suite, unit"
                   onChangeText={(value) => updateAddress("street2", value)}
-                  placeholder="Apt 2B"
+                  placeholder="Apt, suite, unit"
                   value={address.street2}
                 />
               </View>
@@ -1039,7 +1109,7 @@ export default function NewOrderScreen() {
                     label="State"
                     maxLength={2}
                     onChangeText={(value) => updateAddress("state", value)}
-                    placeholder="NY"
+                    placeholder="State"
                     value={address.state}
                   />
                 </View>
@@ -1048,7 +1118,7 @@ export default function NewOrderScreen() {
                     keyboardType="number-pad"
                     label="ZIP code"
                     onChangeText={(value) => updateAddress("postalCode", value)}
-                    placeholder="10001"
+                    placeholder="ZIP code"
                     value={address.postalCode}
                   />
                 </View>
@@ -1310,17 +1380,24 @@ export default function NewOrderScreen() {
             </View>
           </View>
 
-          <View style={styles.schedulePanel}>
-            <Text style={styles.schedulePanelTitle}>Laundry notes</Text>
-            <FormTextInput
-              label="Notes for this order"
-              multiline
-              onChangeText={setCustomerNotes}
-              placeholder="Detergent preferences, item notes, pickup details..."
-              style={styles.textArea}
-              value={customerNotes}
-            />
+        </View>
+
+        <View style={styles.orderNotesCard}>
+          <View style={styles.orderNotesHeader}>
+            <Text style={styles.orderNotesEyebrow}>Optional</Text>
+            <Text style={styles.orderNotesTitle}>Order notes</Text>
+            <Text style={styles.orderNotesDescription}>
+              Add any fresh instructions for this specific order.
+            </Text>
           </View>
+          <FormTextInput
+            label="Notes for this order"
+            multiline
+            onChangeText={setCustomerNotes}
+            placeholder="Add anything helpful for this order..."
+            style={styles.orderNotesTextArea}
+            value={customerNotes}
+          />
         </View>
 
         <View style={styles.gratuityCard}>
@@ -1554,7 +1631,7 @@ export default function NewOrderScreen() {
 
 const styles = StyleSheet.create({
   content: {
-    gap: spacing.lg,
+    gap: spacing.xl,
     paddingBottom: spacing.xl,
   },
   muted: {
@@ -1577,7 +1654,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   section: {
-    gap: spacing.sm,
+    gap: spacing.md,
   },
   sectionTitle: {
     color: colors.text,
@@ -1609,6 +1686,7 @@ const styles = StyleSheet.create({
   },
   addressSection: {
     alignItems: "stretch",
+    gap: spacing.md,
   },
   addressCard: {
     backgroundColor: "#F8FAFC",
@@ -1667,6 +1745,38 @@ const styles = StyleSheet.create({
   },
   addressTextArea: {
     minHeight: 84,
+    paddingTop: spacing.md,
+    textAlignVertical: "top",
+  },
+  orderNotesCard: {
+    backgroundColor: "#F8FAFC",
+    borderColor: "#E2E8F0",
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: spacing.md,
+    padding: spacing.md,
+  },
+  orderNotesHeader: {
+    gap: spacing.xs,
+  },
+  orderNotesEyebrow: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  orderNotesTitle: {
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: "800",
+  },
+  orderNotesDescription: {
+    color: colors.muted,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  orderNotesTextArea: {
+    minHeight: 112,
     paddingTop: spacing.md,
     textAlignVertical: "top",
   },
@@ -1811,6 +1921,224 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     justifyContent: "space-between",
   },
+  serviceCardTitleRow: {
+    alignItems: "center",
+    flex: 1,
+    flexDirection: "row",
+    gap: spacing.sm,
+  },
+  serviceGraphic: {
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    borderColor: "#CFE5DE",
+    borderRadius: 8,
+    borderWidth: 1,
+    height: 86,
+    justifyContent: "flex-end",
+    overflow: "hidden",
+    paddingBottom: 10,
+    position: "relative",
+    width: 96,
+  },
+  serviceGraphicDryCleaning: {
+    backgroundColor: "#F5F3FF",
+    borderColor: "#DDD6FE",
+    width: 118,
+  },
+  serviceGraphicSelected: {
+    backgroundColor: colors.surface,
+    borderColor: "#99D6CC",
+  },
+  serviceWasher: {
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderColor: colors.primary,
+    borderRadius: 8,
+    borderWidth: 2,
+    height: 58,
+    justifyContent: "center",
+    overflow: "hidden",
+    position: "relative",
+    width: 54,
+  },
+  serviceWasherDryCleaning: {
+    alignSelf: "flex-start",
+    marginLeft: 6,
+  },
+  serviceWasherTopBar: {
+    alignItems: "center",
+    backgroundColor: "#EAF7F4",
+    borderBottomColor: "#B7DED5",
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    gap: 4,
+    height: 12,
+    justifyContent: "flex-end",
+    left: 0,
+    paddingRight: 6,
+    position: "absolute",
+    right: 0,
+    top: 0,
+  },
+  serviceWasherKnob: {
+    backgroundColor: colors.primary,
+    borderRadius: 999,
+    height: 5,
+    width: 5,
+  },
+  serviceWasherLight: {
+    backgroundColor: "#FCD34D",
+    borderRadius: 999,
+    height: 5,
+    width: 5,
+  },
+  serviceWasherDoor: {
+    alignItems: "center",
+    backgroundColor: "#DBEAFE",
+    borderColor: "#93C5FD",
+    borderRadius: 999,
+    borderWidth: 3,
+    height: 32,
+    justifyContent: "center",
+    overflow: "hidden",
+    position: "relative",
+    width: 32,
+  },
+  serviceWasherWater: {
+    backgroundColor: "#5EEAD4",
+    borderRadius: 999,
+    bottom: 4,
+    height: 12,
+    left: 3,
+    position: "absolute",
+    right: 3,
+  },
+  serviceWasherShine: {
+    backgroundColor: "rgba(255,255,255,0.82)",
+    borderRadius: 999,
+    height: 8,
+    left: 7,
+    position: "absolute",
+    top: 6,
+    width: 8,
+  },
+  serviceWasherBaseShadow: {
+    backgroundColor: "rgba(15,23,42,0.08)",
+    bottom: 3,
+    height: 3,
+    left: 9,
+    position: "absolute",
+    right: 9,
+  },
+  serviceShirt: {
+    backgroundColor: "#EDE9FE",
+    borderColor: "#8B5CF6",
+    borderRadius: 7,
+    borderTopLeftRadius: 4,
+    borderTopRightRadius: 4,
+    borderWidth: 1,
+    height: 48,
+    overflow: "visible",
+    position: "absolute",
+    right: 9,
+    top: 23,
+    width: 36,
+    zIndex: 4,
+  },
+  serviceShirtCollarLeft: {
+    backgroundColor: colors.surface,
+    borderColor: "#8B5CF6",
+    borderRightWidth: 1,
+    borderTopWidth: 1,
+    height: 12,
+    left: 8,
+    position: "absolute",
+    top: -1,
+    transform: [{ rotate: "35deg" }],
+    width: 11,
+  },
+  serviceShirtCollarRight: {
+    backgroundColor: colors.surface,
+    borderColor: "#8B5CF6",
+    borderLeftWidth: 1,
+    borderTopWidth: 1,
+    height: 12,
+    position: "absolute",
+    right: 8,
+    top: -1,
+    transform: [{ rotate: "-35deg" }],
+    width: 11,
+  },
+  serviceShirtSleeveLeft: {
+    backgroundColor: "#DDD6FE",
+    borderColor: "#8B5CF6",
+    borderRadius: 5,
+    borderWidth: 1,
+    height: 18,
+    left: -8,
+    position: "absolute",
+    top: 11,
+    transform: [{ rotate: "12deg" }],
+    width: 13,
+  },
+  serviceShirtSleeveRight: {
+    backgroundColor: "#DDD6FE",
+    borderColor: "#8B5CF6",
+    borderRadius: 5,
+    borderWidth: 1,
+    height: 18,
+    position: "absolute",
+    right: -8,
+    top: 11,
+    transform: [{ rotate: "-12deg" }],
+    width: 13,
+  },
+  serviceShirtPlacket: {
+    backgroundColor: "#A78BFA",
+    bottom: 5,
+    left: 17,
+    position: "absolute",
+    top: 13,
+    width: 1,
+  },
+  serviceShirtButton: {
+    backgroundColor: colors.surface,
+    borderColor: "#8B5CF6",
+    borderRadius: 999,
+    borderWidth: 1,
+    height: 4,
+    left: 15,
+    position: "absolute",
+    width: 4,
+  },
+  serviceShirtButtonTop: {
+    top: 17,
+  },
+  serviceShirtButtonMid: {
+    top: 25,
+  },
+  serviceShirtButtonBottom: {
+    top: 33,
+  },
+  serviceIcon: {
+    backgroundColor: "#ECFDF5",
+    borderColor: "#A7F3D0",
+    borderRadius: 8,
+    borderWidth: 1,
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: "800",
+    minWidth: 42,
+    overflow: "hidden",
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+    textAlign: "center",
+  },
+  serviceIconSelected: {
+    backgroundColor: colors.surface,
+    borderColor: "#A7F3D0",
+    color: colors.primary,
+  },
   serviceCardTitle: {
     color: colors.text,
     flex: 1,
@@ -1892,6 +2220,31 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: spacing.sm,
     justifyContent: "space-between",
+  },
+  menuItemTitleRow: {
+    alignItems: "center",
+    flex: 1,
+    flexDirection: "row",
+    gap: spacing.sm,
+  },
+  addOnIcon: {
+    backgroundColor: "#F8FAFC",
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: "800",
+    minWidth: 38,
+    overflow: "hidden",
+    paddingHorizontal: 7,
+    paddingVertical: 6,
+    textAlign: "center",
+  },
+  addOnIconSelected: {
+    backgroundColor: colors.surface,
+    borderColor: colors.surface,
+    color: colors.primary,
   },
   menuItemTitle: {
     color: colors.text,
@@ -2176,6 +2529,7 @@ const styles = StyleSheet.create({
   },
   weightSection: {
     alignItems: "stretch",
+    gap: spacing.md,
   },
   weightLayout: {
     alignItems: "stretch",
@@ -2223,7 +2577,7 @@ const styles = StyleSheet.create({
     minWidth: 170,
   },
   weightStepper: {
-    flexDirection: "row",
+    flexDirection: "column",
     gap: spacing.xs,
   },
   weightStepperButton: {
@@ -2276,64 +2630,93 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
   deliveryScene: {
-    backgroundColor: "#ECFDF5",
-    borderColor: "#BBF7D0",
+    backgroundColor: "#EAF7F4",
+    borderColor: "#B7DED5",
     borderRadius: 8,
     borderWidth: 1,
     height: 170,
     overflow: "hidden",
     position: "relative",
   },
-  deliverySkyline: {
-    alignItems: "flex-end",
-    bottom: 48,
-    flexDirection: "row",
-    gap: 7,
-    left: spacing.md,
-    position: "absolute",
-  },
-  deliveryBuildingTall: {
-    backgroundColor: "#D1FAE5",
-    borderRadius: 6,
-    height: 72,
-    width: 32,
-  },
-  deliveryBuildingShort: {
-    backgroundColor: "#A7F3D0",
-    borderRadius: 6,
+  deliverySun: {
+    backgroundColor: "#FDE68A",
+    borderRadius: 24,
     height: 48,
-    width: 34,
-  },
-  deliveryBuildingMid: {
-    backgroundColor: "#D1FAE5",
-    borderRadius: 6,
-    height: 58,
-    width: 30,
-  },
-  deliveryRouteLine: {
-    backgroundColor: "#86EFAC",
-    bottom: 34,
-    height: 4,
-    left: spacing.md,
     position: "absolute",
-    right: spacing.md,
+    right: 22,
+    top: 18,
+    width: 48,
+  },
+  deliveryCloudLeft: {
+    backgroundColor: "rgba(255,255,255,0.82)",
+    borderRadius: 999,
+    height: 18,
+    left: 22,
+    position: "absolute",
+    top: 28,
+    width: 70,
+  },
+  deliveryCloudRight: {
+    backgroundColor: "rgba(255,255,255,0.7)",
+    borderRadius: 999,
+    height: 14,
+    left: 52,
+    position: "absolute",
+    top: 50,
+    width: 54,
+  },
+  deliveryRoadGlow: {
+    backgroundColor: "rgba(15,118,110,0.08)",
+    borderRadius: 999,
+    bottom: 15,
+    height: 66,
+    left: -24,
+    position: "absolute",
+    right: -24,
+  },
+  deliveryRoad: {
+    backgroundColor: "#CBD5E1",
+    bottom: 25,
+    height: 28,
+    left: -18,
+    position: "absolute",
+    right: -18,
+    transform: [{ rotate: "-2deg" }],
+  },
+  deliveryRoadStripe: {
+    backgroundColor: "#FFFFFF",
+    bottom: 38,
+    height: 3,
+    left: 30,
+    position: "absolute",
+    right: 42,
+    transform: [{ rotate: "-2deg" }],
   },
   deliveryTruck: {
-    bottom: 36,
-    height: 54,
+    bottom: 42,
+    height: 58,
     position: "absolute",
-    right: spacing.lg,
-    width: 146,
+    right: 22,
+    width: 156,
   },
   deliveryTruckCab: {
     backgroundColor: colors.primary,
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 4,
-    bottom: 10,
-    height: 34,
+    borderBottomRightRadius: 7,
+    borderTopRightRadius: 10,
+    bottom: 11,
+    height: 36,
     position: "absolute",
     right: 0,
-    width: 44,
+    width: 48,
+  },
+  deliveryTruckWindow: {
+    backgroundColor: "#DDF1EC",
+    borderRadius: 4,
+    height: 13,
+    position: "absolute",
+    right: 9,
+    top: 15,
+    width: 18,
   },
   deliveryTruckBox: {
     alignItems: "center",
@@ -2341,12 +2724,16 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     borderRadius: 8,
     borderWidth: 2,
-    bottom: 10,
-    height: 40,
+    bottom: 11,
+    height: 42,
     justifyContent: "center",
     left: 0,
     position: "absolute",
-    width: 104,
+    shadowColor: "#0F172A",
+    shadowOffset: { height: 4, width: 0 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    width: 112,
   },
   deliveryTruckText: {
     color: colors.primary,
@@ -2355,37 +2742,45 @@ const styles = StyleSheet.create({
   },
   deliveryTruckWheelLeft: {
     backgroundColor: colors.text,
-    borderRadius: 8,
+    borderColor: colors.surface,
+    borderRadius: 10,
+    borderWidth: 3,
     bottom: 0,
-    height: 16,
+    height: 20,
     left: 20,
     position: "absolute",
-    width: 16,
+    width: 20,
   },
   deliveryTruckWheelRight: {
     backgroundColor: colors.text,
-    borderRadius: 8,
+    borderColor: colors.surface,
+    borderRadius: 10,
+    borderWidth: 3,
     bottom: 0,
-    height: 16,
+    height: 20,
     position: "absolute",
-    right: 20,
-    width: 16,
+    right: 22,
+    width: 20,
   },
   laundryBag: {
     alignItems: "center",
     backgroundColor: "#FFFFFF",
-    borderColor: "#A7F3D0",
+    borderColor: "#99D6CC",
     borderRadius: 8,
     borderWidth: 2,
-    bottom: 52,
-    height: 58,
+    bottom: 58,
+    height: 60,
     justifyContent: "center",
-    left: "43%",
+    left: 34,
     position: "absolute",
-    width: 50,
+    shadowColor: "#0F172A",
+    shadowOffset: { height: 4, width: 0 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    width: 54,
   },
   laundryBagHandle: {
-    borderColor: "#A7F3D0",
+    borderColor: "#99D6CC",
     borderRadius: 9,
     borderWidth: 2,
     height: 18,
@@ -2397,6 +2792,21 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: 12,
     fontWeight: "800",
+  },
+  deliveryPin: {
+    backgroundColor: colors.text,
+    borderRadius: 999,
+    bottom: 18,
+    left: 18,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    position: "absolute",
+  },
+  deliveryPinText: {
+    color: "#FFFFFF",
+    fontSize: 11,
+    fontWeight: "900",
+    textTransform: "uppercase",
   },
   deliveryVisualCopy: {
     gap: spacing.xs,

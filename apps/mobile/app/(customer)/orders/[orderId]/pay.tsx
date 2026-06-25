@@ -144,8 +144,8 @@ export default function CustomerPayOrderScreen() {
                 </>
               ) : (
                 <Text style={styles.muted}>
-                  No saved payment method yet. Add one from Customer Profile
-                  Summary, or continue with card checkout.
+                  No saved payment method yet. Add one from Payment Method, or
+                  continue with card checkout.
                 </Text>
               )}
             </View>

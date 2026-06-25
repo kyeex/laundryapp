@@ -12,6 +12,14 @@ export default function CustomerLayout() {
           options={{ title: "Customer profile" }}
         />
         <Stack.Screen
+          name="payment-method"
+          options={{ title: "Payment method" }}
+        />
+        <Stack.Screen
+          name="recurring-orders"
+          options={{ title: "Recurring orders" }}
+        />
+        <Stack.Screen
           name="preferences"
           options={{ title: "Customer preferences" }}
         />
