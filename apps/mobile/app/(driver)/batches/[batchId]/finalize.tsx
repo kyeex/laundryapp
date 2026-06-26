@@ -73,6 +73,7 @@ export default function DriverFinalizeRouteScreen() {
         : [],
     [batch, orders, selectedOrderIds],
   );
+  const routeIsCompleted = batch?.status === "completed";
 
   const loadRoute = useCallback(async () => {
     if (!batchId || !currentUser) {
@@ -110,7 +111,7 @@ export default function DriverFinalizeRouteScreen() {
   }, [loadRoute]);
 
   async function handleSubmitRoute() {
-    if (!batch || !currentUser || selectedOrders.length === 0) {
+    if (!batch || !currentUser || selectedOrders.length === 0 || routeIsCompleted) {
       return;
     }
 
@@ -169,7 +170,9 @@ export default function DriverFinalizeRouteScreen() {
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Route confirmation</Text>
               <Text style={styles.value}>
-                Review the selected stops below before submitting this route.
+                {routeIsCompleted
+                  ? "This route has already been finalized and submitted."
+                  : "Review the selected stops below before submitting this route."}
               </Text>
               <Text style={styles.muted}>
                 Batch status: {formatStatus(batch.status)}
@@ -202,11 +205,20 @@ export default function DriverFinalizeRouteScreen() {
             </View>
 
             <View style={styles.actions}>
-              <AppButton
-                disabled={isSubmitting || selectedOrders.length === 0}
-                label={isSubmitting ? "Submitting..." : "Submit finalized route"}
-                onPress={handleSubmitRoute}
-              />
+              {routeIsCompleted ? (
+                <View style={styles.card}>
+                  <Text style={styles.cardTitle}>Route already submitted</Text>
+                  <Text style={styles.muted}>
+                    No additional submission is needed for this completed route.
+                  </Text>
+                </View>
+              ) : (
+                <AppButton
+                  disabled={isSubmitting || selectedOrders.length === 0}
+                  label={isSubmitting ? "Submitting..." : "Submit finalized route"}
+                  onPress={handleSubmitRoute}
+                />
+              )}
               <AppButton
                 disabled={isSubmitting}
                 label="Back to route stops"

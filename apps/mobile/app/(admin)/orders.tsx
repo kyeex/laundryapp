@@ -18,7 +18,7 @@ import { getAdminOrders, getOrderNumber } from "@/services/orderService";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import type { Batch, Order } from "@/types/domain";
-import { formatDisplayDate } from "@/utils/dateFormat";
+import { formatDisplayDate, formatDisplayDateTime } from "@/utils/dateFormat";
 import {
   formatOrderStatus,
   orderStatusGroups,
@@ -26,6 +26,7 @@ import {
 
 type SortKey =
   | "number"
+  | "submitted"
   | "customer"
   | "type"
   | "status"
@@ -208,9 +209,21 @@ function getOrderType(order: Order) {
   return `Wash/fold · ${addOnCount} add-on${addOnCount === 1 ? "" : "s"}`;
 }
 
+function formatCustomerAddress(order: Order) {
+  const { street1, street2, city, state, postalCode } = order.addressSnapshot;
+  const streetLine = [street1, street2].filter(Boolean).join(" ");
+  const cityLine = [city, state, postalCode].filter(Boolean).join(", ");
+
+  return [streetLine, cityLine].filter(Boolean).join(" · ") || "Address not provided";
+}
+
 function getSortValue(order: Order, sortKey: SortKey) {
   if (sortKey === "number") {
     return getOrderNumber(order);
+  }
+
+  if (sortKey === "submitted") {
+    return order.createdAt?.getTime() ?? 0;
   }
 
   if (sortKey === "customer") {
@@ -352,11 +365,13 @@ function buildOrderAnalytics(orders: Order[]) {
 function createExcelTable(orders: Order[]) {
   const headers = [
     "Order number",
+    "Submitted",
     "Customer",
     "Phone",
     "Order type",
     "Services",
     "Status",
+    "Customer address",
     "Pickup date",
     "Pickup window",
     "Drop-off date",
@@ -369,11 +384,13 @@ function createExcelTable(orders: Order[]) {
   ];
   const rows = orders.map((order) => [
     getOrderNumber(order),
+    formatDisplayDateTime(order.createdAt ?? null),
     order.customerName || "Customer",
     order.customerPhone,
     getOrderType(order),
     getServiceNames(order),
     formatOrderStatus(order.status),
+    formatCustomerAddress(order),
     formatDisplayDate(order.scheduledPickupDate),
     order.scheduledPickupWindow,
     formatDisplayDate(order.scheduledDropoffDate),
@@ -990,9 +1007,13 @@ export default function AdminOrdersScreen() {
           <View style={styles.table}>
             <View style={[styles.tableRow, styles.tableHeader]}>
               {renderSortHeader("Order #", "number", styles.orderNumberCell)}
+              {renderSortHeader("Submitted", "submitted", styles.submittedCell)}
               {renderSortHeader("Customer", "customer", styles.customerCell)}
               {renderSortHeader("Order type", "type", styles.typeCell)}
               {renderSortHeader("Status", "status", styles.statusCell)}
+              <View style={styles.addressCell}>
+                <Text style={styles.headerCell}>Customer address</Text>
+              </View>
               {renderSortHeader("Schedule", "schedule", styles.scheduleCell)}
               {renderSortHeader("Total", "total", styles.totalCell)}
               {renderSortHeader("Payment", "payment", styles.paymentCell)}
@@ -1020,6 +1041,11 @@ export default function AdminOrdersScreen() {
                 <View style={styles.orderNumberCell}>
                   <Text style={styles.primaryText}>{getOrderNumber(order)}</Text>
                 </View>
+                <View style={styles.submittedCell}>
+                  <Text style={styles.primaryText}>
+                    {formatDisplayDateTime(order.createdAt ?? null)}
+                  </Text>
+                </View>
                 <View style={styles.customerCell}>
                   <Text style={styles.primaryText}>
                     {order.customerName || "Customer"}
@@ -1032,6 +1058,21 @@ export default function AdminOrdersScreen() {
                 </View>
                 <View style={styles.statusCell}>
                   <Text style={styles.statusPill}>{formatOrderStatus(order.status)}</Text>
+                </View>
+                <View style={styles.addressCell}>
+                  <Text style={styles.primaryText}>
+                    {order.addressSnapshot.street1 || "Address not provided"}
+                  </Text>
+                  <Text style={styles.secondaryText}>
+                    {[order.addressSnapshot.street2, order.addressSnapshot.city]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </Text>
+                  <Text style={styles.secondaryText}>
+                    {[order.addressSnapshot.state, order.addressSnapshot.postalCode]
+                      .filter(Boolean)
+                      .join(" ")}
+                  </Text>
                 </View>
                 <View style={styles.scheduleCell}>
                   <Text style={styles.primaryText}>
@@ -1570,8 +1611,12 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   orderNumberCell: {
-    flex: 0.95,
-    minWidth: 124,
+    flex: 0.85,
+    minWidth: 112,
+  },
+  submittedCell: {
+    flex: 1.1,
+    minWidth: 148,
   },
   customerCell: {
     flex: 1.1,
@@ -1582,8 +1627,12 @@ const styles = StyleSheet.create({
     minWidth: 180,
   },
   statusCell: {
-    flex: 1,
+    flex: 0.95,
     minWidth: 128,
+  },
+  addressCell: {
+    flex: 1.45,
+    minWidth: 190,
   },
   scheduleCell: {
     flex: 1.35,

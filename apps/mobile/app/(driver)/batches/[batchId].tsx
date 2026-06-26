@@ -72,6 +72,7 @@ export default function DriverBatchDetailScreen() {
     () => (batch ? orders.filter((order) => isStopCompleted(batch, order)) : []),
     [batch, orders],
   );
+  const routeIsCompleted = batch?.status === "completed";
   const stopActionLabel = useMemo(() => {
     if (!batch || batch.type === "pickup_delivery") {
       return "Marked picked up / delivered";
@@ -192,20 +193,29 @@ export default function DriverBatchDetailScreen() {
               </View>
             ) : null}
 
-            <AppButton
-              disabled={selectedOrders.length === 0}
-              label="Finalize and submit route"
-              onPress={() =>
-                router.push({
-                  pathname: "/(driver)/batches/[batchId]/finalize",
-                  params: {
-                    batchId: batch.id,
-                    orderIds: selectedOrders.map((order) => order.id).join(","),
-                  },
-                })
-              }
-            />
-            {selectedOrders.length === 0 ? (
+            {routeIsCompleted ? (
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>Route submitted</Text>
+                <Text style={styles.muted}>
+                  This route has already been finalized and submitted to the owner.
+                </Text>
+              </View>
+            ) : (
+              <AppButton
+                disabled={selectedOrders.length === 0}
+                label="Finalize and submit route"
+                onPress={() =>
+                  router.push({
+                    pathname: "/(driver)/batches/[batchId]/finalize",
+                    params: {
+                      batchId: batch.id,
+                      orderIds: selectedOrders.map((order) => order.id).join(","),
+                    },
+                  })
+                }
+              />
+            )}
+            {!routeIsCompleted && selectedOrders.length === 0 ? (
               <Text style={styles.muted}>
                 Select at least one completed stop before finalizing the route.
               </Text>
@@ -242,7 +252,7 @@ export default function DriverBatchDetailScreen() {
                     ) : null}
                     <View style={styles.actions}>
                       <AppButton
-                        disabled={savingOrderId === order.id}
+                        disabled={routeIsCompleted || savingOrderId === order.id}
                         label={
                           completed
                             ? "Undo stop"
@@ -261,7 +271,7 @@ export default function DriverBatchDetailScreen() {
                         variant={completed ? "secondary" : "primary"}
                       />
                       <AppButton
-                        disabled={savingOrderId === order.id || completed}
+                        disabled={routeIsCompleted || savingOrderId === order.id || completed}
                         label="Mark failed attempt"
                         onPress={() =>
                           handleStopUpdate(order, getFailedStatus(batch, order))
