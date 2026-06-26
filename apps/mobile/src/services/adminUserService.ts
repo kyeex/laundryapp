@@ -120,6 +120,43 @@ async function recordFallbackAdminAudit(input: {
   });
 }
 
+async function ensureManagedRoleProfile(
+  userId: string,
+  role: UserRole,
+  phone = "",
+) {
+  const db = getFirebaseFirestore();
+
+  if (role === "customer") {
+    await setDoc(
+      doc(db, "customerProfiles", userId),
+      {
+        userId,
+        defaultAddressId: null,
+        notes: "",
+        updatedAt: serverTimestamp(),
+        createdAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+  }
+
+  if (role === "driver") {
+    await setDoc(
+      doc(db, "driverProfiles", userId),
+      {
+        userId,
+        active: true,
+        phone,
+        vehicleInfo: "",
+        updatedAt: serverTimestamp(),
+        createdAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+  }
+}
+
 async function createManagedUserWithoutFunctions(input: ManagedUserInput) {
   const db = getFirebaseFirestore();
   const temporaryApp = initializeApp(
@@ -162,26 +199,7 @@ async function createManagedUserWithoutFunctions(input: ManagedUserInput) {
       updatedAt: serverTimestamp(),
     });
 
-    if (input.role === "customer") {
-      await setDoc(doc(db, "customerProfiles", credential.user.uid), {
-        userId: credential.user.uid,
-        defaultAddressId: null,
-        notes: "",
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-    }
-
-    if (input.role === "driver") {
-      await setDoc(doc(db, "driverProfiles", credential.user.uid), {
-        userId: credential.user.uid,
-        active: true,
-        phone: input.phone,
-        vehicleInfo: "",
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-    }
+    await ensureManagedRoleProfile(credential.user.uid, input.role, input.phone);
 
     await sendPasswordResetEmail(temporaryAuth, input.email);
     return user;
@@ -331,6 +349,10 @@ export async function updateManagedUser(
       { merge: true },
     );
 
+    if (updates.role) {
+      await ensureManagedRoleProfile(userId, updates.role, updates.phone ?? "");
+    }
+
     await recordFallbackAdminAudit({
       action: "user.access_updated",
       resourceId: userId,
@@ -367,4 +389,9 @@ export async function provisionManagedUserProfile(input: ManagedUserInput & { id
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+  await ensureManagedRoleProfile(
+    input.id,
+    normalizedInput.role,
+    normalizedInput.phone,
+  );
 }

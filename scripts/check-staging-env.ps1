@@ -1,5 +1,5 @@
 param(
-  [ValidateSet("staging", "production")]
+  [ValidateSet("demo", "staging", "production")]
   [string]$Environment = "staging"
 )
 
@@ -7,6 +7,11 @@ $ErrorActionPreference = "Stop"
 $root = Resolve-Path (Join-Path $PSScriptRoot "..")
 $envFileName = ".env.$Environment"
 $envPath = Join-Path $root "apps/mobile/$envFileName"
+
+if ($Environment -eq "demo" -and -not (Test-Path -LiteralPath $envPath)) {
+  $envFileName = ".env.demo.example"
+  $envPath = Join-Path $root "apps/mobile/$envFileName"
+}
 
 if (-not (Test-Path -LiteralPath $envPath)) {
   throw "Missing apps/mobile/$envFileName"
@@ -86,12 +91,24 @@ Write-Host ""
 Write-Host "Checking apps/mobile/$envFileName" -ForegroundColor Cyan
 $rows | Format-Table -AutoSize
 
-if (($rows | Where-Object { -not $_.Filled }).Count -gt 0) {
+if (
+  $Environment -eq "demo" -and
+  $envFileName -eq ".env.demo.example"
+) {
+  $requiredDemoFields = @("EXPO_PUBLIC_APP_ENV", "EXPO_PUBLIC_FIREBASE_PROJECT_ID")
+  foreach ($name in $requiredDemoFields) {
+    if (-not $values[$name]) {
+      throw "$name is required in apps/mobile/$envFileName."
+    }
+  }
+} elseif (($rows | Where-Object { -not $_.Filled }).Count -gt 0) {
   throw "One or more $Environment environment values are missing."
 }
 
-foreach ($name in $required) {
-  Assert-NotPlaceholder $name $values[$name]
+if ($Environment -ne "demo") {
+  foreach ($name in $required) {
+    Assert-NotPlaceholder $name $values[$name]
+  }
 }
 
 $actualAppEnv = $values["EXPO_PUBLIC_APP_ENV"].ToLowerInvariant()
@@ -100,6 +117,10 @@ if ($actualAppEnv -ne $Environment) {
 }
 
 $projectId = $values["EXPO_PUBLIC_FIREBASE_PROJECT_ID"]
+if ($Environment -eq "demo" -and $projectId -match "(prod|production|staging|stage)") {
+  throw "Demo Firebase project id '$projectId' looks like a staging or production project."
+}
+
 if ($Environment -eq "staging" -and $projectId -match "(prod|production)") {
   throw "Staging Firebase project id '$projectId' looks like a production project."
 }
@@ -120,9 +141,27 @@ if ($Environment -eq "production") {
   }
 }
 
+$envFilesToCompare = @("demo", "staging", "production") | Where-Object { $_ -ne $Environment }
+foreach ($otherEnvironment in $envFilesToCompare) {
+  $otherPath = Join-Path $root "apps/mobile/.env.$otherEnvironment"
+
+  if ($otherEnvironment -eq "demo" -and -not (Test-Path -LiteralPath $otherPath)) {
+    $otherPath = Join-Path $root "apps/mobile/.env.demo.example"
+  }
+
+  if (Test-Path -LiteralPath $otherPath) {
+    $otherData = Read-EnvValues $otherPath
+    $otherProjectId = $otherData.Values["EXPO_PUBLIC_FIREBASE_PROJECT_ID"]
+
+    if ($otherProjectId -and $projectId -and $otherProjectId -eq $projectId) {
+      throw "$Environment and $otherEnvironment are using the same Firebase project id '$projectId'. They must be separate projects."
+    }
+  }
+}
+
 $stripeKey = $values["EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY"]
-if ($Environment -eq "staging" -and $stripeKey.StartsWith("pk_live_")) {
-  throw "Staging is using a live Stripe publishable key. Use a Stripe test key for staging."
+if (($Environment -eq "demo" -or $Environment -eq "staging") -and $stripeKey.StartsWith("pk_live_")) {
+  throw "$Environment is using a live Stripe publishable key. Use a Stripe test key for non-production."
 }
 
 if ($Environment -eq "production" -and $stripeKey.StartsWith("pk_test_")) {

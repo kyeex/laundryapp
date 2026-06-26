@@ -14,11 +14,15 @@ service cloud.firestore {
       return userDoc(request.auth.uid);
     }
 
-    function hasRole(role) {
+    function hasActiveProfile() {
       return signedIn()
         && exists(/databases/$(database)/documents/users/$(request.auth.uid))
-        && currentUser().data.role == role
         && currentUser().data.active == true;
+    }
+
+    function hasRole(role) {
+      return hasActiveProfile()
+        && currentUser().data.role == role;
     }
 
     function isOwner() {
@@ -41,6 +45,10 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == userId;
     }
 
+    function ownsActiveUserDoc(userId) {
+      return ownsUserDoc(userId) && hasActiveProfile();
+    }
+
     function validUserRole(role) {
       return role in ["customer", "owner", "driver", "admin"];
     }
@@ -61,7 +69,7 @@ service cloud.firestore {
     }
 
     function isAssignedDriver(order) {
-      return signedIn()
+      return isDriver()
         && (
           order.assignedPickupDriverId == request.auth.uid
           || order.assignedDeliveryDriverId == request.auth.uid
@@ -105,9 +113,17 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/orders/$(orderId))
         && (
           isOwner()
-          || get(/databases/$(database)/documents/orders/$(orderId)).data.customerId == request.auth.uid
-          || get(/databases/$(database)/documents/orders/$(orderId)).data.assignedPickupDriverId == request.auth.uid
-          || get(/databases/$(database)/documents/orders/$(orderId)).data.assignedDeliveryDriverId == request.auth.uid
+          || (
+            isCustomer()
+            && get(/databases/$(database)/documents/orders/$(orderId)).data.customerId == request.auth.uid
+          )
+          || (
+            isDriver()
+            && (
+              get(/databases/$(database)/documents/orders/$(orderId)).data.assignedPickupDriverId == request.auth.uid
+              || get(/databases/$(database)/documents/orders/$(orderId)).data.assignedDeliveryDriverId == request.auth.uid
+            )
+          )
         );
     }
 
@@ -162,7 +178,7 @@ service cloud.firestore {
         )
         || (isAdmin() && validAdminManagedUser());
       allow update: if (
-          ownsUserDoc(userId)
+          ownsActiveUserDoc(userId)
           && request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly([
               "displayName",
@@ -179,39 +195,41 @@ service cloud.firestore {
     }
 
     match /customerProfiles/{userId} {
-      allow read, create, update: if ownsUserDoc(userId) || isAdmin();
+      allow read, create, update: if (isCustomer() && ownsUserDoc(userId))
+        || isAdmin();
       allow delete: if isAdmin();
     }
 
     match /driverProfiles/{userId} {
-      allow read: if ownsUserDoc(userId) || isOwner() || isAdmin();
+      allow read: if (isDriver() && ownsUserDoc(userId)) || isOwner() || isAdmin();
       allow create, update, delete: if isAdmin();
     }
 
     match /addresses/{addressId} {
       allow get: if isAdmin()
-        || (signedIn() && addressId == request.auth.uid + "-default")
-        || (signedIn() && resource.data.userId == request.auth.uid);
+        || (isCustomer() && addressId == request.auth.uid + "-default")
+        || (isCustomer() && resource.data.userId == request.auth.uid);
       allow list: if isAdmin()
-        || (signedIn() && resource.data.userId == request.auth.uid);
+        || (isCustomer() && resource.data.userId == request.auth.uid);
       allow create: if (isCustomer()
           && request.resource.data.userId == request.auth.uid)
         || isAdmin();
       allow update, delete: if isAdmin()
         || (
-          signedIn()
+          isCustomer()
           && resource.data.userId == request.auth.uid
           && request.resource.data.userId == request.auth.uid
         );
     }
 
     match /customerPreferences/{userId} {
-      allow read, create, update: if ownsUserDoc(userId) || isAdmin();
+      allow read, create, update: if (isCustomer() && ownsUserDoc(userId))
+        || isAdmin();
       allow delete: if isAdmin();
     }
 
     match /loyaltyRewards/{userId} {
-      allow read: if ownsUserDoc(userId) || isOwner() || isAdmin();
+      allow read: if (isCustomer() && ownsUserDoc(userId)) || isOwner() || isAdmin();
       allow create, update, delete: if isOwner() || isAdmin();
     }
 
@@ -252,7 +270,7 @@ service cloud.firestore {
 
     match /orders/{orderId} {
       allow read: if isOwner()
-        || isOwnOrder(resource.data)
+        || (isCustomer() && isOwnOrder(resource.data))
         || isAssignedDriver(resource.data);
       allow create: if validCustomerOrderCreate();
       allow update: if isOwner()
@@ -261,7 +279,7 @@ service cloud.firestore {
     }
 
     match /auditLogs/{auditLogId} {
-      allow read: if isOwner() || isAdmin();
+      allow read: if isAdmin();
       allow create: if ((isOwner() || isAdmin()) && isOwnAuditLog())
         || canCreateDriverAuditLog();
       allow update, delete: if false;
@@ -270,7 +288,8 @@ service cloud.firestore {
     match /batches/{batchId} {
       allow read: if isOwner()
         || (isDriver() && resource.data.driverId == request.auth.uid);
-      allow create, update, delete: if isOwner()
+      allow create, delete: if isOwner();
+      allow update: if isOwner()
         || driverCanSubmitRoute();
     }
 
@@ -280,9 +299,17 @@ service cloud.firestore {
           signedIn()
           && exists(/databases/$(database)/documents/orders/$(resource.data.orderId))
           && (
-            get(/databases/$(database)/documents/orders/$(resource.data.orderId)).data.customerId == request.auth.uid
-            || get(/databases/$(database)/documents/orders/$(resource.data.orderId)).data.assignedPickupDriverId == request.auth.uid
-            || get(/databases/$(database)/documents/orders/$(resource.data.orderId)).data.assignedDeliveryDriverId == request.auth.uid
+            (
+              isCustomer()
+              && get(/databases/$(database)/documents/orders/$(resource.data.orderId)).data.customerId == request.auth.uid
+            )
+            || (
+              isDriver()
+              && (
+                get(/databases/$(database)/documents/orders/$(resource.data.orderId)).data.assignedPickupDriverId == request.auth.uid
+                || get(/databases/$(database)/documents/orders/$(resource.data.orderId)).data.assignedDeliveryDriverId == request.auth.uid
+              )
+            )
           )
         );
       allow create: if canCreateOrderEvent(request.resource.data.orderId);
@@ -321,7 +348,7 @@ service cloud.firestore {
 
     match /payments/{paymentId} {
       allow read: if isOwner()
-        || (signedIn() && resource.data.customerId == request.auth.uid);
+        || (isCustomer() && resource.data.customerId == request.auth.uid);
       allow write: if false;
     }
   }

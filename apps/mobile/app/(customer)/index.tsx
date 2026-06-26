@@ -7,7 +7,10 @@ import { DemoWalkthrough } from "@/components/DemoWalkthrough";
 import { Screen } from "@/components/Screen";
 import { useAuth } from "@/context/AuthContext";
 import { getCustomerOrders } from "@/services/orderService";
-import { getCustomerLoyaltyRewards } from "@/services/loyaltyRewardsService";
+import {
+  getCustomerLoyaltyRewards,
+  getLoyaltyRewardSettings,
+} from "@/services/loyaltyRewardsService";
 import { getCustomerProfileSummary } from "@/services/profileService";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
@@ -40,6 +43,7 @@ function DashboardCard({
 export default function CustomerHomeScreen() {
   const { currentUser } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
+  const [rewardsEnabled, setRewardsEnabled] = useState(false);
   const [rewardsPoints, setRewardsPoints] = useState(0);
   const [profileComplete, setProfileComplete] = useState(false);
   const [error, setError] = useState("");
@@ -54,13 +58,15 @@ export default function CustomerHomeScreen() {
     setIsLoading(true);
 
     try {
-      const [customerOrders, profile] = await Promise.all([
+      const [customerOrders, profile, rewardSettings] = await Promise.all([
         getCustomerOrders(currentUser.id),
         getCustomerProfileSummary(currentUser.id),
+        getLoyaltyRewardSettings(),
       ]);
       const address = profile.defaultAddress;
 
       setOrders(customerOrders);
+      setRewardsEnabled(rewardSettings.enabled);
       setProfileComplete(
         Boolean(
           profile.displayName &&
@@ -73,16 +79,20 @@ export default function CustomerHomeScreen() {
         ),
       );
 
-      try {
-        const rewards = await getCustomerLoyaltyRewards(
-          currentUser.id,
-          profile.displayName ||
-            currentUser.displayName ||
-            currentUser.email ||
-            "Customer",
-        );
-        setRewardsPoints(rewards.pointsBalance);
-      } catch {
+      if (rewardSettings.enabled) {
+        try {
+          const rewards = await getCustomerLoyaltyRewards(
+            currentUser.id,
+            profile.displayName ||
+              currentUser.displayName ||
+              currentUser.email ||
+              "Customer",
+          );
+          setRewardsPoints(rewards.pointsBalance);
+        } catch {
+          setRewardsPoints(0);
+        }
+      } else {
         setRewardsPoints(0);
       }
     } catch (loadError) {
@@ -134,11 +144,13 @@ export default function CustomerHomeScreen() {
             note={profileComplete ? "Ready for fast checkout." : "Add phone and default address."}
             value={profileComplete ? "Complete" : "Needs attention"}
           />
-          <DashboardCard
-            label="Rewards"
-            note="Earn points and preview future laundry credits."
-            value={`${rewardsPoints}`}
-          />
+          {rewardsEnabled ? (
+            <DashboardCard
+              label="Rewards"
+              note="Earn points and preview future laundry credits."
+              value={`${rewardsPoints}`}
+            />
+          ) : null}
         </View>
         <DemoWalkthrough
           title="Customer demo path"
@@ -166,9 +178,11 @@ export default function CustomerHomeScreen() {
             <Link href="/(customer)/recurring-orders" style={styles.secondaryAction}>
               Recurring orders
             </Link>
-            <Link href="/(customer)/rewards" style={styles.secondaryAction}>
-              Rewards
-            </Link>
+            {rewardsEnabled ? (
+              <Link href="/(customer)/rewards" style={styles.secondaryAction}>
+                Rewards
+              </Link>
+            ) : null}
           </View>
         </View>
       </View>

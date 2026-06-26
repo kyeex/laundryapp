@@ -60,13 +60,14 @@ export default function CustomerPayOrderScreen() {
         getCustomerOrderById(currentUser.id, orderId),
         getCustomerProfileSummary(currentUser.id),
       ]);
-      const [customerRewards, settings] = await Promise.all([
-        getCustomerLoyaltyRewards(
-          currentUser.id,
-          currentUser.displayName || currentUser.email || "Customer",
-        ),
-        getLoyaltyRewardSettings(),
-      ]);
+      const settings = await getLoyaltyRewardSettings();
+      const customerRewards = settings.enabled
+        ? await getCustomerLoyaltyRewards(
+            currentUser.id,
+            currentUser.displayName || currentUser.email || "Customer",
+          )
+        : null;
+
       setOrder(customerOrder);
       setPaymentMethod(profile.paymentMethod);
       setRewardsAccount(customerRewards);
@@ -177,43 +178,45 @@ export default function CustomerPayOrderScreen() {
               </Text>
             </View>
 
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Apply rewards</Text>
-              <Text style={styles.muted}>
-                {rewardsAccount
-                  ? `${rewardsAccount.pointsBalance} points available. Choose a credit to apply before checkout.`
-                  : "Rewards are loading for this customer."}
-              </Text>
-              <View style={styles.rewardGrid}>
-                {rewardCreditOptions.map((credit) => {
-                  const pointsNeeded = rewardSettings
-                    ? calculatePointsForRewardCredit(credit, rewardSettings)
-                    : credit * 100;
-                  const disabled =
-                    credit > availableRewardCredit || credit > finalPrice || isPaying;
-                  const selected = selectedRewardCredit === credit;
-
-                  return (
-                    <AppButton
-                      disabled={disabled}
-                      key={credit}
-                      label={
-                        credit === 0 ? "No credit" : `$${credit} (${pointsNeeded} pts)`
-                      }
-                      onPress={() => setSelectedRewardCredit(credit)}
-                      variant={selected ? "primary" : "secondary"}
-                    />
-                  );
-                })}
-              </View>
-              <View style={styles.paymentSummary}>
-                <Text style={styles.value}>Final price: ${finalPrice.toFixed(2)}</Text>
-                <Text style={styles.value}>
-                  Rewards credit: -${selectedRewardCredit.toFixed(2)}
+            {rewardSettings?.enabled ? (
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>Apply rewards</Text>
+                <Text style={styles.muted}>
+                  {rewardsAccount
+                    ? `${rewardsAccount.pointsBalance} points available. Choose a credit to apply before checkout.`
+                    : "Rewards are loading for this customer."}
                 </Text>
-                <Text style={styles.totalDue}>Amount due: ${payableAmount.toFixed(2)}</Text>
+                <View style={styles.rewardGrid}>
+                  {rewardCreditOptions.map((credit) => {
+                    const pointsNeeded = rewardSettings
+                      ? calculatePointsForRewardCredit(credit, rewardSettings)
+                      : credit * 100;
+                    const disabled =
+                      credit > availableRewardCredit || credit > finalPrice || isPaying;
+                    const selected = selectedRewardCredit === credit;
+
+                    return (
+                      <AppButton
+                        disabled={disabled}
+                        key={credit}
+                        label={
+                          credit === 0 ? "No credit" : `$${credit} (${pointsNeeded} pts)`
+                        }
+                        onPress={() => setSelectedRewardCredit(credit)}
+                        variant={selected ? "primary" : "secondary"}
+                      />
+                    );
+                  })}
+                </View>
+                <View style={styles.paymentSummary}>
+                  <Text style={styles.value}>Final price: ${finalPrice.toFixed(2)}</Text>
+                  <Text style={styles.value}>
+                    Rewards credit: -${selectedRewardCredit.toFixed(2)}
+                  </Text>
+                  <Text style={styles.totalDue}>Amount due: ${payableAmount.toFixed(2)}</Text>
+                </View>
               </View>
-            </View>
+            ) : null}
 
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Payment method</Text>

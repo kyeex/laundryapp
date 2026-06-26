@@ -21,7 +21,7 @@ function getLocalStorage() {
 }
 
 export const isDemoPreviewMode =
-  !isDemoEnvironment && getLocalStorage()?.getItem(demoPreviewStorageKey) === "true";
+  isDemoEnvironment && getLocalStorage()?.getItem(demoPreviewStorageKey) === "true";
 
 export const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
@@ -33,7 +33,7 @@ export const firebaseConfig = {
 };
 
 export const isFirebaseConfigured = Object.values(firebaseConfig).every(Boolean);
-export const shouldUseDemoBackend = isDemoEnvironment || isDemoPreviewMode;
+export const shouldUseDemoBackend = isDemoEnvironment;
 export const canUseFirebaseBackend =
   requiresFirebaseBackend && isFirebaseConfigured && !isDemoPreviewMode;
 export { appEnvironment, isDemoEnvironment, requiresFirebaseBackend };

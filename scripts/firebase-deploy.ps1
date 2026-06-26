@@ -1,5 +1,5 @@
 param(
-  [ValidateSet("staging", "production")]
+  [ValidateSet("demo", "staging", "production")]
   [string]$Environment = "staging",
 
   [ValidateSet("all", "firestore", "functions")]

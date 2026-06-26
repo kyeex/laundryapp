@@ -6,18 +6,21 @@ import {
   limit,
   orderBy,
   query,
-  runTransaction,
   serverTimestamp,
   setDoc,
   where,
   type DocumentData,
 } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
 
-import { getFirebaseFirestore, shouldUseDemoBackend } from "@/config/firebase";
+import {
+  getFirebaseFirestore,
+  getFirebaseFunctions,
+  shouldUseDemoBackend,
+} from "@/config/firebase";
 import { defaultBusinessSettings } from "@/data/serviceCatalog";
 import type { AppUser, LoyaltyRewardSettings, Order, UserRole } from "@/types/domain";
 
-import { recordAuditLog } from "./auditLogService";
 import { getBusinessSettings } from "./configurationService";
 
 export type LoyaltyRewardEventType =
@@ -543,66 +546,16 @@ export async function redeemRewardsForOrder(input: RewardRedemptionInput) {
     return applyDemoEvent(account, event);
   }
 
-  const db = getFirebaseFirestore();
-  const accountRef = doc(db, "loyaltyRewards", input.customerId);
-  const eventRef = doc(db, "loyaltyRewardEvents", event.id);
-
-  await runTransaction(db, async (transaction) => {
-    const [accountSnapshot, eventSnapshot] = await Promise.all([
-      transaction.get(accountRef),
-      transaction.get(eventRef),
-    ]);
-
-    if (eventSnapshot.exists()) {
-      return;
-    }
-
-    const currentAccount = accountSnapshot.exists()
-      ? mapRewardsAccount(accountSnapshot.id, accountSnapshot.data())
-      : account;
-
-    if (currentAccount.pointsBalance < pointsToRedeem) {
-      throw new Error("Not enough rewards points for that credit.");
-    }
-
-    const nextRecentActivity = [event, ...currentAccount.recentActivity].slice(0, 12);
-
-    transaction.set(
-      accountRef,
-      {
-        customerId: input.customerId,
-        customerName: input.customerName,
-        lifetimePoints: currentAccount.lifetimePoints,
-        pointsBalance: currentAccount.pointsBalance - pointsToRedeem,
-        recentActivity: nextRecentActivity,
-        redeemedPoints: currentAccount.redeemedPoints + pointsToRedeem,
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true },
-    );
-    transaction.set(eventRef, {
-      ...event,
-      createdAt: serverTimestamp(),
-      expiresAt: null,
-    });
+  const redeemRewards = httpsCallable<
+    { orderId: string; rewardCreditDollars: number },
+    { account: LoyaltyRewardsAccount | null }
+  >(getFirebaseFunctions(), "redeemRewardsForOrder");
+  const response = await redeemRewards({
+    orderId: input.orderId,
+    rewardCreditDollars: input.rewardCreditDollars,
   });
 
-  await recordAuditLog({
-    actorId: input.actorId,
-    actorRole: "customer",
-    action: "rewards.redeemed",
-    resourceType: "rewards",
-    resourceId: input.customerId,
-    summary: `Redeemed ${pointsToRedeem} rewards points for order ${input.orderId}.`,
-    metadata: {
-      customerId: input.customerId,
-      orderId: input.orderId,
-      points: pointsToRedeem,
-      rewardCreditDollars: input.rewardCreditDollars,
-    },
-  });
-
-  return getCustomerLoyaltyRewards(input.customerId, input.customerName);
+  return response.data.account;
 }
 
 export async function awardOrderRewardsForPaidOrder(input: {
@@ -648,60 +601,13 @@ export async function awardOrderRewardsForPaidOrder(input: {
     return applyDemoEvent(account, event);
   }
 
-  const db = getFirebaseFirestore();
-  const accountRef = doc(db, "loyaltyRewards", input.order.customerId);
-  const eventRef = doc(db, "loyaltyRewardEvents", event.id);
+  const awardRewards = httpsCallable<
+    { orderId: string },
+    { account: LoyaltyRewardsAccount | null; points: number }
+  >(getFirebaseFunctions(), "awardOrderRewardsForPaidOrder");
+  const response = await awardRewards({ orderId: input.order.id });
 
-  await runTransaction(db, async (transaction) => {
-    const [accountSnapshot, eventSnapshot] = await Promise.all([
-      transaction.get(accountRef),
-      transaction.get(eventRef),
-    ]);
-
-    if (eventSnapshot.exists()) {
-      return;
-    }
-
-    const currentAccount = accountSnapshot.exists()
-      ? mapRewardsAccount(accountSnapshot.id, accountSnapshot.data())
-      : account;
-    const nextRecentActivity = [event, ...currentAccount.recentActivity].slice(0, 12);
-
-    transaction.set(
-      accountRef,
-      {
-        customerId: input.order.customerId,
-        customerName: input.order.customerName,
-        lifetimePoints: currentAccount.lifetimePoints + earnedPoints,
-        pointsBalance: currentAccount.pointsBalance + earnedPoints,
-        recentActivity: nextRecentActivity,
-        redeemedPoints: currentAccount.redeemedPoints,
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true },
-    );
-    transaction.set(eventRef, {
-      ...event,
-      createdAt: serverTimestamp(),
-      expiresAt: event.expiresAt,
-    });
-  });
-
-  await recordAuditLog({
-    actorId: input.actorId,
-    actorRole: input.actorRole,
-    action: "rewards.earned",
-    resourceType: "rewards",
-    resourceId: input.order.customerId,
-    summary: `Awarded ${earnedPoints} points for a paid order.`,
-    metadata: {
-      customerId: input.order.customerId,
-      orderId: input.order.id,
-      points: earnedPoints,
-    },
-  });
-
-  return getCustomerLoyaltyRewards(input.order.customerId, input.order.customerName);
+  return response.data.account;
 }
 
 export async function adjustCustomerRewards(input: RewardAdjustmentInput) {
@@ -740,59 +646,23 @@ export async function adjustCustomerRewards(input: RewardAdjustmentInput) {
     return nextAccount;
   }
 
-  const db = getFirebaseFirestore();
-  const accountRef = doc(db, "loyaltyRewards", input.customerId);
-  const eventRef = doc(db, "loyaltyRewardEvents", event.id);
-
-  await runTransaction(db, async (transaction) => {
-    const accountSnapshot = await transaction.get(accountRef);
-    const currentAccount = accountSnapshot.exists()
-      ? mapRewardsAccount(accountSnapshot.id, accountSnapshot.data())
-      : account;
-    const nextBalance = currentAccount.pointsBalance + event.points;
-
-    if (nextBalance < 0) {
-      throw new Error("This adjustment would make the rewards balance negative.");
-    }
-
-    transaction.set(
-      accountRef,
-      {
-        customerId: input.customerId,
-        customerName: input.customerName,
-        lifetimePoints:
-          event.points > 0
-            ? currentAccount.lifetimePoints + event.points
-            : currentAccount.lifetimePoints,
-        pointsBalance: nextBalance,
-        recentActivity: [event, ...currentAccount.recentActivity].slice(0, 12),
-        redeemedPoints: currentAccount.redeemedPoints,
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true },
-    );
-    transaction.set(eventRef, {
-      ...event,
-      createdAt: serverTimestamp(),
-      expiresAt: null,
-    });
-  });
-
-  await recordAuditLog({
-    actorId: input.actor.id,
-    actorRole: input.actor.role,
-    action: "rewards.adjusted",
-    resourceType: "rewards",
-    resourceId: input.customerId,
-    summary: `Adjusted rewards by ${event.points} points.`,
-    metadata: {
-      customerId: input.customerId,
-      points: event.points,
-      reason: event.reason,
+  const adjustRewards = httpsCallable<
+    {
+      customerId: string;
+      customerName: string;
+      points: number;
+      reason: string;
     },
+    { account: LoyaltyRewardsAccount }
+  >(getFirebaseFunctions(), "adjustCustomerRewards");
+  const response = await adjustRewards({
+    customerId: input.customerId,
+    customerName: input.customerName,
+    points: input.points,
+    reason: input.reason,
   });
 
-  return getCustomerLoyaltyRewards(input.customerId, input.customerName);
+  return response.data.account;
 }
 
 export async function saveLoyaltyRewardsAccount(account: LoyaltyRewardsAccount) {

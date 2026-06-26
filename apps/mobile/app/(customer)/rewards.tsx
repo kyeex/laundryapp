@@ -45,18 +45,26 @@ export default function CustomerRewardsScreen() {
     setIsLoading(true);
 
     try {
-      const [customerRewards, rewardEvents, rewardSettings] = await Promise.all([
+      const rewardSettings = await getLoyaltyRewardSettings();
+
+      setSettings(rewardSettings);
+
+      if (!rewardSettings.enabled) {
+        setAccount(null);
+        setEvents([]);
+        return;
+      }
+
+      const [customerRewards, rewardEvents] = await Promise.all([
         getCustomerLoyaltyRewards(
           currentUser.id,
           currentUser.displayName || currentUser.email || "Customer",
         ),
         getCustomerRewardEvents(currentUser.id, 75),
-        getLoyaltyRewardSettings(),
       ]);
 
       setAccount(customerRewards);
       setEvents(rewardEvents);
-      setSettings(rewardSettings);
     } catch (loadError) {
       const message =
         loadError instanceof Error ? loadError.message : "Unable to load rewards.";
@@ -130,7 +138,17 @@ export default function CustomerRewardsScreen() {
         {error ? <Text style={styles.error}>{error}</Text> : null}
         {message ? <Text style={styles.success}>{message}</Text> : null}
 
-        {account && !isLoading ? (
+        {!isLoading && settings && !settings.enabled ? (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Rewards are currently paused</Text>
+            <Text style={styles.muted}>
+              The laundromat owner has turned off customer rewards for now. Your
+              order history and normal checkout are still available.
+            </Text>
+          </View>
+        ) : null}
+
+        {account && settings?.enabled && !isLoading ? (
           <>
             <View style={styles.heroCard}>
               <View style={styles.heroCopy}>

@@ -444,8 +444,9 @@ export default function DemoControlCenterScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Jump to role</Text>
           <Text style={styles.muted}>
-            Role jumps open that role's home dashboard with local demo data, so
-            you can see the app through the eyes of that assigned user type.
+            Role jumps are available only in demo mode. In staging, seed the real
+            users above and sign in as each account to test Firestore-backed
+            permissions and data.
           </Text>
           <View style={styles.roleGrid}>
             {roleJumpOptions.map((option) => (
@@ -453,8 +454,13 @@ export default function DemoControlCenterScreen() {
                 <Text style={styles.roleTitle}>{option.label}</Text>
                 <Text style={styles.roleNote}>{option.note}</Text>
                 <AppButton
-                  label={isDemoMode ? `Jump to ${option.label}` : `Preview ${option.label}`}
-                  onPress={() => startDemoSession(option.role)}
+                  disabled={!isDemoMode}
+                  label={isDemoMode ? `Jump to ${option.label}` : "Demo mode only"}
+                  onPress={() => {
+                    if (isDemoMode) {
+                      startDemoSession(option.role);
+                    }
+                  }}
                   variant={option.role === "admin" ? "secondary" : "primary"}
                 />
               </View>

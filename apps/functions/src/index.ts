@@ -54,6 +54,33 @@ async function assertAdminUser(uid: string) {
   }
 }
 
+async function getActiveUserProfile(uid: string) {
+  const userSnapshot = await getFirestore().collection("users").doc(uid).get();
+  const user = userSnapshot.data();
+
+  if (!user || user.active !== true) {
+    throw new HttpsError("permission-denied", "An active app user is required.");
+  }
+
+  return {
+    id: uid,
+    email: user.email ?? "",
+    role: user.role ?? "customer",
+    displayName: user.displayName ?? "",
+    phone: user.phone ?? "",
+  };
+}
+
+async function assertOwnerOrAdminUser(uid: string) {
+  const user = await getActiveUserProfile(uid);
+
+  if (user.role !== "owner" && user.role !== "admin") {
+    throw new HttpsError("permission-denied", "Owner or admin access is required.");
+  }
+
+  return user;
+}
+
 function requireString(value: unknown, fieldName: string) {
   if (typeof value !== "string" || !value.trim()) {
     throw new HttpsError("invalid-argument", `${fieldName} is required.`);
@@ -86,6 +113,41 @@ async function writeAuditLog(input: {
     metadata: input.metadata ?? {},
     createdAt: new Date(),
   });
+}
+
+async function ensureManagedRoleProfile(
+  userId: string,
+  role: string,
+  phone = "",
+) {
+  const db = getFirestore();
+
+  if (role === "customer") {
+    await db.collection("customerProfiles").doc(userId).set(
+      {
+        userId,
+        defaultAddressId: null,
+        notes: "",
+        updatedAt: new Date(),
+        createdAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+  }
+
+  if (role === "driver") {
+    await db.collection("driverProfiles").doc(userId).set(
+      {
+        userId,
+        active: true,
+        phone,
+        vehicleInfo: "",
+        updatedAt: new Date(),
+        createdAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+  }
 }
 
 function getFirebaseProjectId() {
@@ -467,6 +529,385 @@ function getStripe() {
   return new Stripe(stripeSecretKey);
 }
 
+const defaultRewardSettings = {
+  enabled: true,
+  pointsPerDollar: 1,
+  pointsPerRewardDollar: 100,
+  signupBonusPoints: 50,
+  tierThresholds: {
+    freshStart: 0,
+    foldFavorite: 250,
+    laundryLoyalist: 750,
+  },
+  expirationMonths: null as number | null,
+};
+
+function requirePositiveNumber(value: unknown, fieldName: string) {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    throw new HttpsError("invalid-argument", `${fieldName} must be greater than 0.`);
+  }
+
+  return value;
+}
+
+function calculatePointsForRewardCredit(creditDollars: number, settings: typeof defaultRewardSettings) {
+  return Math.max(0, Math.round(creditDollars * settings.pointsPerRewardDollar));
+}
+
+function calculateEarnedPoints(orderTotal: number, settings: typeof defaultRewardSettings) {
+  return Math.max(0, Math.floor(orderTotal * settings.pointsPerDollar));
+}
+
+function getEventExpirationDate(settings: typeof defaultRewardSettings) {
+  if (!settings.expirationMonths) {
+    return null;
+  }
+
+  const expiration = new Date();
+  expiration.setMonth(expiration.getMonth() + settings.expirationMonths);
+
+  return expiration;
+}
+
+async function getRewardSettings() {
+  const settingsSnapshot = await getFirestore()
+    .collection("settings")
+    .doc("business")
+    .get();
+  const settings = settingsSnapshot.data()?.loyaltyRewards ?? {};
+
+  return {
+    ...defaultRewardSettings,
+    ...settings,
+    tierThresholds: {
+      ...defaultRewardSettings.tierThresholds,
+      ...settings.tierThresholds,
+    },
+  };
+}
+
+function mapRewardsAccount(
+  customerId: string,
+  customerName: string,
+  data?: Record<string, any>,
+) {
+  return {
+    customerId,
+    customerName: data?.customerName ?? customerName,
+    lifetimePoints: Math.max(0, Math.round(data?.lifetimePoints ?? 0)),
+    pointsBalance: Math.max(0, Math.round(data?.pointsBalance ?? 0)),
+    redeemedPoints: Math.max(0, Math.round(data?.redeemedPoints ?? 0)),
+    recentActivity: Array.isArray(data?.recentActivity)
+      ? data.recentActivity.slice(0, 12)
+      : [],
+  };
+}
+
+async function applyRewardEvent(input: {
+  customerId: string;
+  customerName: string;
+  eventId: string;
+  event: Record<string, unknown> & {
+    points: number;
+    type: string;
+  };
+}) {
+  const db = getFirestore();
+  const accountRef = db.collection("loyaltyRewards").doc(input.customerId);
+  const eventRef = db.collection("loyaltyRewardEvents").doc(input.eventId);
+
+  await db.runTransaction(async (transaction) => {
+    const [accountSnapshot, eventSnapshot] = await Promise.all([
+      transaction.get(accountRef),
+      transaction.get(eventRef),
+    ]);
+
+    if (eventSnapshot.exists) {
+      return;
+    }
+
+    const currentAccount = mapRewardsAccount(
+      input.customerId,
+      input.customerName,
+      accountSnapshot.data(),
+    );
+    const nextPointsBalance = currentAccount.pointsBalance + input.event.points;
+
+    if (nextPointsBalance < 0) {
+      throw new HttpsError(
+        "failed-precondition",
+        "This reward change would make the points balance negative.",
+      );
+    }
+
+    const nextRecentActivity = [
+      {
+        id: input.eventId,
+        ...input.event,
+      },
+      ...currentAccount.recentActivity,
+    ].slice(0, 12);
+
+    transaction.set(
+      accountRef,
+      {
+        customerId: input.customerId,
+        customerName: input.customerName,
+        lifetimePoints:
+          input.event.points > 0
+            ? currentAccount.lifetimePoints + input.event.points
+            : currentAccount.lifetimePoints,
+        pointsBalance: nextPointsBalance,
+        recentActivity: nextRecentActivity,
+        redeemedPoints:
+          input.event.type === "redeemed"
+            ? currentAccount.redeemedPoints + Math.abs(input.event.points)
+            : currentAccount.redeemedPoints,
+        updatedAt: new Date(),
+      },
+      { merge: true },
+    );
+    transaction.set(eventRef, {
+      ...input.event,
+      customerId: input.customerId,
+      customerName: input.customerName,
+      createdAt: input.event.createdAt ?? new Date(),
+    });
+  });
+
+  return (await accountRef.get()).data();
+}
+
+async function redeemRewardsForPaidOrderInternal(input: {
+  actorId: string;
+  customerId: string;
+  customerName: string;
+  orderId: string;
+  rewardCreditDollars: number;
+}) {
+  const settings = await getRewardSettings();
+
+  if (!settings.enabled || input.rewardCreditDollars <= 0) {
+    return null;
+  }
+
+  const pointsToRedeem = calculatePointsForRewardCredit(
+    input.rewardCreditDollars,
+    settings,
+  );
+
+  if (pointsToRedeem <= 0) {
+    return null;
+  }
+
+  const account = await applyRewardEvent({
+    customerId: input.customerId,
+    customerName: input.customerName,
+    eventId: `redeem-${input.orderId}`,
+    event: {
+      type: "redeemed",
+      createdBy: input.actorId,
+      label: `$${input.rewardCreditDollars.toFixed(2)} reward credit for order`,
+      orderId: input.orderId,
+      points: -pointsToRedeem,
+      redemptionDollars: input.rewardCreditDollars,
+      createdAt: new Date(),
+      expiresAt: null,
+    },
+  });
+
+  await writeAuditLog({
+    actorId: input.actorId,
+    actorRole: "customer",
+    action: "rewards.redeemed",
+    resourceType: "rewards",
+    resourceId: input.customerId,
+    summary: `Redeemed ${pointsToRedeem} rewards points for order ${input.orderId}.`,
+    metadata: {
+      customerId: input.customerId,
+      orderId: input.orderId,
+      points: pointsToRedeem,
+      rewardCreditDollars: input.rewardCreditDollars,
+    },
+  });
+
+  return account;
+}
+
+export const redeemRewardsForOrder = onCall<{
+  orderId: string;
+  rewardCreditDollars: number;
+}>(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Sign in before redeeming rewards.");
+  }
+
+  const orderId = requireString(request.data.orderId, "orderId");
+  const rewardCreditDollars = requirePositiveNumber(
+    request.data.rewardCreditDollars,
+    "rewardCreditDollars",
+  );
+  const db = getFirestore();
+  const orderSnapshot = await db.collection("orders").doc(orderId).get();
+  const order = orderSnapshot.data();
+
+  if (!order) {
+    throw new HttpsError("not-found", "Order not found.");
+  }
+
+  if (order.customerId !== request.auth.uid) {
+    throw new HttpsError("permission-denied", "This order belongs to another customer.");
+  }
+
+  if (order.paymentStatus !== "paid") {
+    throw new HttpsError(
+      "failed-precondition",
+      "Rewards are redeemed after payment is completed.",
+    );
+  }
+
+  return {
+    account: await redeemRewardsForPaidOrderInternal({
+      actorId: request.auth.uid,
+      customerId: order.customerId,
+      customerName: order.customerName ?? "Customer",
+      orderId,
+      rewardCreditDollars,
+    }),
+  };
+});
+
+export const awardOrderRewardsForPaidOrder = onCall<{ orderId: string }>(
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Sign in before awarding rewards.");
+    }
+
+    const actor = await assertOwnerOrAdminUser(request.auth.uid);
+    const orderId = requireString(request.data.orderId, "orderId");
+    const db = getFirestore();
+    const orderSnapshot = await db.collection("orders").doc(orderId).get();
+    const order = orderSnapshot.data();
+
+    if (!order) {
+      throw new HttpsError("not-found", "Order not found.");
+    }
+
+    if (order.paymentStatus !== "paid") {
+      throw new HttpsError(
+        "failed-precondition",
+        "Rewards can only be awarded for paid orders.",
+      );
+    }
+
+    const settings = await getRewardSettings();
+
+    if (!settings.enabled) {
+      return { account: null, points: 0 };
+    }
+
+    const orderValue =
+      typeof order.finalPrice === "number"
+        ? order.finalPrice
+        : Number(order.estimatedSubtotal ?? 0);
+    const earnedPoints = calculateEarnedPoints(orderValue, settings);
+
+    if (earnedPoints <= 0) {
+      return { account: null, points: 0 };
+    }
+
+    const account = await applyRewardEvent({
+      customerId: order.customerId,
+      customerName: order.customerName ?? "Customer",
+      eventId: `earn-${orderId}`,
+      event: {
+        type: "earned",
+        createdBy: request.auth.uid,
+        label: `Earned from order ${order.orderNumber ?? orderId}`,
+        orderId,
+        points: earnedPoints,
+        createdAt: new Date(),
+        expiresAt: getEventExpirationDate(settings),
+      },
+    });
+
+    await writeAuditLog({
+      actorId: request.auth.uid,
+      actorRole: actor.role,
+      action: "rewards.earned",
+      resourceType: "rewards",
+      resourceId: order.customerId,
+      summary: `Awarded ${earnedPoints} points for a paid order.`,
+      metadata: {
+        customerId: order.customerId,
+        orderId,
+        points: earnedPoints,
+      },
+    });
+
+    return { account, points: earnedPoints };
+  },
+);
+
+export const adjustCustomerRewards = onCall<{
+  customerId: string;
+  customerName?: string;
+  points: number;
+  reason: string;
+}>(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Sign in before adjusting rewards.");
+  }
+
+  const actor = await assertOwnerOrAdminUser(request.auth.uid);
+  const customerId = requireString(request.data.customerId, "customerId");
+  const reason = requireString(request.data.reason, "reason");
+  const points = request.data.points;
+
+  if (typeof points !== "number" || !Number.isFinite(points) || points === 0) {
+    throw new HttpsError("invalid-argument", "points must be a non-zero number.");
+  }
+
+  const customerSnapshot = await getFirestore().collection("users").doc(customerId).get();
+  const customer = customerSnapshot.data();
+  const customerName =
+    request.data.customerName?.trim() ||
+    customer?.displayName ||
+    customer?.email ||
+    "Customer";
+  const roundedPoints = Math.round(points);
+  const account = await applyRewardEvent({
+    customerId,
+    customerName,
+    eventId: `adjust-${Date.now()}`,
+    event: {
+      type: "adjusted",
+      createdBy: request.auth.uid,
+      label: roundedPoints > 0 ? "Manual points added" : "Manual points removed",
+      points: roundedPoints,
+      reason,
+      createdAt: new Date(),
+      expiresAt: null,
+    },
+  });
+
+  await writeAuditLog({
+    actorId: request.auth.uid,
+    actorRole: actor.role,
+    action: "rewards.adjusted",
+    resourceType: "rewards",
+    resourceId: customerId,
+    summary: `Adjusted rewards by ${roundedPoints} points.`,
+    metadata: {
+      customerId,
+      points: roundedPoints,
+      reason,
+    },
+  });
+
+  return { account };
+});
+
 export const createManagedUserAccount = onCall<{
   displayName: string;
   email: string;
@@ -511,26 +952,7 @@ export const createManagedUserAccount = onCall<{
   const db = getFirestore();
   await db.collection("users").doc(authUser.uid).set(user);
 
-  if (role === "customer") {
-    await db.collection("customerProfiles").doc(authUser.uid).set({
-      userId: authUser.uid,
-      defaultAddressId: null,
-      notes: "",
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
-  }
-
-  if (role === "driver") {
-    await db.collection("driverProfiles").doc(authUser.uid).set({
-      userId: authUser.uid,
-      active: true,
-      phone,
-      vehicleInfo: "",
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
-  }
+  await ensureManagedRoleProfile(authUser.uid, role, phone);
 
   await writeAuditLog({
     actorId: request.auth.uid,
@@ -602,6 +1024,10 @@ export const updateManagedUserAccess = onCall<{
   }
 
   await userRef.update(userPatch);
+
+  if (typeof userPatch.role === "string") {
+    await ensureManagedRoleProfile(userId, userPatch.role, updates.phone);
+  }
 
   if (Object.keys(authPatch).length > 0) {
     await getAuth().updateUser(userId, authPatch);
@@ -788,13 +1214,20 @@ export const getStagingSeedStatus = onCall(async (request) => {
   };
 });
 
-export const createPaymentIntent = onCall<{ orderId: string }>(
+export const createPaymentIntent = onCall<{
+  orderId: string;
+  rewardCreditDollars?: number;
+}>(
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Sign in before paying.");
     }
 
     const { orderId } = request.data;
+    const rewardCreditDollars =
+      typeof request.data.rewardCreditDollars === "number"
+        ? request.data.rewardCreditDollars
+        : 0;
 
     if (!orderId) {
       throw new HttpsError("invalid-argument", "orderId is required.");
@@ -829,7 +1262,63 @@ export const createPaymentIntent = onCall<{ orderId: string }>(
       );
     }
 
-    const amount = Math.round(order.finalPrice * 100);
+    if (rewardCreditDollars < 0) {
+      throw new HttpsError("invalid-argument", "Reward credit cannot be negative.");
+    }
+
+    if (rewardCreditDollars > order.finalPrice) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Reward credit cannot exceed the final price.",
+      );
+    }
+
+    let rewardPointsToRedeem = 0;
+
+    if (rewardCreditDollars > 0) {
+      const settings = await getRewardSettings();
+
+      if (!settings.enabled) {
+        throw new HttpsError("failed-precondition", "Rewards are not enabled.");
+      }
+
+      rewardPointsToRedeem = calculatePointsForRewardCredit(
+        rewardCreditDollars,
+        settings,
+      );
+
+      const rewardsSnapshot = await db
+        .collection("loyaltyRewards")
+        .doc(request.auth.uid)
+        .get();
+      const rewardsAccount = mapRewardsAccount(
+        request.auth.uid,
+        order.customerName ?? "Customer",
+        rewardsSnapshot.data(),
+      );
+
+      if (rewardPointsToRedeem <= 0) {
+        throw new HttpsError("invalid-argument", "Choose a valid reward credit.");
+      }
+
+      if (rewardsAccount.pointsBalance < rewardPointsToRedeem) {
+        throw new HttpsError(
+          "failed-precondition",
+          "Not enough rewards points for that credit.",
+        );
+      }
+    }
+
+    const payableAmount = order.finalPrice - rewardCreditDollars;
+
+    if (payableAmount <= 0) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Reward credit cannot cover the entire balance until no-card checkout is enabled.",
+      );
+    }
+
+    const amount = Math.round(payableAmount * 100);
     const stripe = getStripe();
     const paymentIntent = await stripe.paymentIntents.create({
       amount,
@@ -840,12 +1329,17 @@ export const createPaymentIntent = onCall<{ orderId: string }>(
       metadata: {
         orderId,
         customerId: request.auth.uid,
+        rewardCreditDollars: String(rewardCreditDollars),
+        rewardPointsToRedeem: String(rewardPointsToRedeem),
       },
     });
 
     await orderRef.update({
       paymentStatus: "pending",
       paymentId: paymentIntent.id,
+      rewardCreditAmount: rewardCreditDollars,
+      rewardPointsRedeemed: rewardPointsToRedeem,
+      rewardRedemptionId: rewardCreditDollars > 0 ? `redeem-${orderId}` : null,
       updatedAt: new Date(),
     });
 
@@ -924,6 +1418,16 @@ export const confirmOrderPayment = onCall<{ orderId: string }>(
       createdBy: request.auth.uid,
       createdAt: new Date(),
     });
+
+    if (typeof order.rewardCreditAmount === "number" && order.rewardCreditAmount > 0) {
+      await redeemRewardsForPaidOrderInternal({
+        actorId: request.auth.uid,
+        customerId: order.customerId,
+        customerName: order.customerName ?? "Customer",
+        orderId,
+        rewardCreditDollars: order.rewardCreditAmount,
+      });
+    }
 
     return { status: "paid" };
   },

@@ -96,6 +96,20 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const rejectInactiveOrMissingProfile = useCallback(async (profile: AppUser | null) => {
+    if (!profile) {
+      await signOutCurrentUser().catch(() => undefined);
+      return null;
+    }
+
+    if (!profile.active) {
+      await signOutCurrentUser().catch(() => undefined);
+      throw new Error("This account is inactive. Please contact an administrator.");
+    }
+
+    return profile;
+  }, []);
+
   useEffect(() => {
     if (shouldUseDemoBackend) {
       const storedRole = getStoredDemoRole();
@@ -128,11 +142,18 @@ export function AuthProvider({ children }: PropsWithChildren) {
         return;
       }
 
-      const profile = await getUserProfile(firebaseUser.uid);
-      setCurrentUser(profile);
-      setIsLoading(false);
+      try {
+        const profile = await rejectInactiveOrMissingProfile(
+          await getUserProfile(firebaseUser.uid),
+        );
+        setCurrentUser(profile);
+      } catch {
+        setCurrentUser(null);
+      } finally {
+        setIsLoading(false);
+      }
     });
-  }, []);
+  }, [rejectInactiveOrMissingProfile]);
 
   const signInWithEmail = useCallback(async (email: string, password: string) => {
     if (isDemoPreviewMode) {
@@ -151,7 +172,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       );
     }
 
-    const profile = await signIn(email, password);
+    const profile = await rejectInactiveOrMissingProfile(await signIn(email, password));
 
     if (!profile) {
       throw new Error("No app profile was found for this account.");
@@ -159,7 +180,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     setCurrentUser(profile);
     router.replace(getHomeRouteForRole(profile.role));
-  }, []);
+  }, [rejectInactiveOrMissingProfile]);
 
   const createAccountWithEmail = useCallback(
     async (input: {
@@ -188,7 +209,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         throw new Error("Firebase must be configured before creating real accounts.");
       }
 
-      const profile = await createAccount(input);
+      const profile = await rejectInactiveOrMissingProfile(await createAccount(input));
 
       if (!profile) {
         throw new Error("The account was created, but the profile was not saved.");
@@ -197,7 +218,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       setCurrentUser(profile);
       router.replace(getHomeRouteForRole(profile.role));
     },
-    [],
+    [rejectInactiveOrMissingProfile],
   );
 
   const sendResetEmail = useCallback(async (email: string) => {
@@ -209,19 +230,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   const startDemoSession = useCallback((role: "customer" | "owner" | "driver" | "admin") => {
+    if (!isDemoEnvironment) {
+      throw new Error("Role switching is only available in demo mode.");
+    }
+
     const profile = demoUsers[role];
     getStorage()?.setItem(demoRoleStorageKey, role);
     getStorage()?.removeItem(demoCustomerProfileStorageKey);
-
-    if (!isDemoEnvironment && !isDemoPreviewMode) {
-      getStorage()?.setItem(demoPreviewStorageKey, "true");
-      setCurrentUser(profile);
-
-      if ("location" in globalThis) {
-        globalThis.location.assign("/");
-        return;
-      }
-    }
 
     setCurrentUser(profile);
     router.replace(getHomeRouteForRole(profile.role));

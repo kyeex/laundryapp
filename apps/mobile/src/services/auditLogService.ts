@@ -12,7 +12,7 @@ import {
 import { getFirebaseFirestore, shouldUseDemoBackend } from "@/config/firebase";
 import type { UserRole } from "@/types/domain";
 
-type AuditResourceType =
+export type AuditResourceType =
   | "order"
   | "batch"
   | "catalog"
