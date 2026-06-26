@@ -13,6 +13,7 @@ import {
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import type { AddressInput } from "@/types/domain";
+import { formatPhoneNumberInput } from "@/utils/phoneFormat";
 
 const emptyAddress: AddressInput = {
   label: "Home",
@@ -200,7 +201,9 @@ export default function CustomerProfileSummaryScreen() {
                     <FormTextInput
                       inputMode="tel"
                       label="Phone"
-                      onChangeText={(value) => updateProfileField("phone", value)}
+                      onChangeText={(value) =>
+                        updateProfileField("phone", formatPhoneNumberInput(value))
+                      }
                       placeholder="Phone"
                       value={profile.phone}
                     />

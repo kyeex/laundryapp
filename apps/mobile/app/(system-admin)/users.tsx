@@ -16,6 +16,7 @@ import {
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import type { AppUser, UserRole } from "@/types/domain";
+import { formatPhoneNumberInput } from "@/utils/phoneFormat";
 
 const roleOptions: Array<{ label: string; role: UserRole; description: string }> = [
   {
@@ -306,7 +307,12 @@ export default function SystemAdminUsersScreen() {
           <FormTextInput
             keyboardType="phone-pad"
             label="Phone"
-            onChangeText={(phone) => setForm((current) => ({ ...current, phone }))}
+            onChangeText={(phone) =>
+              setForm((current) => ({
+                ...current,
+                phone: formatPhoneNumberInput(phone),
+              }))
+            }
             placeholder="555-555-5555"
             value={form.phone}
           />

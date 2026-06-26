@@ -38,6 +38,7 @@ import type {
   PickupWindow,
   Service,
 } from "@/types/domain";
+import { formatPhoneNumberInput } from "@/utils/phoneFormat";
 import { formatDisplayDateTime } from "@/utils/dateFormat";
 
 const weekdayOptions = [
@@ -599,7 +600,12 @@ export default function AdminConfigurationScreen() {
             />
             <FormTextInput
               label="Phone"
-              onChangeText={(phone) => setSettings((current) => ({ ...current, phone }))}
+              onChangeText={(phone) =>
+                setSettings((current) => ({
+                  ...current,
+                  phone: formatPhoneNumberInput(phone),
+                }))
+              }
               value={settings.phone}
             />
             <FormTextInput
