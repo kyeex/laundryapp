@@ -6,6 +6,7 @@ import {
   type Dispatch,
   type SetStateAction,
 } from "react";
+import { router } from "expo-router";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AppButton } from "@/components/AppButton";
@@ -27,9 +28,16 @@ import {
   type RecurringOrderFrequency,
   type RecurringOrderTemplate,
 } from "@/services/recurringOrderService";
+import { getCustomerProfileSummary } from "@/services/profileService";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
-import type { AddOn, DryCleaningItem, PickupWindow, Service } from "@/types/domain";
+import type {
+  AddOn,
+  AddressInput,
+  DryCleaningItem,
+  PickupWindow,
+  Service,
+} from "@/types/domain";
 
 const frequencyOptions: Array<{
   label: string;
@@ -56,6 +64,15 @@ function formatFrequency(value: RecurringOrderFrequency) {
 
 function formatPrice(price: number | null) {
   return price === null ? "Owner confirms" : `$${price.toFixed(2)}`;
+}
+
+function hasCompleteProfileAddress(address: AddressInput) {
+  return Boolean(
+    address.street1.trim() &&
+      address.city.trim() &&
+      /^[A-Za-z]{2}$/.test(address.state.trim()) &&
+      /^\d{5}(-\d{4})?$/.test(address.postalCode.trim()),
+  );
 }
 
 function getInitialIconLabel(value: string) {
@@ -115,6 +132,7 @@ export default function RecurringOrdersScreen() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [hasProfileAddress, setHasProfileAddress] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   const selectedService = useMemo(
@@ -203,6 +221,7 @@ export default function RecurringOrdersScreen() {
     try {
       const [
         loadedOrders,
+        profileSummary,
         loadedServices,
         loadedAddOns,
         loadedComforterSizes,
@@ -210,6 +229,7 @@ export default function RecurringOrdersScreen() {
         loadedPickupWindows,
       ] = await Promise.all([
         getCustomerRecurringOrders(currentUser.id),
+        getCustomerProfileSummary(currentUser.id),
         getActiveServices(),
         getActiveAddOns(),
         getActiveComforterSizeAddOns(),
@@ -218,6 +238,7 @@ export default function RecurringOrdersScreen() {
       ]);
 
       setRecurringOrders(loadedOrders);
+      setHasProfileAddress(hasCompleteProfileAddress(profileSummary.defaultAddress));
       setServices(loadedServices);
       setAddOns(loadedAddOns);
       setComforterSizes(loadedComforterSizes);
@@ -278,6 +299,13 @@ export default function RecurringOrdersScreen() {
   async function handleSaveRecurringOrder() {
     if (!currentUser || !selectedService) {
       setError("Choose a service before saving a recurring order.");
+      return;
+    }
+
+    if (!hasProfileAddress) {
+      setError(
+        "Add a default customer address in your profile before creating a recurring order.",
+      );
       return;
     }
 
@@ -458,6 +486,26 @@ export default function RecurringOrdersScreen() {
                   window.
                 </Text>
               </View>
+
+              {!hasProfileAddress ? (
+                <View style={styles.profileRequirementCard}>
+                  <View style={styles.profileRequirementCopy}>
+                    <Text style={styles.profileRequirementTitle}>
+                      Profile address required
+                    </Text>
+                    <Text style={styles.profileRequirementText}>
+                      Add your default address in Customer Profile Summary before
+                      creating a recurring order. This tells the business where
+                      repeat pickups and drop-offs should happen.
+                    </Text>
+                  </View>
+                  <AppButton
+                    label="Go to profile"
+                    onPress={() => router.push("/(customer)/profile-summary")}
+                    variant="secondary"
+                  />
+                </View>
+              ) : null}
 
               <View style={styles.optionSection}>
                 <Text style={styles.sectionLabel}>Service</Text>
@@ -880,8 +928,16 @@ export default function RecurringOrdersScreen() {
 
               <View style={styles.formActions}>
                 <AppButton
-                  disabled={isSaving}
-                  label={isSaving ? "Saving..." : editingOrderId ? "Save changes" : "Create recurring order"}
+                  disabled={isSaving || !hasProfileAddress}
+                  label={
+                    !hasProfileAddress
+                      ? "Add profile address first"
+                      : isSaving
+                        ? "Saving..."
+                        : editingOrderId
+                          ? "Save changes"
+                          : "Create recurring order"
+                  }
                   onPress={handleSaveRecurringOrder}
                 />
                 {editingOrderId ? (
@@ -1027,6 +1083,33 @@ const styles = StyleSheet.create({
   },
   muted: {
     color: colors.muted,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  profileRequirementCard: {
+    alignItems: "center",
+    backgroundColor: "#FEF3C7",
+    borderColor: "#F59E0B",
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.md,
+    justifyContent: "space-between",
+    padding: spacing.md,
+  },
+  profileRequirementCopy: {
+    flex: 1,
+    gap: spacing.xs,
+    minWidth: 240,
+  },
+  profileRequirementTitle: {
+    color: "#92400E",
+    fontSize: 16,
+    fontWeight: "900",
+  },
+  profileRequirementText: {
+    color: "#92400E",
     fontSize: 14,
     lineHeight: 20,
   },

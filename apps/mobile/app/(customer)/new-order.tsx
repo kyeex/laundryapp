@@ -31,7 +31,10 @@ import {
   getActiveServices,
   getBusinessSettings,
 } from "@/services/configurationService";
-import { getCustomerProfileSummary } from "@/services/profileService";
+import {
+  getCustomerProfileSummary,
+  saveCustomerProfileSummary,
+} from "@/services/profileService";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import type {
@@ -193,6 +196,9 @@ export default function NewOrderScreen() {
   const [finalReviewY, setFinalReviewY] = useState<number | null>(null);
   const [isFinalReviewVisible, setIsFinalReviewVisible] = useState(false);
   const [isLoadingConfig, setIsLoadingConfig] = useState(true);
+  const [isSavingFutureAddress, setIsSavingFutureAddress] = useState(false);
+  const [saveAddressForFutureOrders, setSaveAddressForFutureOrders] =
+    useState(false);
   const [showAllDropoffDates, setShowAllDropoffDates] = useState(false);
   const [showAllPickupDates, setShowAllPickupDates] = useState(false);
 
@@ -637,7 +643,7 @@ export default function NewOrderScreen() {
     );
   }
 
-  function handleReviewOrder() {
+  async function handleReviewOrder() {
     if (!currentUser) {
       setError("Sign in before submitting an order.");
       return;
@@ -645,27 +651,53 @@ export default function NewOrderScreen() {
 
     setError("");
 
-    saveOrderDraft({
-      customer: currentUser,
-      createdAt: new Date().toISOString(),
-      input: {
-        address,
-        selectedServiceIds,
-        selectedAddOns,
-        selectedDryCleaningItems,
-        laundryPricePerPound: businessSettings.laundryPricePerPound,
-        deliveryMinimumPounds: businessSettings.deliveryMinimumPounds,
-        estimatedWeightPounds: parsedEstimatedWeight,
-        scheduledPickupDate,
-        scheduledPickupWindow,
-        scheduledDropoffDate,
-        scheduledDropoffWindow,
-        gratuityAmount,
-        customerNotes,
-      },
-    });
+    try {
+      if (saveAddressForFutureOrders) {
+        setIsSavingFutureAddress(true);
+        const currentProfile = await getCustomerProfileSummary(currentUser.id);
 
-    router.push("/(customer)/order-review");
+        await saveCustomerProfileSummary(currentUser.id, {
+          ...currentProfile,
+          displayName: currentProfile.displayName || currentUser.displayName,
+          email: currentProfile.email || currentUser.email,
+          phone: currentProfile.phone || currentUser.phone,
+          defaultAddress: {
+            ...address,
+            label: address.label.trim() || "Home",
+          },
+        });
+      }
+
+      saveOrderDraft({
+        customer: currentUser,
+        createdAt: new Date().toISOString(),
+        input: {
+          address,
+          selectedServiceIds,
+          selectedAddOns,
+          selectedDryCleaningItems,
+          laundryPricePerPound: businessSettings.laundryPricePerPound,
+          deliveryMinimumPounds: businessSettings.deliveryMinimumPounds,
+          estimatedWeightPounds: parsedEstimatedWeight,
+          scheduledPickupDate,
+          scheduledPickupWindow,
+          scheduledDropoffDate,
+          scheduledDropoffWindow,
+          gratuityAmount,
+          customerNotes,
+        },
+      });
+
+      router.push("/(customer)/order-review");
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Unable to save this address right now.",
+      );
+    } finally {
+      setIsSavingFutureAddress(false);
+    }
   }
 
   function handleFinalReviewLayout(event: LayoutChangeEvent) {
@@ -847,22 +879,26 @@ export default function NewOrderScreen() {
                   />
                 </View>
                 <View style={styles.weightStepper}>
-                  <Pressable
-                    accessibilityLabel="Increase estimated pounds"
-                    accessibilityRole="button"
-                    onPress={() => adjustEstimatedWeight(1)}
-                    style={styles.weightStepperButton}
-                  >
-                    <Text style={styles.weightStepperText}>+</Text>
-                  </Pressable>
-                  <Pressable
-                    accessibilityLabel="Decrease estimated pounds"
-                    accessibilityRole="button"
-                    onPress={() => adjustEstimatedWeight(-1)}
-                    style={styles.weightStepperButton}
-                  >
-                    <Text style={styles.weightStepperText}>-</Text>
-                  </Pressable>
+                  <Text style={styles.weightStepperLabelSpacer}>Adjust</Text>
+                  <View style={styles.weightStepperControl}>
+                    <Pressable
+                      accessibilityLabel="Increase estimated pounds"
+                      accessibilityRole="button"
+                      onPress={() => adjustEstimatedWeight(1)}
+                      style={styles.weightStepperButton}
+                    >
+                      <Text style={styles.weightStepperText}>+</Text>
+                    </Pressable>
+                    <View style={styles.weightStepperDivider} />
+                    <Pressable
+                      accessibilityLabel="Decrease estimated pounds"
+                      accessibilityRole="button"
+                      onPress={() => adjustEstimatedWeight(-1)}
+                      style={styles.weightStepperButton}
+                    >
+                      <Text style={styles.weightStepperText}>-</Text>
+                    </Pressable>
+                  </View>
                 </View>
               </View>
               <View style={styles.weightCostCard}>
@@ -1128,6 +1164,31 @@ export default function NewOrderScreen() {
                 style={styles.addressTextArea}
                 value={address.deliveryInstructions}
               />
+              <Pressable
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: saveAddressForFutureOrders }}
+                onPress={() => setSaveAddressForFutureOrders((current) => !current)}
+                style={styles.saveAddressRow}
+              >
+                <View
+                  style={[
+                    styles.saveAddressCheckbox,
+                    saveAddressForFutureOrders && styles.saveAddressCheckboxSelected,
+                  ]}
+                >
+                  {saveAddressForFutureOrders ? (
+                    <View style={styles.saveAddressCheckboxDot} />
+                  ) : null}
+                </View>
+                <View style={styles.saveAddressCopy}>
+                  <Text style={styles.saveAddressTitle}>
+                    Save address for future orders
+                  </Text>
+                  <Text style={styles.saveAddressDescription}>
+                    Make this the default address in your customer profile.
+                  </Text>
+                </View>
+              </Pressable>
             </View>
           </View>
         </View>
@@ -1617,8 +1678,14 @@ export default function NewOrderScreen() {
         ) : null}
 
         <AppButton
-          disabled={isMissingRequiredInfo}
-          label={isMissingRequiredInfo ? "Complete order details" : "Review order"}
+          disabled={isMissingRequiredInfo || isSavingFutureAddress}
+          label={
+            isSavingFutureAddress
+              ? "Saving address..."
+              : isMissingRequiredInfo
+                ? "Complete order details"
+                : "Review order"
+          }
           onPress={handleReviewOrder}
         />
       </View>
@@ -1744,6 +1811,49 @@ const styles = StyleSheet.create({
     minHeight: 84,
     paddingTop: spacing.md,
     textAlignVertical: "top",
+  },
+  saveAddressRow: {
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderColor: "#E2E8F0",
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: spacing.sm,
+    padding: spacing.sm,
+  },
+  saveAddressCheckbox: {
+    alignItems: "center",
+    borderColor: colors.border,
+    borderRadius: 6,
+    borderWidth: 2,
+    height: 24,
+    justifyContent: "center",
+    width: 24,
+  },
+  saveAddressCheckboxSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  saveAddressCheckboxDot: {
+    backgroundColor: colors.onPrimary,
+    borderRadius: 3,
+    height: 10,
+    width: 10,
+  },
+  saveAddressCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  saveAddressTitle: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  saveAddressDescription: {
+    color: colors.muted,
+    fontSize: 13,
+    lineHeight: 18,
   },
   orderNotesCard: {
     backgroundColor: "#F8FAFC",
@@ -2547,7 +2657,7 @@ const styles = StyleSheet.create({
     maxWidth: 460,
   },
   weightInputRow: {
-    alignItems: "center",
+    alignItems: "flex-start",
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.sm,
@@ -2559,24 +2669,40 @@ const styles = StyleSheet.create({
     minWidth: 170,
   },
   weightStepper: {
-    flexDirection: "column",
     gap: spacing.xs,
+    width: 52,
   },
-  weightStepperButton: {
-    alignItems: "center",
+  weightStepperLabelSpacer: {
+    color: "transparent",
+    fontSize: 14,
+    fontWeight: "700",
+    lineHeight: 18,
+  },
+  weightStepperControl: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderRadius: 8,
     borderWidth: 1,
-    height: 44,
+    height: 52,
+    overflow: "hidden",
+    width: 52,
+  },
+  weightStepperButton: {
+    alignItems: "center",
+    flex: 1,
     justifyContent: "center",
-    width: 44,
+    width: "100%",
+  },
+  weightStepperDivider: {
+    backgroundColor: colors.border,
+    height: 1,
+    width: "100%",
   },
   weightStepperText: {
     color: colors.text,
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: "800",
-    lineHeight: 24,
+    lineHeight: 20,
   },
   weightCostCard: {
     backgroundColor: colors.surface,
@@ -2599,10 +2725,11 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   weightVisualCard: {
-    backgroundColor: colors.surface,
-    borderColor: "#E2E8F0",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderColor: "#B7DED5",
     borderRadius: 8,
-    borderWidth: 1,
+    borderWidth: 2,
     flex: 0.9,
     gap: spacing.md,
     justifyContent: "space-between",
@@ -2610,175 +2737,193 @@ const styles = StyleSheet.create({
     minWidth: 280,
     overflow: "hidden",
     padding: spacing.md,
+    shadowColor: "#0F172A",
+    shadowOffset: { height: 8, width: 0 },
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
   },
   deliveryScene: {
-    backgroundColor: "#EAF7F4",
-    borderColor: "#B7DED5",
+    backgroundColor: "#DFF7F1",
+    borderColor: "#5BBEAD",
     borderRadius: 8,
-    borderWidth: 1,
-    height: 170,
+    borderWidth: 2,
+    height: 184,
     overflow: "hidden",
     position: "relative",
+    width: "100%",
   },
   deliverySun: {
-    backgroundColor: "#FDE68A",
-    borderRadius: 24,
-    height: 48,
+    backgroundColor: "#FBBF24",
+    borderColor: "#F59E0B",
+    borderRadius: 28,
+    borderWidth: 2,
+    height: 56,
     position: "absolute",
-    right: 22,
-    top: 18,
-    width: 48,
+    right: 18,
+    top: 16,
+    width: 56,
   },
   deliveryCloudLeft: {
-    backgroundColor: "rgba(255,255,255,0.82)",
+    backgroundColor: "#FFFFFF",
+    borderColor: "#B7DED5",
     borderRadius: 999,
-    height: 18,
-    left: 22,
+    borderWidth: 1,
+    height: 20,
+    left: 20,
     position: "absolute",
     top: 28,
-    width: 70,
+    width: 78,
   },
   deliveryCloudRight: {
-    backgroundColor: "rgba(255,255,255,0.7)",
+    backgroundColor: "#FFFFFF",
+    borderColor: "#B7DED5",
     borderRadius: 999,
-    height: 14,
-    left: 52,
+    borderWidth: 1,
+    height: 16,
+    left: 58,
     position: "absolute",
-    top: 50,
-    width: 54,
+    top: 52,
+    width: 62,
   },
   deliveryRoadGlow: {
-    backgroundColor: "rgba(15,118,110,0.08)",
+    backgroundColor: "rgba(15,118,110,0.16)",
     borderRadius: 999,
-    bottom: 15,
-    height: 66,
+    bottom: 10,
+    height: 76,
     left: -24,
     position: "absolute",
     right: -24,
   },
   deliveryRoad: {
-    backgroundColor: "#CBD5E1",
-    bottom: 25,
-    height: 28,
+    backgroundColor: "#64748B",
+    bottom: 24,
+    height: 34,
     left: -18,
     position: "absolute",
     right: -18,
     transform: [{ rotate: "-2deg" }],
   },
   deliveryRoadStripe: {
-    backgroundColor: "#FFFFFF",
-    bottom: 38,
-    height: 3,
-    left: 30,
+    backgroundColor: "#F8FAFC",
+    bottom: 41,
+    height: 4,
+    left: 28,
     position: "absolute",
-    right: 42,
+    right: 36,
     transform: [{ rotate: "-2deg" }],
   },
   deliveryTruck: {
-    bottom: 42,
-    height: 58,
+    bottom: 44,
+    height: 66,
     position: "absolute",
-    right: 22,
-    width: 156,
+    right: 20,
+    width: 172,
   },
   deliveryTruckCab: {
     backgroundColor: colors.primary,
-    borderBottomRightRadius: 7,
-    borderTopRightRadius: 10,
-    bottom: 11,
-    height: 36,
+    borderBottomRightRadius: 8,
+    borderColor: "#0F766E",
+    borderTopRightRadius: 12,
+    borderWidth: 2,
+    bottom: 12,
+    height: 42,
     position: "absolute",
     right: 0,
-    width: 48,
+    width: 54,
   },
   deliveryTruckWindow: {
-    backgroundColor: "#DDF1EC",
+    backgroundColor: "#ECFEFF",
+    borderColor: "#0F766E",
     borderRadius: 4,
-    height: 13,
+    borderWidth: 1,
+    height: 15,
     position: "absolute",
-    right: 9,
-    top: 15,
-    width: 18,
+    right: 11,
+    top: 16,
+    width: 21,
   },
   deliveryTruckBox: {
     alignItems: "center",
     backgroundColor: colors.surface,
     borderColor: colors.primary,
     borderRadius: 8,
-    borderWidth: 2,
-    bottom: 11,
-    height: 42,
+    borderWidth: 3,
+    bottom: 12,
+    height: 48,
     justifyContent: "center",
     left: 0,
     position: "absolute",
     shadowColor: "#0F172A",
-    shadowOffset: { height: 4, width: 0 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    width: 112,
+    shadowOffset: { height: 5, width: 0 },
+    shadowOpacity: 0.16,
+    shadowRadius: 10,
+    width: 124,
   },
   deliveryTruckText: {
     color: colors.primary,
-    fontSize: 12,
-    fontWeight: "800",
+    fontSize: 13,
+    fontWeight: "900",
+    textTransform: "uppercase",
   },
   deliveryTruckWheelLeft: {
-    backgroundColor: colors.text,
+    backgroundColor: "#0F172A",
     borderColor: colors.surface,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 3,
     bottom: 0,
-    height: 20,
-    left: 20,
+    height: 24,
+    left: 22,
     position: "absolute",
-    width: 20,
+    width: 24,
   },
   deliveryTruckWheelRight: {
-    backgroundColor: colors.text,
+    backgroundColor: "#0F172A",
     borderColor: colors.surface,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 3,
     bottom: 0,
-    height: 20,
+    height: 24,
     position: "absolute",
-    right: 22,
-    width: 20,
+    right: 24,
+    width: 24,
   },
   laundryBag: {
     alignItems: "center",
     backgroundColor: "#FFFFFF",
-    borderColor: "#99D6CC",
-    borderRadius: 8,
-    borderWidth: 2,
-    bottom: 58,
-    height: 60,
+    borderColor: "#0F766E",
+    borderRadius: 10,
+    borderWidth: 3,
+    bottom: 62,
+    height: 66,
     justifyContent: "center",
-    left: 34,
+    left: 26,
     position: "absolute",
     shadowColor: "#0F172A",
-    shadowOffset: { height: 4, width: 0 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    width: 54,
+    shadowOffset: { height: 6, width: 0 },
+    shadowOpacity: 0.14,
+    shadowRadius: 10,
+    width: 60,
   },
   laundryBagHandle: {
-    borderColor: "#99D6CC",
-    borderRadius: 9,
-    borderWidth: 2,
-    height: 18,
+    borderColor: "#0F766E",
+    borderRadius: 10,
+    borderWidth: 3,
+    height: 20,
     position: "absolute",
-    top: -10,
-    width: 24,
+    top: -12,
+    width: 28,
   },
   laundryBagText: {
     color: colors.primary,
-    fontSize: 12,
-    fontWeight: "800",
+    fontSize: 13,
+    fontWeight: "900",
   },
   deliveryPin: {
-    backgroundColor: colors.text,
+    backgroundColor: "#0F172A",
+    borderColor: "#FFFFFF",
     borderRadius: 999,
-    bottom: 18,
+    borderWidth: 2,
+    bottom: 14,
     left: 18,
     paddingHorizontal: spacing.sm,
     paddingVertical: 4,
@@ -2791,17 +2936,21 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   deliveryVisualCopy: {
+    alignItems: "center",
     gap: spacing.xs,
+    maxWidth: 360,
   },
   deliveryVisualTitle: {
     color: colors.text,
-    fontSize: 18,
-    fontWeight: "800",
+    fontSize: 20,
+    fontWeight: "900",
+    textAlign: "center",
   },
   deliveryVisualText: {
     color: colors.muted,
     fontSize: 14,
     lineHeight: 20,
+    textAlign: "center",
   },
   weightCounter: {
     backgroundColor: colors.surface,
