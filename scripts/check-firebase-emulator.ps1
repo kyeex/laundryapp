@@ -7,9 +7,9 @@ function Assert-Command($Name, $InstallHint) {
 }
 
 Assert-Command "npm" "Install Node.js/npm first."
-Assert-Command "java" "Install Java 17 or newer, then reopen PowerShell so java is on PATH."
+Assert-Command "java" "Install Java 21 or newer, then reopen PowerShell so java is on PATH."
 
-$javaVersionOutput = & java -version 2>&1
+$javaVersionOutput = cmd /c "java -version 2>&1"
 $javaVersionText = ($javaVersionOutput | Out-String).Trim()
 
 if (-not $javaVersionText) {
