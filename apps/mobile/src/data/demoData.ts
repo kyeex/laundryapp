@@ -54,6 +54,7 @@ export const demoOrders: Order[] = [
     id: "demo-order-1001",
     customerId: demoUsers.customer.id,
     customerName: demoUsers.customer.displayName,
+    customerEmail: demoUsers.customer.email,
     customerPhone: demoUsers.customer.phone,
     addressId: "demo-address-1",
     addressSnapshot: demoAddress,
@@ -126,6 +127,7 @@ export const demoOrders: Order[] = [
     id: "demo-order-1004",
     customerId: demoUsers.customer.id,
     customerName: demoUsers.customer.displayName,
+    customerEmail: demoUsers.customer.email,
     customerPhone: demoUsers.customer.phone,
     addressId: "demo-address-4",
     addressSnapshot: {
@@ -182,6 +184,7 @@ export const demoOrders: Order[] = [
     id: "demo-order-1002",
     customerId: "demo-customer-2",
     customerName: "Taylor Brooks",
+    customerEmail: "taylor.brooks@example.com",
     customerPhone: "555-0144",
     addressId: "demo-address-2",
     addressSnapshot: {
@@ -217,6 +220,7 @@ export const demoOrders: Order[] = [
     id: "demo-order-1003",
     customerId: "demo-customer-3",
     customerName: "Avery Patel",
+    customerEmail: "avery.patel@example.com",
     customerPhone: "555-0188",
     addressId: "demo-address-3",
     addressSnapshot: {

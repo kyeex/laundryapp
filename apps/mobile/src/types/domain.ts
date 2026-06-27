@@ -144,6 +144,7 @@ export type Order = {
   orderNumber?: string;
   customerId: string;
   customerName: string;
+  customerEmail: string;
   customerPhone: string;
   addressId: string;
   addressSnapshot: AddressInput;

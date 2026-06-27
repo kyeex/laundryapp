@@ -77,6 +77,7 @@ export function mapOrder(id: string, data: DocumentData): Order {
     orderNumber: data.orderNumber ?? createOrderNumberFromId(id),
     customerId: data.customerId ?? "",
     customerName: data.customerName ?? "",
+    customerEmail: data.customerEmail ?? "",
     customerPhone: data.customerPhone ?? "",
     addressId: data.addressId ?? "",
     addressSnapshot: data.addressSnapshot ?? {
@@ -153,6 +154,7 @@ export async function createCustomerOrder(customer: AppUser, input: CreateOrderI
     orderNumber,
     customerId: customer.id,
     customerName: customer.displayName,
+    customerEmail: customer.email,
     customerPhone: customer.phone,
     addressId: addressRef.id,
     addressSnapshot: normalizedAddress,

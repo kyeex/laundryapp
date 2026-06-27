@@ -1,6 +1,6 @@
 import { useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, StyleSheet, Text, View } from "react-native";
 
 import { AppButton } from "@/components/AppButton";
 import { FormTextInput } from "@/components/FormTextInput";
@@ -56,6 +56,7 @@ export default function AdminOrderDetailScreen() {
     (typeof ownerOrderWorkflowActions)[number] | null
   >(null);
   const [isConfirmingPayment, setIsConfirmingPayment] = useState(false);
+  const [showZeroPriceWarning, setShowZeroPriceWarning] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -75,6 +76,7 @@ export default function AdminOrderDetailScreen() {
       setPendingDecision(null);
       setPendingWorkflowAction(null);
       setIsConfirmingPayment(false);
+      setShowZeroPriceWarning(false);
     } catch (loadError) {
       const message =
         loadError instanceof Error
@@ -100,6 +102,22 @@ export default function AdminOrderDetailScreen() {
       .filter(Boolean)
       .join(", ");
   }, [order]);
+
+  const parsedPriceInput = Number.parseFloat(priceInput);
+  const hasMissingPriceInput = priceInput.trim().length === 0;
+  const hasZeroPriceInput =
+    !hasMissingPriceInput &&
+    Number.isFinite(parsedPriceInput) &&
+    parsedPriceInput === 0;
+  const hasMissingOrZeroPriceInput = hasMissingPriceInput || hasZeroPriceInput;
+
+  function handlePriceInputChange(value: string) {
+    setPriceInput(value);
+
+    if (value.trim().length > 0 && Number.parseFloat(value) !== 0) {
+      setShowZeroPriceWarning(false);
+    }
+  }
 
   async function handleStatusChange(toStatus: OrderStatus, message: string) {
     if (!order || !currentUser) {
@@ -138,10 +156,32 @@ export default function AdminOrderDetailScreen() {
       return;
     }
 
+    if (hasMissingPriceInput) {
+      setError("");
+      setSuccess("");
+      setShowZeroPriceWarning(true);
+      Alert.alert(
+        "Final price needed",
+        "No final price has been entered. Enter the actual final order amount before saving.",
+      );
+      return;
+    }
+
     const parsedPrice = Number.parseFloat(priceInput);
 
     if (!Number.isFinite(parsedPrice) || parsedPrice < 0) {
       setError("Enter a valid final price.");
+      return;
+    }
+
+    if (parsedPrice === 0) {
+      setError("");
+      setSuccess("");
+      setShowZeroPriceWarning(true);
+      Alert.alert(
+        "Final price needed",
+        "The final price is currently $0.00. Enter the actual final order amount before saving.",
+      );
       return;
     }
 
@@ -360,17 +400,27 @@ export default function AdminOrderDetailScreen() {
                   editable={order.paymentStatus !== "paid"}
                   keyboardType="decimal-pad"
                   label="Amount"
-                  onChangeText={setPriceInput}
+                  onChangeText={handlePriceInputChange}
                   placeholder="0.00"
                   value={priceInput}
                 />
+                {hasMissingOrZeroPriceInput || showZeroPriceWarning ? (
+                  <View style={styles.zeroPriceWarning}>
+                    <Text style={styles.zeroPriceTitle}>Final price needed</Text>
+                    <Text style={styles.zeroPriceText}>
+                      {hasMissingPriceInput
+                        ? "No final price has been entered. Enter the actual order amount before saving."
+                        : "$0.00 cannot be saved as the final price. Enter the actual order amount before saving."}
+                    </Text>
+                  </View>
+                ) : null}
                 <Text style={styles.muted}>
                   {order.paymentStatus === "paid"
                     ? "Payment is finalized, so final price changes are locked."
                     : "Saving a final price confirms the amount and keeps payment unpaid until it is finalized."}
                 </Text>
                 <AppButton
-                  disabled={isSaving || !priceInput || order.paymentStatus === "paid"}
+                  disabled={isSaving || order.paymentStatus === "paid"}
                   label={isSaving ? "Saving..." : "Save final price"}
                   onPress={handleSetPrice}
                 />
@@ -424,6 +474,12 @@ export default function AdminOrderDetailScreen() {
               <Text style={styles.cardTitle}>Customer address</Text>
               <Text style={styles.value}>
                 Pickup: {formatDisplayDate(order.scheduledPickupDate)} · {order.scheduledPickupWindow}
+              </Text>
+              <Text style={styles.value}>
+                Email: {order.customerEmail || "No email on order"}
+              </Text>
+              <Text style={styles.value}>
+                Phone: {order.customerPhone || "No phone on order"}
               </Text>
               <Text style={styles.value}>{formatAddress(order.addressSnapshot)}</Text>
               {order.addressSnapshot.deliveryInstructions ? (
@@ -608,6 +664,24 @@ const styles = StyleSheet.create({
     color: "#B45309",
     fontSize: 14,
     fontWeight: "800",
+  },
+  zeroPriceWarning: {
+    backgroundColor: "#FFFBEB",
+    borderColor: "#FBBF24",
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: spacing.xs,
+    padding: spacing.md,
+  },
+  zeroPriceTitle: {
+    color: "#92400E",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  zeroPriceText: {
+    color: colors.text,
+    fontSize: 14,
+    lineHeight: 22,
   },
   success: {
     color: colors.success,

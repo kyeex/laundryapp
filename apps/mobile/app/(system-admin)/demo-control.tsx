@@ -195,7 +195,7 @@ export default function DemoControlCenterScreen() {
     try {
       const createdCount = seedLocalDemoOrders();
       setMessage(
-        `${createdCount} fresh sample orders seeded: one new request, one pickup-ready order, and one delivery-ready order.`,
+        `${createdCount} fresh sample orders seeded: one new request, one pickup-ready order, one delivery-ready order, and one pricing test order.`,
       );
       await loadDemoSummary();
     } catch (seedError) {
