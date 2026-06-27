@@ -293,6 +293,18 @@ function getTopCountLabel(counts: Record<string, number>, fallback: string) {
   return topEntry ? `${topEntry[0]} (${topEntry[1]})` : fallback;
 }
 
+function getTopCountEntries(counts: Record<string, number>, limit = 5) {
+  return Object.entries(counts)
+    .sort((firstEntry, secondEntry) => {
+      const countComparison = secondEntry[1] - firstEntry[1];
+
+      return countComparison === 0
+        ? firstEntry[0].localeCompare(secondEntry[0])
+        : countComparison;
+    })
+    .slice(0, limit);
+}
+
 function incrementCount(counts: Record<string, number>, key: string) {
   if (!key) {
     return counts;
@@ -318,8 +330,24 @@ function buildOrderAnalytics(orders: Order[]) {
     (total, order) => total + getOrderRevenueValue(order),
     0,
   );
+  const totalGratuity = orders.reduce(
+    (total, order) => total + order.gratuityAmount,
+    0,
+  );
   const paidOrderCount = orders.filter((order) => order.paymentStatus === "paid").length;
   const completedOrderCount = orders.filter((order) => order.status === "completed").length;
+  const openOrderCount = orders.filter(
+    (order) =>
+      !["completed", "delivered", "declined", "cancelled"].includes(order.status),
+  ).length;
+  const finalPricePendingCount = orders.filter(
+    (order) =>
+      order.finalPrice === null &&
+      ["in_progress", "priced", "payment_requested", "ready_for_delivery"].includes(
+        order.status,
+      ),
+  ).length;
+  const unpaidOrderCount = orders.filter((order) => order.paymentStatus !== "paid").length;
   const pickupWindowCounts = orders.reduce<Record<string, number>>(
     (counts, order) => incrementCount(counts, order.scheduledPickupWindow),
     {},
@@ -334,26 +362,87 @@ function buildOrderAnalytics(orders: Order[]) {
       counts,
     );
   }, {});
+  const addOnCounts = orders.reduce<Record<string, number>>((counts, order) => {
+    return order.selectedAddOns.reduce(
+      (nextCounts, addOn) =>
+        incrementCount(nextCounts, addOn.name),
+      counts,
+    );
+  }, {});
+  const customerCounts = orders.reduce<Record<string, number>>(
+    (counts, order) =>
+      incrementCount(counts, order.customerId || order.customerName || "Customer"),
+    {},
+  );
   const statusCounts = orders.reduce<Record<string, number>>(
     (counts, order) => incrementCount(counts, formatOrderStatus(order.status)),
     {},
   );
   const averageOrderValue = orders.length > 0 ? projectedRevenue / orders.length : 0;
+  const averageGratuity = orders.length > 0 ? totalGratuity / orders.length : 0;
   const paymentRate = orders.length > 0 ? paidOrderCount / orders.length : 0;
   const completionRate = orders.length > 0 ? completedOrderCount / orders.length : 0;
-  const topStatuses = Object.entries(statusCounts)
-    .sort((firstEntry, secondEntry) => secondEntry[1] - firstEntry[1])
-    .slice(0, 4);
+  const revenueCaptureRate =
+    projectedRevenue > 0 ? totalRevenueEarned / projectedRevenue : 0;
+  const unpaidRevenue = Math.max(0, projectedRevenue - totalRevenueEarned);
+  const repeatCustomerCount = Object.values(customerCounts).filter((count) => count > 1)
+    .length;
+  const uniqueCustomerCount = Object.keys(customerCounts).length;
+  const repeatCustomerRate =
+    uniqueCustomerCount > 0 ? repeatCustomerCount / uniqueCustomerCount : 0;
+  const topStatuses = getTopCountEntries(statusCounts, 5);
+  const pickupWindowBreakdown = getTopCountEntries(pickupWindowCounts, 5);
+  const serviceBreakdown = getTopCountEntries(serviceCounts, 5);
+  const addOnBreakdown = getTopCountEntries(addOnCounts, 5);
+  const bottleneckStatus = topStatuses[0]?.[0] ?? "No bottleneck yet";
+  const nextActions = [
+    finalPricePendingCount > 0
+      ? `Price ${finalPricePendingCount} order${finalPricePendingCount === 1 ? "" : "s"} waiting for a final amount.`
+      : "No visible orders are waiting for final pricing.",
+    unpaidRevenue > 0
+      ? `Follow up on ${formatCurrency(unpaidRevenue)} in unpaid or open order value.`
+      : "Visible paid revenue has caught up with projected order value.",
+    openOrderCount > 0
+      ? `Keep ${openOrderCount} active order${openOrderCount === 1 ? "" : "s"} moving through the workflow.`
+      : "No active workflow backlog in the current view.",
+  ];
+  const summaryInsights = [
+    orders.length === 0
+      ? "No orders match the current filters yet."
+      : `${formatCurrency(totalRevenueEarned)} has been collected from ${paidOrderCount} paid order${paidOrderCount === 1 ? "" : "s"}.`,
+    projectedRevenue > 0
+      ? `${formatPercent(revenueCaptureRate)} of visible order value has been captured as paid revenue.`
+      : "Projected order value is not available for this filtered view yet.",
+    orders.length > 0
+      ? `${bottleneckStatus} is the largest current status group, so it is the best place to look first.`
+      : "Add or seed orders to generate operational insights.",
+  ];
 
   return {
+    addOnBreakdown,
     averageOrderValue,
+    averageGratuity,
+    bottleneckStatus,
     completionRate,
+    finalPricePendingCount,
+    nextActions,
+    openOrderCount,
     paidOrderCount,
     paymentRate,
+    pickupWindowBreakdown,
     projectedRevenue,
+    repeatCustomerCount,
+    repeatCustomerRate,
+    revenueCaptureRate,
+    serviceBreakdown,
+    summaryInsights,
     topStatuses,
     totalOrders: orders.length,
     totalRevenueEarned,
+    totalGratuity,
+    uniqueCustomerCount,
+    unpaidOrderCount,
+    unpaidRevenue,
     mostPopularPickupWindow: getTopCountLabel(
       pickupWindowCounts,
       "No pickup windows yet",
@@ -1117,7 +1206,7 @@ export default function AdminOrdersScreen() {
               <View style={styles.modalHeader}>
                 <View>
                   <Text style={styles.modalKicker}>Orders analytics</Text>
-                  <Text style={styles.modalTitle}>Analytics report</Text>
+                  <Text style={styles.modalTitle}>Smart analytics report</Text>
                 </View>
                 <Pressable
                   accessibilityRole="button"
@@ -1130,9 +1219,19 @@ export default function AdminOrdersScreen() {
               <Text style={styles.modalBody}>
                 Report based on {filteredOrders.length} currently visible order
                 {filteredOrders.length === 1 ? "" : "s"}. Filters and date ranges on
-                the Orders page are included.
+                the Orders page are included, so this report explains exactly what
+                you are looking at.
               </Text>
               <ScrollView style={styles.modalScroll}>
+                <View style={styles.narrativePanel}>
+                  <Text style={styles.insightTitle}>Plain-English summary</Text>
+                  {analytics.summaryInsights.map((insight) => (
+                    <Text key={insight} style={styles.narrativeText}>
+                      {insight}
+                    </Text>
+                  ))}
+                </View>
+
                 <View style={styles.analyticsGrid}>
                   <View style={styles.metricCard}>
                     <Text style={styles.metricLabel}>Money earned</Text>
@@ -1153,6 +1252,24 @@ export default function AdminOrdersScreen() {
                     </Text>
                   </View>
                   <View style={styles.metricCard}>
+                    <Text style={styles.metricLabel}>Unpaid value</Text>
+                    <Text style={styles.metricValue}>
+                      {formatCurrency(analytics.unpaidRevenue)}
+                    </Text>
+                    <Text style={styles.metricNote}>
+                      Visible value not yet captured as paid revenue.
+                    </Text>
+                  </View>
+                  <View style={styles.metricCard}>
+                    <Text style={styles.metricLabel}>Revenue capture</Text>
+                    <Text style={styles.metricValue}>
+                      {formatPercent(analytics.revenueCaptureRate)}
+                    </Text>
+                    <Text style={styles.metricNote}>
+                      Paid revenue divided by projected order value.
+                    </Text>
+                  </View>
+                  <View style={styles.metricCard}>
                     <Text style={styles.metricLabel}>Average order</Text>
                     <Text style={styles.metricValue}>
                       {formatCurrency(analytics.averageOrderValue)}
@@ -1166,6 +1283,24 @@ export default function AdminOrdersScreen() {
                     </Text>
                     <Text style={styles.metricNote}>
                       {formatPercent(analytics.paymentRate)} payment completion.
+                    </Text>
+                  </View>
+                  <View style={styles.metricCard}>
+                    <Text style={styles.metricLabel}>Repeat customers</Text>
+                    <Text style={styles.metricValue}>
+                      {formatPercent(analytics.repeatCustomerRate)}
+                    </Text>
+                    <Text style={styles.metricNote}>
+                      {analytics.repeatCustomerCount}/{analytics.uniqueCustomerCount} customers ordered more than once.
+                    </Text>
+                  </View>
+                  <View style={styles.metricCard}>
+                    <Text style={styles.metricLabel}>Average gratuity</Text>
+                    <Text style={styles.metricValue}>
+                      {formatCurrency(analytics.averageGratuity)}
+                    </Text>
+                    <Text style={styles.metricNote}>
+                      {formatCurrency(analytics.totalGratuity)} total gratuity visible.
                     </Text>
                   </View>
                 </View>
@@ -1190,10 +1325,110 @@ export default function AdminOrdersScreen() {
                       {formatPercent(analytics.completionRate)}
                     </Text>
                   </View>
+                  <View style={styles.insightRow}>
+                    <Text style={styles.insightLabel}>Open workflow backlog</Text>
+                    <Text style={styles.insightValue}>
+                      {analytics.openOrderCount} active order{analytics.openOrderCount === 1 ? "" : "s"}
+                    </Text>
+                  </View>
+                  <View style={styles.insightRow}>
+                    <Text style={styles.insightLabel}>Needs final price</Text>
+                    <Text style={styles.insightValue}>
+                      {analytics.finalPricePendingCount} order{analytics.finalPricePendingCount === 1 ? "" : "s"}
+                    </Text>
+                  </View>
                 </View>
 
                 <View style={styles.insightPanel}>
-                  <Text style={styles.insightTitle}>Status mix</Text>
+                  <Text style={styles.insightTitle}>Recommended next actions</Text>
+                  {analytics.nextActions.map((action) => (
+                    <View key={action} style={styles.actionItem}>
+                      <Text style={styles.actionDot}>•</Text>
+                      <Text style={styles.actionText}>{action}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                <View style={styles.insightPanel}>
+                  <Text style={styles.insightTitle}>Demand patterns</Text>
+                  <Text style={styles.modalMuted}>
+                    These show where customer demand is concentrating.
+                  </Text>
+                  <Text style={styles.subsectionTitle}>Pickup windows</Text>
+                  {analytics.pickupWindowBreakdown.length === 0 ? (
+                    <Text style={styles.modalMuted}>No pickup window data yet.</Text>
+                  ) : null}
+                  {analytics.pickupWindowBreakdown.map(([window, count]) => (
+                    <View key={window} style={styles.statusMetricRow}>
+                      <Text style={styles.statusMetricLabel}>{window}</Text>
+                      <View style={styles.statusMetricTrack}>
+                        <View
+                          style={[
+                            styles.statusMetricFill,
+                            {
+                              width: `${Math.max(
+                                8,
+                                (count / Math.max(1, analytics.totalOrders)) * 100,
+                              )}%`,
+                            },
+                          ]}
+                        />
+                      </View>
+                      <Text style={styles.statusMetricCount}>{count}</Text>
+                    </View>
+                  ))}
+
+                  <Text style={styles.subsectionTitle}>Services</Text>
+                  {analytics.serviceBreakdown.length === 0 ? (
+                    <Text style={styles.modalMuted}>No service data yet.</Text>
+                  ) : null}
+                  {analytics.serviceBreakdown.map(([service, count]) => (
+                    <View key={service} style={styles.statusMetricRow}>
+                      <Text style={styles.statusMetricLabel}>{service}</Text>
+                      <View style={styles.statusMetricTrack}>
+                        <View
+                          style={[
+                            styles.statusMetricFillAlt,
+                            {
+                              width: `${Math.max(
+                                8,
+                                (count / Math.max(1, analytics.totalOrders)) * 100,
+                              )}%`,
+                            },
+                          ]}
+                        />
+                      </View>
+                      <Text style={styles.statusMetricCount}>{count}</Text>
+                    </View>
+                  ))}
+
+                  <Text style={styles.subsectionTitle}>Add-ons</Text>
+                  {analytics.addOnBreakdown.length === 0 ? (
+                    <Text style={styles.modalMuted}>No add-on selections yet.</Text>
+                  ) : null}
+                  {analytics.addOnBreakdown.map(([addOn, count]) => (
+                    <View key={addOn} style={styles.statusMetricRow}>
+                      <Text style={styles.statusMetricLabel}>{addOn}</Text>
+                      <View style={styles.statusMetricTrack}>
+                        <View
+                          style={[
+                            styles.statusMetricFillWarm,
+                            {
+                              width: `${Math.max(
+                                8,
+                                (count / Math.max(1, analytics.totalOrders)) * 100,
+                              )}%`,
+                            },
+                          ]}
+                        />
+                      </View>
+                      <Text style={styles.statusMetricCount}>{count}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                <View style={styles.insightPanel}>
+                  <Text style={styles.insightTitle}>Status mix and bottlenecks</Text>
                   {analytics.topStatuses.length === 0 ? (
                     <Text style={styles.modalMuted}>No status data available yet.</Text>
                   ) : null}
@@ -1769,6 +2004,20 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: spacing.sm,
   },
+  narrativePanel: {
+    backgroundColor: "#ECFDF5",
+    borderColor: "#A7F3D0",
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+    padding: spacing.md,
+  },
+  narrativeText: {
+    color: colors.text,
+    fontSize: 15,
+    lineHeight: 22,
+  },
   metricCard: {
     backgroundColor: "#F8FAFC",
     borderColor: colors.border,
@@ -1807,6 +2056,13 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "800",
   },
+  subsectionTitle: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "900",
+    marginTop: spacing.sm,
+    textTransform: "uppercase",
+  },
   insightRow: {
     alignItems: "center",
     flexDirection: "row",
@@ -1823,6 +2079,29 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 15,
     fontWeight: "800",
+  },
+  actionItem: {
+    alignItems: "flex-start",
+    backgroundColor: "#F8FAFC",
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: spacing.sm,
+    padding: spacing.md,
+  },
+  actionDot: {
+    color: colors.primary,
+    fontSize: 18,
+    fontWeight: "900",
+    lineHeight: 22,
+  },
+  actionText: {
+    color: colors.text,
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "700",
+    lineHeight: 22,
   },
   statusMetricRow: {
     alignItems: "center",
@@ -1845,6 +2124,16 @@ const styles = StyleSheet.create({
   },
   statusMetricFill: {
     backgroundColor: colors.primary,
+    borderRadius: 8,
+    height: "100%",
+  },
+  statusMetricFillAlt: {
+    backgroundColor: "#2563EB",
+    borderRadius: 8,
+    height: "100%",
+  },
+  statusMetricFillWarm: {
+    backgroundColor: "#D97706",
     borderRadius: 8,
     height: "100%",
   },
