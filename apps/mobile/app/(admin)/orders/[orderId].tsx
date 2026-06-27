@@ -5,6 +5,12 @@ import { ActivityIndicator, Alert, StyleSheet, Text, View } from "react-native";
 import { AppButton } from "@/components/AppButton";
 import { FormTextInput } from "@/components/FormTextInput";
 import { OrderTimeline } from "@/components/OrderTimeline";
+import {
+  DetailRow,
+  PageHeader,
+  SectionCard,
+  StatusPill,
+} from "@/components/OperatingDashboard";
 import { Screen } from "@/components/Screen";
 import {
   calculateBillableLaundryWeight,
@@ -245,31 +251,31 @@ export default function AdminOrderDetailScreen() {
         {success ? <Text style={styles.success}>{success}</Text> : null}
 
         {!isLoading && !order ? (
-          <View style={styles.card}>
-            <Text style={styles.title}>Order not found</Text>
+          <SectionCard title="Order not found">
             <Text style={styles.muted}>
               This order may no longer exist, or the selected demo data may have
               changed. Return to Orders and open an order from the current grid.
             </Text>
-          </View>
+          </SectionCard>
         ) : null}
 
         {order ? (
           <>
             <View style={styles.header}>
-              <Text style={styles.kicker}>Manage order</Text>
-              <Text style={styles.orderNumber}>Order #{getOrderNumber(order)}</Text>
-              <Text style={styles.title}>{formatOrderStatus(order.status)}</Text>
-              <Text style={styles.muted}>
-                {order.customerName || "Customer"} · {order.customerPhone || "No phone"}
-              </Text>
+              <PageHeader
+                eyebrow="Manage order"
+                title={`Order #${getOrderNumber(order)}`}
+                description={`${order.customerName || "Customer"} · ${
+                  order.customerPhone || "No phone"
+                }`}
+              />
+              <StatusPill label={formatOrderStatus(order.status)} tone="info" />
             </View>
 
             <OrderTimeline status={order.status} />
 
             {order.status === "requested" ? (
-              <View style={styles.card}>
-                <Text style={styles.cardTitle}>Initial order decision</Text>
+              <SectionCard title="Initial order decision">
                 <Text style={styles.muted}>
                   Accept or decline this new request. A confirmation is required
                   before the decision is saved.
@@ -326,12 +332,11 @@ export default function AdminOrderDetailScreen() {
                     </View>
                   </View>
                 ) : null}
-              </View>
+              </SectionCard>
             ) : null}
 
             {canShowOwnerWorkflowActions(order.status) ? (
-              <View style={styles.card}>
-                <Text style={styles.cardTitle}>Order workflow</Text>
+              <SectionCard title="Order workflow">
                 <Text style={styles.muted}>
                   Move the accepted order through the in-store and delivery
                   preparation workflow.
@@ -380,22 +385,20 @@ export default function AdminOrderDetailScreen() {
                     </View>
                   </View>
                 ) : null}
-              </View>
+              </SectionCard>
             ) : null}
 
             {order.status === "declined" ? (
-              <View style={styles.card}>
-                <Text style={styles.cardTitle}>Order declined</Text>
+              <SectionCard title="Order declined">
                 <Text style={styles.muted}>
                   This order has been fully declined, so workflow action buttons are
                   hidden.
                 </Text>
-              </View>
+              </SectionCard>
             ) : null}
 
             {canShowFinalPriceControls(order.status) ? (
-              <View style={styles.card}>
-                <Text style={styles.cardTitle}>Final price</Text>
+              <SectionCard title="Final price">
                 <FormTextInput
                   editable={order.paymentStatus !== "paid"}
                   keyboardType="decimal-pad"
@@ -467,45 +470,46 @@ export default function AdminOrderDetailScreen() {
                     )}
                   </View>
                 ) : null}
-              </View>
+              </SectionCard>
             ) : null}
 
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Customer address</Text>
-              <Text style={styles.value}>
-                Pickup: {formatDisplayDate(order.scheduledPickupDate)} · {order.scheduledPickupWindow}
-              </Text>
-              <Text style={styles.value}>
-                Email: {order.customerEmail || "No email on order"}
-              </Text>
-              <Text style={styles.value}>
-                Phone: {order.customerPhone || "No phone on order"}
-              </Text>
-              <Text style={styles.value}>{formatAddress(order.addressSnapshot)}</Text>
+            <SectionCard title="Customer address">
+              <DetailRow
+                label="Pickup"
+                value={`${formatDisplayDate(order.scheduledPickupDate)} · ${
+                  order.scheduledPickupWindow
+                }`}
+              />
+              <DetailRow
+                label="Email"
+                value={order.customerEmail || "No email on order"}
+              />
+              <DetailRow
+                label="Phone"
+                value={order.customerPhone || "No phone on order"}
+              />
+              <DetailRow label="Address" value={formatAddress(order.addressSnapshot)} />
               {order.addressSnapshot.deliveryInstructions ? (
                 <Text style={styles.muted}>
                   {order.addressSnapshot.deliveryInstructions}
                 </Text>
               ) : null}
-            </View>
+            </SectionCard>
 
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Drop-off</Text>
+            <SectionCard title="Drop-off">
               <Text style={styles.value}>
                 {formatDisplayDate(order.scheduledDropoffDate)} · {order.scheduledDropoffWindow}
               </Text>
               <Text style={styles.muted}>
                 Requested return drop-off window for the cleaned order.
               </Text>
-            </View>
+            </SectionCard>
 
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Service</Text>
+            <SectionCard title="Service">
               <Text style={styles.value}>{serviceNames || "Service not found"}</Text>
-            </View>
+            </SectionCard>
 
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Customer estimate</Text>
+            <SectionCard title="Customer estimate">
               <Text style={styles.value}>
                 Laundry:{" "}
                 {order.estimatedWeightPounds
@@ -532,10 +536,9 @@ export default function AdminOrderDetailScreen() {
                 Use the final price field after confirming the actual weight and
                 any special handling.
               </Text>
-            </View>
+            </SectionCard>
 
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Add-ons</Text>
+            <SectionCard title="Add-ons">
               {order.selectedAddOns.length === 0 ? (
                 <Text style={styles.muted}>No add-ons selected.</Text>
               ) : (
@@ -550,11 +553,10 @@ export default function AdminOrderDetailScreen() {
               <Text style={styles.muted}>
                 Fixed add-ons are included in the customer estimate.
               </Text>
-            </View>
+            </SectionCard>
 
             {order.selectedDryCleaningItems.length > 0 ? (
-              <View style={styles.card}>
-                <Text style={styles.cardTitle}>Dry cleaning items</Text>
+              <SectionCard title="Dry cleaning items">
                 {order.selectedDryCleaningItems.map((item) => (
                   <Text key={item.id} style={styles.value}>
                     {(item.quantity ?? 1) > 1 ? `${item.quantity} x ` : ""}
@@ -564,24 +566,26 @@ export default function AdminOrderDetailScreen() {
                 <Text style={styles.muted}>
                   These dry-cleaning items are included in the customer estimate.
                 </Text>
-              </View>
+              </SectionCard>
             ) : null}
 
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Notes</Text>
+            <SectionCard title="Notes">
               <Text style={styles.value}>
                 {order.customerNotes || "No customer notes."}
               </Text>
-            </View>
+            </SectionCard>
 
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Payment</Text>
-              <Text style={styles.value}>
-                Final price:{" "}
-                {order.finalPrice === null ? "Pending" : `$${order.finalPrice.toFixed(2)}`}
-              </Text>
-              <Text style={styles.muted}>Payment status: {order.paymentStatus}</Text>
-            </View>
+            <SectionCard title="Payment">
+              <DetailRow
+                label="Final price"
+                value={
+                  order.finalPrice === null
+                    ? "Pending"
+                    : `$${order.finalPrice.toFixed(2)}`
+                }
+              />
+              <DetailRow label="Payment status" value={formatOrderStatus(order.paymentStatus)} />
+            </SectionCard>
 
             <AppButton label="Refresh order" onPress={loadOrder} variant="secondary" />
           </>

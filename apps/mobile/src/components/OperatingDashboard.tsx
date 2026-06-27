@@ -123,6 +123,38 @@ export function ActionPanel({
   );
 }
 
+export function SectionHeader({
+  description,
+  title,
+}: {
+  description?: string;
+  title: string;
+}) {
+  return (
+    <View style={styles.sectionHeader}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      {description ? <Text style={styles.sectionDescription}>{description}</Text> : null}
+    </View>
+  );
+}
+
+export function SectionCard({
+  children,
+  description,
+  title,
+}: {
+  children: ReactNode;
+  description?: string;
+  title?: string;
+}) {
+  return (
+    <View style={styles.sectionCard}>
+      {title ? <SectionHeader description={description} title={title} /> : null}
+      {children}
+    </View>
+  );
+}
+
 export function ActionGrid({ children }: { children: ReactNode }) {
   return <View style={styles.actionGrid}>{children}</View>;
 }
@@ -167,6 +199,62 @@ export function EmptyState({
     </View>
   );
 }
+
+export function StatusPill({
+  label,
+  tone = "neutral",
+}: {
+  label: string;
+  tone?: Tone | "danger";
+}) {
+  return (
+    <Text style={[styles.statusPill, statusToneStyles[tone]]}>{label}</Text>
+  );
+}
+
+export function DetailRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: ReactNode;
+}) {
+  return (
+    <View style={styles.detailRow}>
+      <Text style={styles.detailLabel}>{label}</Text>
+      <Text style={styles.detailValue}>{value}</Text>
+    </View>
+  );
+}
+
+const statusToneStyles = {
+  neutral: {},
+  attention: {
+    backgroundColor: "#FFFBEB",
+    borderColor: "#F59E0B",
+    color: "#92400E",
+  },
+  info: {
+    backgroundColor: "#EFF6FF",
+    borderColor: "#60A5FA",
+    color: "#1D4ED8",
+  },
+  success: {
+    backgroundColor: "#ECFDF5",
+    borderColor: "#34D399",
+    color: "#047857",
+  },
+  accent: {
+    backgroundColor: "#F5F3FF",
+    borderColor: "#A78BFA",
+    color: "#6D28D9",
+  },
+  danger: {
+    backgroundColor: "#FEF2F2",
+    borderColor: "#FCA5A5",
+    color: colors.danger,
+  },
+} satisfies Record<Tone | "danger", object>;
 
 const styles = StyleSheet.create({
   header: {
@@ -267,6 +355,28 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "900",
   },
+  sectionCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: spacing.md,
+    padding: spacing.md,
+  },
+  sectionHeader: {
+    gap: spacing.xs,
+  },
+  sectionTitle: {
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: "900",
+    lineHeight: 26,
+  },
+  sectionDescription: {
+    color: colors.muted,
+    fontSize: 14,
+    lineHeight: 20,
+  },
   actionGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -316,5 +426,45 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 15,
     lineHeight: 22,
+  },
+  statusPill: {
+    alignSelf: "flex-start",
+    backgroundColor: "#F8FAFC",
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    color: colors.text,
+    fontSize: 12,
+    fontWeight: "900",
+    lineHeight: 16,
+    overflow: "hidden",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    textTransform: "capitalize",
+  },
+  detailRow: {
+    borderBottomColor: colors.border,
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+    justifyContent: "space-between",
+    paddingVertical: spacing.sm,
+  },
+  detailLabel: {
+    color: colors.muted,
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "900",
+    minWidth: 120,
+    textTransform: "uppercase",
+  },
+  detailValue: {
+    color: colors.text,
+    flex: 2,
+    fontSize: 15,
+    fontWeight: "700",
+    lineHeight: 22,
+    minWidth: 180,
   },
 });

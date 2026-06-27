@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from "react-native";
 
+import { PageHeader, SectionCard } from "@/components/OperatingDashboard";
 import { Screen } from "@/components/Screen";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
@@ -52,23 +53,21 @@ export default function SystemAdminPermissionsScreen() {
   return (
     <Screen>
       <View style={styles.content}>
-        <Text style={styles.title}>Permission settings</Text>
-        <Text style={styles.body}>
-          This is the first version of the permissions model. It documents the
-          role boundaries we are enforcing now and prepares the app for editable
-          permission policies later.
-        </Text>
+        <PageHeader
+          eyebrow="Admin tools"
+          title="Permission settings"
+          description="This is the first version of the permissions model. It documents the role boundaries we are enforcing now and prepares the app for editable permission policies later."
+        />
 
         {permissionGroups.map((group) => (
-          <View key={group.role} style={styles.card}>
-            <Text style={styles.cardTitle}>{group.title}</Text>
+          <SectionCard key={group.role} title={group.title}>
             {group.permissions.map((permission) => (
               <View key={permission} style={styles.permissionRow}>
                 <View style={styles.dot} />
                 <Text style={styles.permissionText}>{permission}</Text>
               </View>
             ))}
-          </View>
+          </SectionCard>
         ))}
 
         <View style={styles.note}>

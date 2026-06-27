@@ -20,6 +20,7 @@ import { formatDisplayDateTime } from "@/utils/dateFormat";
 
 import { AppButton } from "./AppButton";
 import { FormTextInput } from "./FormTextInput";
+import { EmptyState, PageHeader } from "./OperatingDashboard";
 import { Screen } from "./Screen";
 
 type RewardsManagementScreenProps = {
@@ -243,9 +244,11 @@ export function RewardsManagementScreen({
     <Screen>
       <View style={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.kicker}>Rewards operations</Text>
-          <Text style={styles.title}>{title}</Text>
-          <Text style={styles.body}>{subtitle}</Text>
+          <PageHeader
+            eyebrow="Rewards operations"
+            title={title}
+            description={subtitle}
+          />
         </View>
 
         {showProgramToggle ? (
@@ -308,13 +311,10 @@ export function RewardsManagementScreen({
               value={search}
             />
             {customerRows.length === 0 ? (
-              <View style={styles.emptyBox}>
-                <Text style={styles.emptyTitle}>No reward customers yet</Text>
-                <Text style={styles.muted}>
+              <EmptyState title="No reward customers yet">
                   Reward accounts appear after customers earn points or after an
                   owner/admin creates an adjustment.
-                </Text>
-              </View>
+              </EmptyState>
             ) : null}
             {customerRows.map((customer) => {
               const selected = customer.customerId === selectedCustomerId;
@@ -422,13 +422,10 @@ export function RewardsManagementScreen({
                 </View>
               </>
             ) : (
-              <View style={styles.emptyBox}>
-                <Text style={styles.emptyTitle}>Select a customer</Text>
-                <Text style={styles.muted}>
+              <EmptyState title="Select a customer">
                   Choose a customer to view their points, ledger, and adjustment
                   controls.
-                </Text>
-              </View>
+              </EmptyState>
             )}
           </View>
         </View>

@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-nati
 
 import { AppButton } from "@/components/AppButton";
 import { FormTextInput } from "@/components/FormTextInput";
+import { EmptyState, PageHeader, SectionCard } from "@/components/OperatingDashboard";
 import { Screen } from "@/components/Screen";
 import {
   getAuditLogs,
@@ -211,19 +212,18 @@ export default function AuditLogsScreen() {
     <Screen>
       <View style={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.kicker}>System administration</Text>
-          <Text style={styles.title}>Audit logs</Text>
-          <Text style={styles.body}>
-            Review owner, driver, admin, payment, batch, and order activity
-            captured from Firebase.
-          </Text>
+          <PageHeader
+            eyebrow="System administration"
+            title="Audit logs"
+            description="Review owner, driver, admin, payment, batch, and order activity captured from Firebase."
+          />
           <AppButton label="Refresh logs" onPress={loadLogs} variant="secondary" />
         </View>
 
         {isLoading ? <ActivityIndicator color={colors.primary} /> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <View style={styles.filters}>
+        <SectionCard>
           <View style={styles.filterHeader}>
             <View>
               <Text style={styles.filterTitle}>Filters</Text>
@@ -331,7 +331,7 @@ export default function AuditLogsScreen() {
               })}
             </View>
           </View>
-        </View>
+        </SectionCard>
 
         <Text style={styles.resultCount}>
           Showing {filteredLogs.length} of {logs.length} log
@@ -339,13 +339,10 @@ export default function AuditLogsScreen() {
         </Text>
 
         {!isLoading && logs.length === 0 ? (
-          <View style={styles.empty}>
-            <Text style={styles.emptyTitle}>No audit logs yet</Text>
-            <Text style={styles.emptyText}>
+          <EmptyState title="No audit logs yet">
               Logs appear after owner, driver, admin, payment, batch, or catalog
               actions are performed in Firebase mode.
-            </Text>
-          </View>
+          </EmptyState>
         ) : null}
 
         {filteredLogs.map((log) => (

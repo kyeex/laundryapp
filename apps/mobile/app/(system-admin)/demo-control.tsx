@@ -4,6 +4,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
 import { AppButton } from "@/components/AppButton";
 import { DemoWalkthrough } from "@/components/DemoWalkthrough";
+import { PageHeader, SectionCard } from "@/components/OperatingDashboard";
 import { Screen } from "@/components/Screen";
 import { appEnvironment } from "@/config/runtime";
 import { useAuth } from "@/context/AuthContext";
@@ -301,12 +302,11 @@ export default function DemoControlCenterScreen() {
     <Screen>
       <View style={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.kicker}>Admin demo tools</Text>
-          <Text style={styles.title}>Demo control center</Text>
-          <Text style={styles.body}>
-            Use this page before a presentation to reset the story, add fresh
-            sample orders, and jump between roles without hunting through the app.
-          </Text>
+          <PageHeader
+            eyebrow="Admin demo tools"
+            title="Demo control center"
+            description="Use this page before a presentation to reset the story, add fresh sample orders, and jump between roles without hunting through the app."
+          />
         </View>
 
         {isLoading ? <ActivityIndicator color={colors.primary} /> : null}
@@ -352,8 +352,7 @@ export default function DemoControlCenterScreen() {
           />
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Demo data</Text>
+        <SectionCard title="Demo data">
           <Text style={styles.muted}>
             Reset returns the demo to the original baseline. Seed adds a clean
             set of presentation orders without removing the baseline examples.
@@ -371,11 +370,10 @@ export default function DemoControlCenterScreen() {
               onPress={handleSeedFreshOrders}
             />
           </View>
-        </View>
+        </SectionCard>
 
         {!isDemoMode ? (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Staging data tools</Text>
+          <SectionCard title="Staging data tools">
             <Text style={styles.muted}>
               These tools create predictable staging users and sample orders for
               testing. They are blocked by the backend unless the Firebase project
@@ -438,11 +436,10 @@ export default function DemoControlCenterScreen() {
                 ))}
               </View>
             ) : null}
-          </View>
+          </SectionCard>
         ) : null}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Jump to role</Text>
+        <SectionCard title="Jump to role">
           <Text style={styles.muted}>
             Role jumps are available only in demo mode. In staging, seed the real
             users above and sign in as each account to test Firestore-backed
@@ -466,7 +463,7 @@ export default function DemoControlCenterScreen() {
               </View>
             ))}
           </View>
-        </View>
+        </SectionCard>
 
         <DemoWalkthrough
           title="Presentation checklist"

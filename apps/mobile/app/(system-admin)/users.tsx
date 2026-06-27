@@ -3,6 +3,12 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AppButton } from "@/components/AppButton";
 import { FormTextInput } from "@/components/FormTextInput";
+import {
+  EmptyState,
+  PageHeader,
+  SectionCard,
+  SectionHeader,
+} from "@/components/OperatingDashboard";
 import { Screen } from "@/components/Screen";
 import { SelectableOption } from "@/components/SelectableOption";
 import { useAuth } from "@/context/AuthContext";
@@ -269,11 +275,11 @@ export default function SystemAdminUsersScreen() {
   return (
     <Screen>
       <View style={styles.content}>
-        <Text style={styles.title}>User management</Text>
-        <Text style={styles.body}>
-          View signed-up users, create demo users, change roles, activate or
-          deactivate accounts, and initiate password recovery.
-        </Text>
+        <PageHeader
+          eyebrow="Admin tools"
+          title="User management"
+          description="View signed-up users, create demo users, change roles, activate or deactivate accounts, and initiate password recovery."
+        />
 
         {isDemoMode ? (
           <View style={styles.notice}>
@@ -288,8 +294,10 @@ export default function SystemAdminUsersScreen() {
         {message ? <Text style={styles.success}>{message}</Text> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Create user</Text>
+        <SectionCard
+          description="Create a customer, driver, owner, or admin account for staging and operations."
+          title="Create user"
+        >
           <FormTextInput
             label="Name"
             onChangeText={(displayName) => setForm((current) => ({ ...current, displayName }))}
@@ -332,13 +340,11 @@ export default function SystemAdminUsersScreen() {
             label={isSaving ? "Creating..." : "Create user"}
             onPress={handleCreateUser}
           />
-        </View>
+        </SectionCard>
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>
-              Signed-up users ({filteredUsers.length})
-            </Text>
+            <SectionHeader title={`Signed-up users (${filteredUsers.length})`} />
             <AppButton label="Refresh" onPress={loadUsers} variant="secondary" />
           </View>
           <View style={styles.searchPanel}>
@@ -379,14 +385,11 @@ export default function SystemAdminUsersScreen() {
 
           {isLoading ? <Text style={styles.muted}>Loading users...</Text> : null}
           {!isLoading && filteredUsers.length === 0 ? (
-            <View style={styles.empty}>
-              <Text style={styles.emptyTitle}>No users found</Text>
-              <Text style={styles.muted}>
+            <EmptyState title="No users found">
                 No accounts match this view. Clear the search, switch the filter
                 back to All, or use Create user above to add a customer, owner,
                 driver, or admin demo account.
-              </Text>
-            </View>
+            </EmptyState>
           ) : null}
 
           {filteredUsers.map((user) => (

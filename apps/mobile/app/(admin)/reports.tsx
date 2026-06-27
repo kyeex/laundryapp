@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AppButton } from "@/components/AppButton";
+import { PageHeader, SectionCard } from "@/components/OperatingDashboard";
 import { Screen } from "@/components/Screen";
 import { getAdminBatches } from "@/services/batchService";
 import { getAdminOrders } from "@/services/orderService";
@@ -83,13 +84,9 @@ function ReportSection({
   title: string;
 }) {
   return (
-    <View style={styles.section}>
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>{title}</Text>
-        <Text style={styles.sectionSubtitle}>{subtitle}</Text>
-      </View>
+    <SectionCard description={subtitle} title={title}>
       {children}
-    </View>
+    </SectionCard>
   );
 }
 
@@ -275,12 +272,11 @@ export default function OwnerReportsScreen() {
       <View style={styles.content}>
         <View style={styles.hero}>
           <View style={styles.heroCopy}>
-            <Text style={styles.kicker}>Owner reports</Text>
-            <Text style={styles.title}>Business performance</Text>
-            <Text style={styles.body}>
-              Review revenue, order volume, customer behavior, driver activity,
-              service demand, and repeat customer patterns.
-            </Text>
+            <PageHeader
+              eyebrow="Owner reports"
+              title="Business performance"
+              description="Review revenue, order volume, customer behavior, driver activity, service demand, and repeat customer patterns."
+            />
           </View>
           <View style={styles.heroStat}>
             <Text style={styles.heroStatLabel}>Report period</Text>

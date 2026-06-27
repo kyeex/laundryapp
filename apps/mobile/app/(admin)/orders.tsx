@@ -11,6 +11,12 @@ import {
 } from "react-native";
 
 import { AppButton } from "@/components/AppButton";
+import {
+  EmptyState,
+  PageHeader,
+  SectionCard,
+  StatusPill,
+} from "@/components/OperatingDashboard";
 import { Screen } from "@/components/Screen";
 import { serviceCatalog } from "@/data/serviceCatalog";
 import { getAdminBatches, getEligibleOrdersForBatch } from "@/services/batchService";
@@ -207,6 +213,30 @@ function getOrderType(order: Order) {
   }
 
   return `Wash/fold · ${addOnCount} add-on${addOnCount === 1 ? "" : "s"}`;
+}
+
+function getOrderStatusTone(order: Order) {
+  if (order.status === "requested") {
+    return "attention";
+  }
+
+  if (order.status === "completed" || order.status === "delivered") {
+    return "success";
+  }
+
+  if (order.status === "declined") {
+    return "danger";
+  }
+
+  return "info";
+}
+
+function getPaymentStatusTone(order: Order) {
+  if (order.paymentStatus === "paid") {
+    return "success";
+  }
+
+  return order.finalPrice === null ? "attention" : "info";
 }
 
 function formatCustomerAddress(order: Order) {
@@ -861,11 +891,13 @@ export default function AdminOrdersScreen() {
     <Screen>
       <View style={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.title}>Orders</Text>
-          <Text style={styles.body}>
-            {incomingCount} incoming request{incomingCount === 1 ? "" : "s"} need
-            review.
-          </Text>
+          <PageHeader
+            eyebrow="Owner operations"
+            title="Orders"
+            description={`${incomingCount} incoming request${
+              incomingCount === 1 ? "" : "s"
+            } need review.`}
+          />
           <AppButton label="Refresh" onPress={loadOrders} variant="secondary" />
         </View>
 
@@ -1082,18 +1114,19 @@ export default function AdminOrdersScreen() {
         ) : null}
 
         {!isLoading && orders.length === 0 ? (
-          <View style={styles.empty}>
-            <Text style={styles.emptyTitle}>No orders yet</Text>
-            <Text style={styles.emptyText}>
+          <EmptyState title="No orders yet">
               New customer requests will land here first. Switch to the customer
               demo role and submit an order, then return here to accept or decline
               it, set the final price, and prepare it for batching.
-            </Text>
-          </View>
+          </EmptyState>
         ) : null}
 
         {orders.length > 0 ? (
-          <View style={styles.table}>
+          <SectionCard
+            description="Click a row to manage pricing, workflow status, payment, and order details."
+            title="Order grid"
+          >
+            <View style={styles.table}>
             <View style={[styles.tableRow, styles.tableHeader]}>
               {renderSortHeader("Order #", "number", styles.orderNumberCell)}
               {renderSortHeader("Submitted", "submitted", styles.submittedCell)}
@@ -1109,11 +1142,10 @@ export default function AdminOrdersScreen() {
             </View>
             {sortedOrders.length === 0 ? (
               <View style={styles.tableEmpty}>
-                <Text style={styles.emptyTitle}>No matching orders</Text>
-                <Text style={styles.emptyText}>
+                <EmptyState title="No matching orders">
                   No orders match the current filters. Clear a filter, widen the
                   date range, or choose All to return to the full order list.
-                </Text>
+                </EmptyState>
               </View>
             ) : null}
             {sortedOrders.map((order) => (
@@ -1146,7 +1178,10 @@ export default function AdminOrdersScreen() {
                   <Text style={styles.secondaryText}>{getOrderType(order)}</Text>
                 </View>
                 <View style={styles.statusCell}>
-                  <Text style={styles.statusPill}>{formatOrderStatus(order.status)}</Text>
+                  <StatusPill
+                    label={formatOrderStatus(order.status)}
+                    tone={getOrderStatusTone(order)}
+                  />
                 </View>
                 <View style={styles.addressCell}>
                   <Text style={styles.primaryText}>
@@ -1183,7 +1218,10 @@ export default function AdminOrdersScreen() {
                   </Text>
                 </View>
                 <View style={styles.paymentCell}>
-                  <Text style={styles.primaryText}>{formatOrderStatus(order.paymentStatus)}</Text>
+                  <StatusPill
+                    label={formatOrderStatus(order.paymentStatus)}
+                    tone={getPaymentStatusTone(order)}
+                  />
                   <Text style={styles.secondaryText}>
                     {order.finalPrice === null
                       ? "Final pending"
@@ -1193,6 +1231,7 @@ export default function AdminOrdersScreen() {
               </Pressable>
             ))}
           </View>
+          </SectionCard>
         ) : null}
 
         <Modal

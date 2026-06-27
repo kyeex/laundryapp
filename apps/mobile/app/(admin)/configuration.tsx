@@ -10,6 +10,7 @@ import {
 
 import { AppButton } from "@/components/AppButton";
 import { FormTextInput } from "@/components/FormTextInput";
+import { PageHeader } from "@/components/OperatingDashboard";
 import { Screen } from "@/components/Screen";
 import { useAuth } from "@/context/AuthContext";
 import { addOnCategories, getAddOnCategoryId } from "@/data/addOnCategories";
@@ -512,12 +513,11 @@ export default function AdminConfigurationScreen() {
       <View style={styles.content}>
         <View style={styles.header}>
           <View style={styles.headerCopy}>
-            <Text style={styles.kicker}>Owner settings</Text>
-            <Text style={styles.title}>Business configuration</Text>
-            <Text style={styles.body}>
-              Manage the prices, catalog, availability, and customer-facing
-              options that power new orders.
-            </Text>
+            <PageHeader
+              eyebrow="Owner settings"
+              title="Business configuration"
+              description="Manage the prices, catalog, availability, and customer-facing options that power new orders."
+            />
           </View>
           <View style={styles.headerActions}>
             <AppButton label="Refresh" onPress={loadConfiguration} variant="secondary" />

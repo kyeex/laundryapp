@@ -3,6 +3,12 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-nati
 
 import { AppButton } from "@/components/AppButton";
 import { FormTextInput } from "@/components/FormTextInput";
+import {
+  EmptyState,
+  PageHeader,
+  SectionCard,
+  SectionHeader,
+} from "@/components/OperatingDashboard";
 import { Screen } from "@/components/Screen";
 import { SelectableOption } from "@/components/SelectableOption";
 import { useAuth } from "@/context/AuthContext";
@@ -574,11 +580,11 @@ export default function AdminBatchesScreen() {
     <Screen>
       <View style={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.title}>Batch management</Text>
-          <Text style={styles.body}>
-            Group accepted pickups or ready deliveries and assign them to a
-            driver.
-          </Text>
+          <PageHeader
+            eyebrow="Owner operations"
+            title="Batch management"
+            description="Group accepted pickups or ready deliveries and assign them to a driver."
+          />
           <AppButton label="Refresh" onPress={loadBatchData} variant="secondary" />
         </View>
 
@@ -586,8 +592,7 @@ export default function AdminBatchesScreen() {
         {error ? <Text style={styles.error}>{error}</Text> : null}
         {success ? <Text style={styles.success}>{success}</Text> : null}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Batch type</Text>
+        <SectionCard title="Batch type">
           <View style={styles.row}>
             <View style={styles.rowItem}>
               <SelectableOption
@@ -611,18 +616,17 @@ export default function AdminBatchesScreen() {
               />
             </View>
           </View>
-        </View>
+        </SectionCard>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Driver</Text>
+        <SectionCard
+          description="Pick the driver who should see this route in their assigned batches."
+          title="Driver"
+        >
           {drivers.length === 0 ? (
-            <View style={styles.emptyInline}>
-              <Text style={styles.emptyInlineTitle}>No active drivers available</Text>
-              <Text style={styles.muted}>
+            <EmptyState title="No active drivers available">
                 Create or activate a driver in Admin user management before assigning
                 a batch. Once a driver is active, they will appear here.
-              </Text>
-            </View>
+            </EmptyState>
           ) : null}
           {drivers.map((driver) => (
             <SelectableOption
@@ -633,10 +637,9 @@ export default function AdminBatchesScreen() {
               title={driver.displayName || driver.email}
             />
           ))}
-        </View>
+        </SectionCard>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Schedule</Text>
+        <SectionCard title="Schedule">
           <DatePickerField
             isOpen={isDatePickerOpen}
             label="Batch date"
@@ -659,15 +662,16 @@ export default function AdminBatchesScreen() {
             style={styles.textArea}
             value={notes}
           />
-        </View>
+        </SectionCard>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Eligible orders</Text>
+        <SectionCard
+          description="Select the orders that should travel together. Dragging keeps the driver's stop order."
+          title="Eligible orders"
+        >
           {eligibleOrders.length === 0 ? (
-            <View style={styles.emptyInline}>
-              <Text style={styles.emptyInlineTitle}>No eligible orders right now</Text>
-              <Text style={styles.muted}>{getEligibleEmptyText(batchType)}</Text>
-            </View>
+            <EmptyState title="No eligible orders right now">
+              {getEligibleEmptyText(batchType)}
+            </EmptyState>
           ) : null}
           {orderedEligibleOrders.length > 1 ? (
             <Text style={styles.muted}>
@@ -703,7 +707,7 @@ export default function AdminBatchesScreen() {
               selected={selectedOrderIds.includes(order.id)}
             />
           ))}
-        </View>
+        </SectionCard>
 
         <AppButton
           disabled={!canCreate || isSaving}
@@ -712,16 +716,16 @@ export default function AdminBatchesScreen() {
         />
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Assigned batches</Text>
+          <SectionHeader
+            description="Recently created and active batches that drivers can work from."
+            title="Assigned batches"
+          />
           {assignedBatches.length === 0 ? (
-            <View style={styles.emptyInline}>
-              <Text style={styles.emptyInlineTitle}>No assigned batches yet</Text>
-              <Text style={styles.muted}>
+            <EmptyState title="No assigned batches yet">
                 Select a driver, choose a batch date, pick at least one eligible
                 order, then use Create and assign batch. New batches will appear
                 here for owner review and driver access.
-              </Text>
-            </View>
+            </EmptyState>
           ) : null}
           {assignedBatches.map((batch) => {
             const isExpanded = expandedBatchIds.includes(batch.id);
@@ -797,7 +801,10 @@ export default function AdminBatchesScreen() {
 
         {otherBatches.length > 0 ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Other batches</Text>
+            <SectionHeader
+              description="Completed or older batches remain available for review."
+              title="Other batches"
+            />
             {otherBatches.map((batch) => {
               const isExpanded = expandedBatchIds.includes(batch.id);
 
