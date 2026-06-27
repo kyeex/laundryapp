@@ -97,7 +97,8 @@ export default function CustomerPreferencesScreen() {
         <View style={styles.header}>
           <Text style={styles.title}>Customer preferences</Text>
           <Text style={styles.body}>
-            Save laundry preferences that should automatically populate new orders.
+            Save general laundry preferences for account reference and recurring
+            order setup. New orders still use fresh notes entered on that order.
           </Text>
         </View>
 
@@ -150,7 +151,7 @@ export default function CustomerPreferencesScreen() {
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Special instructions</Text>
               <FormTextInput
-                label="Order notes template"
+                label="Saved preference notes"
                 multiline
                 onChangeText={(value) => updatePreference("specialInstructions", value)}
                 style={styles.textArea}

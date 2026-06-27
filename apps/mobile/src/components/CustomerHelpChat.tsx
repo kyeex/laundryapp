@@ -19,68 +19,49 @@ type ChatMessage = {
   text: string;
 };
 
-type GuideCard = {
-  id: string;
-  title: string;
-  body: string;
-  prompts: string[];
-};
-
 const quickQuestions = [
-  "Help me choose add-ons",
-  "What should I put in notes?",
-  "How should I estimate pounds?",
-  "What should be dry cleaned?",
-  "How do I protect delicate items?",
-];
-
-const guideCards: GuideCard[] = [
-  {
-    id: "order",
-    title: "New order guide",
-    body: "Choose wash and fold for everyday laundry. Choose wash and fold plus dry cleaning when you also have shirts, pants, dresses, or delicate garments that need special handling.",
-    prompts: [
-      "Which service should I choose?",
-      "What should I put in notes?",
-    ],
-  },
-  {
-    id: "addons",
-    title: "Add-on guide",
-    body: "Use washer size add-ons for bulky loads, detergent add-ons for preference, heat add-ons for drying care, and comforter sizes for bedding.",
-    prompts: [
-      "Help me choose add-ons",
-      "Which drying heat should I choose?",
-    ],
-  },
-  {
-    id: "care",
-    title: "Laundry care guide",
-    body: "Mention stains, delicate fabrics, color concerns, allergies, hang-dry requests, and anything that should not be dried with heat.",
-    prompts: [
-      "How do I protect delicate items?",
-      "How should I handle stains?",
-    ],
-  },
-  {
-    id: "price",
-    title: "Pricing guide",
-    body: "The app estimates wash and fold by billable pounds, then adds selected add-ons, dry-cleaning items, comforters, and gratuity.",
-    prompts: [
-      "How is pricing calculated?",
-      "What is the delivery minimum?",
-    ],
-  },
+  "Pricing",
+  "Add-ons",
+  "Order notes",
+  "Dry cleaning",
+  "Care tips",
 ];
 
 const welcomeMessage: ChatMessage = {
   id: "welcome",
   author: "assistant",
-  text: "Hi, I am Laundry Buddy. I can help you choose services, add-ons, dry-cleaning items, notes, schedule details, and laundry care options before you place an order.",
+  text: "Hi, I am Laundry Guide. Ask me a quick question about your order.",
 };
 
 function getBasicAnswer(question: string) {
   const normalizedQuestion = question.toLowerCase();
+
+  if (
+    normalizedQuestion.includes("admin") ||
+    normalizedQuestion.includes("owner") ||
+    normalizedQuestion.includes("driver") ||
+    normalizedQuestion.includes("dashboard") ||
+    normalizedQuestion.includes("firebase") ||
+    normalizedQuestion.includes("stripe") ||
+    normalizedQuestion.includes("database") ||
+    normalizedQuestion.includes("cloud") ||
+    normalizedQuestion.includes("demo") ||
+    normalizedQuestion.includes("staging") ||
+    normalizedQuestion.includes("production") ||
+    normalizedQuestion.includes("code") ||
+    normalizedQuestion.includes("bug") ||
+    normalizedQuestion.includes("login") ||
+    normalizedQuestion.includes("sign in") ||
+    normalizedQuestion.includes("password") ||
+    normalizedQuestion.includes("button") ||
+    normalizedQuestion.includes("page") ||
+    normalizedQuestion.includes("screen") ||
+    normalizedQuestion.includes("route") ||
+    normalizedQuestion.includes("role") ||
+    normalizedQuestion.includes("permission")
+  ) {
+    return "I can help with laundry service questions only. For account, app, or order-specific help, please contact the laundromat team.";
+  }
 
   if (
     normalizedQuestion.includes("add-on") ||
@@ -92,7 +73,7 @@ function getBasicAnswer(question: string) {
     normalizedQuestion.includes("heat") ||
     normalizedQuestion.includes("blanket")
   ) {
-    return "Laundry Buddy guide: choose washer add-ons for oversized or extra-heavy loads, detergent add-ons when you have a preference, blanket/comforter options for bedding, and low heat for delicate items. Medium or high heat is best only when you are comfortable with normal machine drying.";
+    return "Choose add-ons for specific laundry needs: extra washing, detergent preference, drying heat, blankets, or comforters.";
   }
 
   if (
@@ -101,7 +82,7 @@ function getBasicAnswer(question: string) {
     normalizedQuestion.includes("tell") ||
     normalizedQuestion.includes("special")
   ) {
-    return "A good order note should mention stains, allergies, detergent preference, items to hang dry, items to separate, pickup details, pets/gate codes, or anything delicate. Example: 'Please separate whites, use sensitive detergent, hang dry workout shirts, and text on arrival.'";
+    return "Good laundry notes include stains, allergies, detergent preference, hang-dry items, separation requests, or pickup details.";
   }
 
   if (
@@ -110,7 +91,7 @@ function getBasicAnswer(question: string) {
     normalizedQuestion.includes("pounds") ||
     normalizedQuestion.includes("lbs")
   ) {
-    return "To estimate pounds, think in laundry bags: a small bag may be around 10-15 lb, a full tall hamper may be 20-30 lb, and bedding can add more. The app uses the business minimum when the estimate is below the delivery minimum, and the owner confirms final pricing after pickup.";
+    return "Estimate by bag size. A small bag may be 10-15 lb, while a full hamper may be 20-30 lb.";
   }
 
   if (
@@ -118,21 +99,21 @@ function getBasicAnswer(question: string) {
     normalizedQuestion.includes("cost") ||
     normalizedQuestion.includes("pound")
   ) {
-    return "Wash and fold is estimated by billable pounds, plus any selected add-ons, dry-cleaning items, comforters, and gratuity. The owner confirms the final price after pickup and review.";
+    return "Wash and fold is estimated at $2 per pound with a 20 lb delivery minimum, plus selected add-ons, dry-cleaning items, comforters, and gratuity.";
   }
 
   if (
     normalizedQuestion.includes("minimum") ||
     normalizedQuestion.includes("20")
   ) {
-    return "Delivery orders use the business delivery minimum. If the laundry estimate is below the minimum, the minimum weight is still used for the laundry price.";
+    return "Delivery orders use a 20 lb minimum. If the laundry is under 20 lb, the laundry portion is still priced from the 20 lb minimum.";
   }
 
   if (
     normalizedQuestion.includes("dry") ||
     normalizedQuestion.includes("cleaning")
   ) {
-    return "Dry cleaning can be added only with the combined wash and fold plus dry cleaning service. Good dry-cleaning candidates include dress shirts, dress pants, blazers, dresses, and delicate garments. Stand-alone dry cleaning delivery is not offered in this app.";
+    return "Dry cleaning is available with wash and fold plus dry cleaning. It is useful for dress shirts, dress pants, blazers, dresses, and delicate garments.";
   }
 
   if (
@@ -143,7 +124,7 @@ function getBasicAnswer(question: string) {
     normalizedQuestion.includes("hang") ||
     normalizedQuestion.includes("air dry")
   ) {
-    return "For delicate items, write a clear note and choose low heat when available. For wool, silk, structured garments, embellished clothing, or items labeled dry clean only, use wash and fold plus dry cleaning and list the items clearly.";
+    return "For delicate items, request low heat or hang dry when possible. For dry-clean-only garments, choose wash and fold plus dry cleaning.";
   }
 
   if (
@@ -153,7 +134,7 @@ function getBasicAnswer(question: string) {
     normalizedQuestion.includes("oil") ||
     normalizedQuestion.includes("sauce")
   ) {
-    return "For stains, add a note with the item, stain type, and how fresh it is. Example: 'Blue shirt has coffee stain from today.' Avoid drying stained items before cleaning because heat can set stains.";
+    return "For stains, mention the item, stain type, and how fresh it is. Example: 'Blue shirt has coffee stain from today.'";
   }
 
   if (
@@ -161,7 +142,7 @@ function getBasicAnswer(question: string) {
     normalizedQuestion.includes("status") ||
     normalizedQuestion.includes("where")
   ) {
-    return "Open My Orders, select the order, then use Track order status to see the timeline from requested through completed.";
+    return "For a specific order status, please check your order details or contact the laundromat team.";
   }
 
   if (
@@ -169,14 +150,14 @@ function getBasicAnswer(question: string) {
     normalizedQuestion.includes("payment") ||
     normalizedQuestion.includes("card")
   ) {
-    return "Payment is handled after the owner confirms the final price. Demo payment screens do not process real cards until Stripe is fully connected.";
+    return "Payment is based on the final order total, including laundry weight, add-ons, dry-cleaning items, comforters, gratuity, and any approved adjustments.";
   }
 
   if (
     normalizedQuestion.includes("pickup") ||
     normalizedQuestion.includes("schedule")
   ) {
-    return "Pickup and drop-off dates are shown on the New Order page. The owner controls available days and time windows. Choose the window where the order can actually be reached at the customer address.";
+    return "Pickup and drop-off availability depends on the laundromat schedule, service area, and available time windows.";
   }
 
   if (
@@ -184,10 +165,10 @@ function getBasicAnswer(question: string) {
     normalizedQuestion.includes("detergent") ||
     normalizedQuestion.includes("fold")
   ) {
-    return "For now, each new order should have fresh notes. Add the preferences that matter for this order, such as detergent, heat level, folding, hang dry, or separation requests.";
+    return "Share only the preferences that matter for the order, such as detergent, drying heat, folding, hang dry, or separation requests.";
   }
 
-  return "Laundry Buddy can help with pricing, minimums, pickup scheduling, add-ons, dry cleaning, detergent, drying heat, comforters, stains, order notes, payment, and tracking. Try asking: 'What should I put in notes?' or 'Help me choose add-ons.'";
+  return "I can help with laundry pricing, add-ons, dry cleaning, notes, pickup, payment basics, stains, and fabric care.";
 }
 
 export function CustomerHelpChat() {
@@ -247,8 +228,8 @@ export function CustomerHelpChat() {
           <View style={styles.chatPanel}>
             <View style={styles.chatHeader}>
               <View style={styles.chatHeaderCopy}>
-                <Text style={styles.chatTitle}>Laundry Buddy</Text>
-                <Text style={styles.chatSubtitle}>Order guide and laundry care helper</Text>
+                <Text style={styles.chatTitle}>Laundry Guide</Text>
+                <Text style={styles.chatSubtitle}>Quick order help</Text>
               </View>
               <Pressable
                 accessibilityLabel="Close help chat"
@@ -258,26 +239,6 @@ export function CustomerHelpChat() {
               >
                 <Text style={styles.closeButtonText}>X</Text>
               </Pressable>
-            </View>
-
-            <View style={styles.guideGrid}>
-              {guideCards.map((guide) => (
-                <View key={guide.id} style={styles.guideCard}>
-                  <Text style={styles.guideTitle}>{guide.title}</Text>
-                  <Text style={styles.guideBody}>{guide.body}</Text>
-                  <View style={styles.guidePromptRow}>
-                    {guide.prompts.map((prompt) => (
-                      <Pressable
-                        key={prompt}
-                        onPress={() => sendMessage(prompt)}
-                        style={styles.guidePromptButton}
-                      >
-                        <Text style={styles.guidePromptText}>{prompt}</Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                </View>
-              ))}
             </View>
 
             <ScrollView contentContainerStyle={styles.messages}>
@@ -319,7 +280,7 @@ export function CustomerHelpChat() {
               <TextInput
                 onChangeText={setDraft}
                 onSubmitEditing={() => sendMessage(draft)}
-                placeholder="Ask Laundry Buddy"
+                placeholder="Ask a question"
                 placeholderTextColor={colors.muted}
                 returnKeyType="send"
                 style={styles.input}
@@ -370,8 +331,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     gap: spacing.sm,
-    maxHeight: 720,
-    maxWidth: 560,
+    maxHeight: 560,
+    maxWidth: 420,
     padding: spacing.md,
     width: "100%",
   },
@@ -393,50 +354,6 @@ const styles = StyleSheet.create({
   chatSubtitle: {
     color: colors.muted,
     fontSize: 13,
-  },
-  guideGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
-  },
-  guideCard: {
-    backgroundColor: "#F0FDFA",
-    borderColor: "#99F6E4",
-    borderRadius: 8,
-    borderWidth: 1,
-    flexBasis: 230,
-    flexGrow: 1,
-    gap: spacing.xs,
-    padding: spacing.sm,
-  },
-  guideTitle: {
-    color: colors.text,
-    fontSize: 14,
-    fontWeight: "900",
-  },
-  guideBody: {
-    color: colors.muted,
-    fontSize: 12,
-    lineHeight: 17,
-  },
-  guidePromptRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.xs,
-    paddingTop: spacing.xs,
-  },
-  guidePromptButton: {
-    backgroundColor: colors.surface,
-    borderColor: "#99F6E4",
-    borderRadius: 8,
-    borderWidth: 1,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  guidePromptText: {
-    color: colors.primary,
-    fontSize: 12,
-    fontWeight: "800",
   },
   closeButton: {
     alignItems: "center",
