@@ -1,4 +1,9 @@
-import type { AppUser, Batch, Order } from "@/types/domain";
+import {
+  defaultNotificationPreferences,
+  type AppUser,
+  type Batch,
+  type Order,
+} from "@/types/domain";
 
 const demoAddress = {
   label: "Home",
@@ -19,6 +24,7 @@ export const demoUsers: Record<"customer" | "owner" | "driver" | "admin", AppUse
     phone: "555-0101",
     active: true,
     expoPushTokens: [],
+    notificationPreferences: defaultNotificationPreferences,
   },
   owner: {
     id: "demo-owner",
@@ -28,6 +34,7 @@ export const demoUsers: Record<"customer" | "owner" | "driver" | "admin", AppUse
     phone: "555-0202",
     active: true,
     expoPushTokens: [],
+    notificationPreferences: defaultNotificationPreferences,
   },
   driver: {
     id: "demo-driver",
@@ -37,6 +44,7 @@ export const demoUsers: Record<"customer" | "owner" | "driver" | "admin", AppUse
     phone: "555-0303",
     active: true,
     expoPushTokens: [],
+    notificationPreferences: defaultNotificationPreferences,
   },
   admin: {
     id: "demo-admin",
@@ -46,6 +54,7 @@ export const demoUsers: Record<"customer" | "owner" | "driver" | "admin", AppUse
     phone: "555-0404",
     active: true,
     expoPushTokens: [],
+    notificationPreferences: defaultNotificationPreferences,
   },
 };
 

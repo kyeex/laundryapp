@@ -89,6 +89,22 @@ export type LoyaltyRewardSettings = {
   expirationMonths: number | null;
 };
 
+export type NotificationPreferences = {
+  customerOrderUpdates: boolean;
+  ownerNewRequests: boolean;
+  ownerPaymentUpdates: boolean;
+  driverAssignedRoutes: boolean;
+  rewardsUpdates: boolean;
+};
+
+export const defaultNotificationPreferences: NotificationPreferences = {
+  customerOrderUpdates: true,
+  ownerNewRequests: true,
+  ownerPaymentUpdates: true,
+  driverAssignedRoutes: true,
+  rewardsUpdates: true,
+};
+
 export type BusinessSettings = {
   businessName: string;
   phone: string;
@@ -108,6 +124,7 @@ export type AppUser = {
   phone: string;
   active: boolean;
   expoPushTokens?: string[];
+  notificationPreferences?: NotificationPreferences;
   createdAt?: Date | null;
   updatedAt?: Date | null;
 };

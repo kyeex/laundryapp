@@ -34,7 +34,16 @@ export type DriverReportItem = {
   pickupStops: number;
   deliveryStops: number;
   routeCount: number;
+  stopsPerRoute: number;
   submittedRate: number;
+};
+
+export type RevenueTrendItem = {
+  averageOrderValue: number;
+  label: string;
+  orderCount: number;
+  paidRevenue: number;
+  projectedRevenue: number;
 };
 
 export type OwnerBusinessReport = {
@@ -47,6 +56,7 @@ export type OwnerBusinessReport = {
   dateRange: ReportDateRange;
   driverReports: DriverReportItem[];
   dryCleaningLeaders: RankedReportItem[];
+  monthlyRevenueTrend: RevenueTrendItem[];
   newCustomerCount: number;
   openOrderCount: number;
   paidOrderCount: number;
@@ -61,6 +71,7 @@ export type OwnerBusinessReport = {
   totalGratuity: number;
   totalOrders: number;
   unpaidBalance: number;
+  weeklyRevenueTrend: RevenueTrendItem[];
 };
 
 const completedStatuses = new Set(["completed", "delivered"]);
@@ -105,6 +116,16 @@ function toIsoDate(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
+function parseIsoDate(value: string) {
+  if (!isValidIsoDate(value)) {
+    return null;
+  }
+
+  const [year, month, day] = value.split("-").map(Number);
+
+  return new Date(year, month - 1, day);
+}
+
 function isWithinRange(value: string, range: ReportDateRange) {
   if (!isValidIsoDate(value)) {
     return true;
@@ -114,6 +135,16 @@ function isWithinRange(value: string, range: ReportDateRange) {
   const beforeEnd = isValidIsoDate(range.endDate) ? value <= range.endDate : true;
 
   return afterStart && beforeEnd;
+}
+
+function startOfWeek(date: Date) {
+  const nextDate = new Date(date);
+  const day = nextDate.getDay();
+  const offset = day === 0 ? 6 : day - 1;
+
+  nextDate.setDate(nextDate.getDate() - offset);
+
+  return nextDate;
 }
 
 function getOrderValue(order: Order) {
@@ -248,6 +279,80 @@ function buildCustomerReports(orders: Order[]) {
   });
 }
 
+function addTrendOrder(
+  buckets: Map<string, RevenueTrendItem>,
+  key: string,
+  label: string,
+  order: Order,
+) {
+  const current = buckets.get(key) ?? {
+    averageOrderValue: 0,
+    label,
+    orderCount: 0,
+    paidRevenue: 0,
+    projectedRevenue: 0,
+  };
+  const nextOrderCount = current.orderCount + 1;
+  const projectedRevenue = current.projectedRevenue + getOrderValue(order);
+
+  buckets.set(key, {
+    averageOrderValue:
+      nextOrderCount > 0 ? projectedRevenue / nextOrderCount : 0,
+    label,
+    orderCount: nextOrderCount,
+    paidRevenue:
+      current.paidRevenue +
+      (order.paymentStatus === "paid" ? getOrderValue(order) : 0),
+    projectedRevenue,
+  });
+}
+
+function buildRevenueTrends(orders: Order[]) {
+  const weeklyBuckets = new Map<string, RevenueTrendItem>();
+  const monthlyBuckets = new Map<string, RevenueTrendItem>();
+
+  orders.forEach((order) => {
+    const reportDate = parseIsoDate(getReportDate(order));
+
+    if (!reportDate) {
+      return;
+    }
+
+    const weekStart = startOfWeek(reportDate);
+    const weekKey = toIsoDate(weekStart);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    const monthKey = `${reportDate.getFullYear()}-${`${reportDate.getMonth() + 1}`.padStart(2, "0")}`;
+
+    addTrendOrder(
+      weeklyBuckets,
+      weekKey,
+      `${weekKey.slice(5).replace("-", "/")} - ${toIsoDate(weekEnd)
+        .slice(5)
+        .replace("-", "/")}`,
+      order,
+    );
+    addTrendOrder(
+      monthlyBuckets,
+      monthKey,
+      reportDate.toLocaleString("en-US", {
+        month: "short",
+        year: "numeric",
+      }),
+      order,
+    );
+  });
+
+  return {
+    monthlyRevenueTrend: Array.from(monthlyBuckets.entries())
+      .sort(([firstKey], [secondKey]) => firstKey.localeCompare(secondKey))
+      .map(([, value]) => value),
+    weeklyRevenueTrend: Array.from(weeklyBuckets.entries())
+      .sort(([firstKey], [secondKey]) => firstKey.localeCompare(secondKey))
+      .map(([, value]) => value),
+  };
+}
+
 function buildDriverReports(
   batches: Batch[],
   ordersById: Map<string, Order>,
@@ -266,6 +371,7 @@ function buildDriverReports(
       driverName: batch.driverName || "Unassigned driver",
       pickupStops: 0,
       routeCount: 0,
+      stopsPerRoute: 0,
       submittedRate: 0,
     };
     const batchOrders = batch.orderIds
@@ -291,6 +397,8 @@ function buildDriverReports(
       driverName: batch.driverName || current.driverName,
       pickupStops: current.pickupStops + pickupStops,
       routeCount,
+      stopsPerRoute:
+        routeCount > 0 ? (current.assignedStops + batchOrders.length) / routeCount : 0,
       submittedRate: routeCount > 0 ? completedBatches / routeCount : 0,
     });
   });
@@ -371,6 +479,7 @@ export function buildOwnerBusinessReport(
 
   const customerReports = buildCustomerReports(orders);
   const repeatCustomers = customerReports.filter((customer) => customer.orderCount > 1);
+  const revenueTrends = buildRevenueTrends(orders);
 
   return {
     activeCustomerCount: customerReports.length,
@@ -382,6 +491,7 @@ export function buildOwnerBusinessReport(
     dateRange,
     driverReports: buildDriverReports(allBatches, ordersById, dateRange).slice(0, 8),
     dryCleaningLeaders: toRankedItems(dryCleaningCounts, orders.length),
+    monthlyRevenueTrend: revenueTrends.monthlyRevenueTrend,
     newCustomerCount: customerReports.filter((customer) => customer.orderCount === 1)
       .length,
     openOrderCount,
@@ -398,7 +508,55 @@ export function buildOwnerBusinessReport(
     totalGratuity,
     totalOrders,
     unpaidBalance: projectedRevenue - paidRevenue,
+    weeklyRevenueTrend: revenueTrends.weeklyRevenueTrend,
   };
+}
+
+function escapeCsvCell(value: string | number) {
+  const text = String(value);
+
+  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function toCsvRow(values: Array<string | number>) {
+  return values.map(escapeCsvCell).join(",");
+}
+
+export function exportOwnerBusinessReportCsv(report: OwnerBusinessReport) {
+  const rows = [
+    toCsvRow(["Section", "Metric", "Value", "Detail"]),
+    toCsvRow(["Summary", "Paid revenue", report.paidRevenue.toFixed(2), `${report.paidOrderCount} paid orders`]),
+    toCsvRow(["Summary", "Projected revenue", report.projectedRevenue.toFixed(2), "Final price when available, estimate otherwise"]),
+    toCsvRow(["Summary", "Orders", report.totalOrders, `${report.openOrderCount} open`]),
+    toCsvRow(["Summary", "Repeat customer rate", `${Math.round(report.repeatCustomerRate * 100)}%`, `${report.repeatCustomerCount} repeat customers`]),
+    toCsvRow(["Revenue trends", "Period", "Projected revenue", "Paid revenue"]),
+    ...report.weeklyRevenueTrend.map((trend) =>
+      toCsvRow(["Weekly trend", trend.label, trend.projectedRevenue.toFixed(2), trend.paidRevenue.toFixed(2)]),
+    ),
+    ...report.monthlyRevenueTrend.map((trend) =>
+      toCsvRow(["Monthly trend", trend.label, trend.projectedRevenue.toFixed(2), trend.paidRevenue.toFixed(2)]),
+    ),
+    toCsvRow(["Customers", "Customer", "Orders", "Projected revenue"]),
+    ...report.customerLeaders.map((customer) =>
+      toCsvRow(["Top customer", customer.customerName, customer.orderCount, customer.projectedRevenue.toFixed(2)]),
+    ),
+    toCsvRow(["Drivers", "Driver", "Routes", "Completed stops"]),
+    ...report.driverReports.map((driver) =>
+      toCsvRow(["Driver performance", driver.driverName, driver.routeCount, driver.completedStops]),
+    ),
+    toCsvRow(["Services", "Item", "Uses", "Amount"]),
+    ...report.serviceLeaders.map((item) =>
+      toCsvRow(["Service popularity", item.label, item.count, (item.amount ?? 0).toFixed(2)]),
+    ),
+    ...report.addOnLeaders.map((item) =>
+      toCsvRow(["Add-on popularity", item.label, item.count, (item.amount ?? 0).toFixed(2)]),
+    ),
+    ...report.dryCleaningLeaders.map((item) =>
+      toCsvRow(["Dry cleaning popularity", item.label, item.count, (item.amount ?? 0).toFixed(2)]),
+    ),
+  ];
+
+  return rows.join("\n");
 }
 
 export function getDefaultReportDateRange(): ReportDateRange {

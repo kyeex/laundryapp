@@ -14,7 +14,13 @@ import {
 
 import { getFirebaseFirestore, shouldUseDemoBackend } from "@/config/firebase";
 import { demoUsers } from "@/data/demoData";
-import type { AddressInput, AppUser, UserRole } from "@/types/domain";
+import {
+  defaultNotificationPreferences,
+  type AddressInput,
+  type AppUser,
+  type NotificationPreferences,
+  type UserRole,
+} from "@/types/domain";
 import { requireText, validateAddress } from "@/utils/validation";
 
 type CreateUserProfileInput = {
@@ -97,6 +103,10 @@ function mapUserProfile(id: string, data: DocumentData): AppUser {
     phone: data.phone ?? "",
     active: data.active ?? true,
     expoPushTokens: data.expoPushTokens ?? [],
+    notificationPreferences: {
+      ...defaultNotificationPreferences,
+      ...(data.notificationPreferences ?? {}),
+    },
     createdAt: data.createdAt?.toDate?.() ?? null,
     updatedAt: data.updatedAt?.toDate?.() ?? null,
   };
@@ -385,6 +395,8 @@ export async function createUserProfile(input: CreateUserProfileInput) {
     displayName: input.displayName.trim(),
     phone: input.phone.trim(),
     active: true,
+    expoPushTokens: [],
+    notificationPreferences: defaultNotificationPreferences,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
@@ -429,6 +441,25 @@ export async function saveExpoPushToken(userId: string, token: string) {
 
   await updateDoc(doc(db, "users", userId), {
     expoPushTokens: arrayUnion(token),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function saveNotificationPreferences(
+  userId: string,
+  preferences: NotificationPreferences,
+) {
+  if (shouldUseDemoBackend) {
+    return;
+  }
+
+  const db = getFirebaseFirestore();
+
+  await updateDoc(doc(db, "users", userId), {
+    notificationPreferences: {
+      ...defaultNotificationPreferences,
+      ...preferences,
+    },
     updatedAt: serverTimestamp(),
   });
 }

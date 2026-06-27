@@ -166,6 +166,8 @@ function DatePickerField({
     <View style={styles.datePickerField}>
       <Text style={styles.datePickerLabel}>{label}</Text>
       <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={value ? `${label}: ${formatDisplayDate(value)}` : `Select ${label.toLowerCase()}`}
         onPress={onOpen}
         style={[styles.datePickerButton, isOpen && styles.datePickerButtonActive]}
       >
@@ -376,6 +378,26 @@ function DraggableOrderOption({
       <Text style={[styles.draggableMeta, selected && styles.selectedText]}>
         {meta}
       </Text>
+      <Pressable
+        accessibilityRole="button"
+        onPress={(event) => {
+          event.stopPropagation?.();
+          onPress();
+        }}
+        style={[
+          styles.orderSelectButton,
+          selected && styles.orderSelectButtonSelected,
+        ]}
+      >
+        <Text
+          style={[
+            styles.orderSelectButtonText,
+            selected && styles.orderSelectButtonTextSelected,
+          ]}
+        >
+          {selected ? "Selected" : "Select order"}
+        </Text>
+      </Pressable>
     </Pressable>
   );
 }
@@ -675,7 +697,8 @@ export default function AdminBatchesScreen() {
           ) : null}
           {orderedEligibleOrders.length > 1 ? (
             <Text style={styles.muted}>
-              Click and drag an order block to arrange the driver stop order.
+              Use Select order to include stops. Drag the order block to arrange
+              the driver's stop order.
             </Text>
           ) : null}
           {orderedEligibleOrders.length === 1 ? (
@@ -1070,6 +1093,31 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: 15,
     fontWeight: "800",
+  },
+  orderSelectButton: {
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    justifyContent: "center",
+    minHeight: 40,
+    minWidth: 112,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  orderSelectButtonSelected: {
+    backgroundColor: colors.surface,
+    borderColor: colors.surface,
+  },
+  orderSelectButtonText: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: "900",
+    textAlign: "center",
+  },
+  orderSelectButtonTextSelected: {
+    color: colors.primary,
   },
   selectedText: {
     color: colors.onPrimary,

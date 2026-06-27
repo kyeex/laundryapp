@@ -10,15 +10,25 @@ import {
   MetricCard,
   MetricGrid,
   PageHeader,
+  SectionCard,
 } from "@/components/OperatingDashboard";
 import { Screen } from "@/components/Screen";
-import { getEligibleOrdersForBatch } from "@/services/batchService";
+import { getAdminBatches, getEligibleOrdersForBatch } from "@/services/batchService";
 import { getAdminOrders } from "@/services/orderService";
+import {
+  buildOwnerBusinessReport,
+  getPresetReportDateRange,
+} from "@/services/reportService";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
-import type { Order } from "@/types/domain";
+import type { Batch, Order } from "@/types/domain";
+
+function formatCurrency(value: number) {
+  return `$${value.toFixed(2)}`;
+}
 
 export default function AdminHomeScreen() {
+  const [batches, setBatches] = useState<Batch[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -28,8 +38,12 @@ export default function AdminHomeScreen() {
     setIsLoading(true);
 
     try {
-      const adminOrders = await getAdminOrders();
+      const [adminOrders, adminBatches] = await Promise.all([
+        getAdminOrders(),
+        getAdminBatches(),
+      ]);
       setOrders(adminOrders);
+      setBatches(adminBatches);
     } catch (loadError) {
       const message =
         loadError instanceof Error ? loadError.message : "Unable to load owner dashboard.";
@@ -63,6 +77,10 @@ export default function AdminHomeScreen() {
   const deliveryReady = useMemo(
     () => getEligibleOrdersForBatch(orders, "delivery").length,
     [orders],
+  );
+  const summaryReport = useMemo(
+    () => buildOwnerBusinessReport(orders, batches, getPresetReportDateRange(30)),
+    [batches, orders],
   );
 
   return (
@@ -116,6 +134,59 @@ export default function AdminHomeScreen() {
             value={`${deliveryReady}`}
           />
         </MetricGrid>
+        <SectionCard
+          description="A quick 30-day view of revenue, customers, route activity, and popular services."
+          title="Business snapshot"
+        >
+          <MetricGrid>
+            <MetricCard
+              href="/(admin)/reports"
+              label="30-day revenue"
+              note={`${summaryReport.paidOrderCount} paid order${
+                summaryReport.paidOrderCount === 1 ? "" : "s"
+              }`}
+              status="Reports"
+              tone="success"
+              value={formatCurrency(summaryReport.paidRevenue)}
+            />
+            <MetricCard
+              href="/(admin)/reports"
+              label="Repeat rate"
+              note={`${summaryReport.repeatCustomerCount} repeat customer${
+                summaryReport.repeatCustomerCount === 1 ? "" : "s"
+              }`}
+              status="Customers"
+              tone="attention"
+              value={`${Math.round(summaryReport.repeatCustomerRate * 100)}%`}
+            />
+            <MetricCard
+              href="/(admin)/reports"
+              label="Driver routes"
+              note={`${summaryReport.driverReports.reduce(
+                (total, driver) => total + driver.completedBatches,
+                0,
+              )} submitted`}
+              status="Routes"
+              tone="accent"
+              value={`${summaryReport.driverReports.reduce(
+                (total, driver) => total + driver.routeCount,
+                0,
+              )}`}
+            />
+            <MetricCard
+              href="/(admin)/reports"
+              label="Top add-on"
+              note={
+                summaryReport.addOnLeaders[0]
+                  ? summaryReport.addOnLeaders[0].label
+                  : "No add-ons yet"
+              }
+              status="Services"
+              tone="info"
+              value={`${summaryReport.addOnLeaders[0]?.count ?? 0}`}
+            />
+          </MetricGrid>
+        </SectionCard>
         <DemoWalkthrough
           title="Owner demo path"
           steps={[

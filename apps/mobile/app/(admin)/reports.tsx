@@ -9,12 +9,14 @@ import { getAdminBatches } from "@/services/batchService";
 import { getAdminOrders } from "@/services/orderService";
 import {
   buildOwnerBusinessReport,
+  exportOwnerBusinessReportCsv,
   getDefaultReportDateRange,
   getPresetReportDateRange,
   type CustomerReportItem,
   type DriverReportItem,
   type RankedReportItem,
   type ReportDateRange,
+  type RevenueTrendItem,
 } from "@/services/reportService";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
@@ -36,6 +38,23 @@ function formatCurrency(value: number) {
 
 function formatPercent(value: number) {
   return `${Math.round(value * 100)}%`;
+}
+
+function downloadCsv(filename: string, csv: string) {
+  if (typeof document === "undefined") {
+    throw new Error("Report export is available from the web preview right now.");
+  }
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 }
 
 function formatReportRange(range: ReportDateRange) {
@@ -206,7 +225,58 @@ function DriverList({ drivers }: { drivers: DriverReportItem[] }) {
           </View>
           <Text style={styles.driverMeta}>
             {driver.pickupStops} pickup · {driver.deliveryStops} delivery ·{" "}
-            {driver.completedBatches} submitted
+            {driver.completedBatches} submitted · {driver.stopsPerRoute.toFixed(1)} stops/route
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function TrendChart({
+  emptyText,
+  items,
+  title,
+}: {
+  emptyText: string;
+  items: RevenueTrendItem[];
+  title: string;
+}) {
+  const maxRevenue = Math.max(
+    1,
+    ...items.map((item) => item.projectedRevenue),
+  );
+
+  if (items.length === 0) {
+    return (
+      <View style={styles.emptyInline}>
+        <Text style={styles.emptyTitle}>{emptyText}</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.trendPanel}>
+      <Text style={styles.splitTitle}>{title}</Text>
+      {items.slice(-8).map((item) => (
+        <View key={item.label} style={styles.trendRow}>
+          <View style={styles.trendLabelGroup}>
+            <Text style={styles.trendLabel}>{item.label}</Text>
+            <Text style={styles.trendMeta}>
+              {item.orderCount} order{item.orderCount === 1 ? "" : "s"} · Avg{" "}
+              {formatCurrency(item.averageOrderValue)}
+            </Text>
+          </View>
+          <View style={styles.trendBarTrack}>
+            <View
+              style={[
+                styles.trendBar,
+                { width: `${Math.max(8, (item.projectedRevenue / maxRevenue) * 100)}%` },
+              ]}
+            />
+          </View>
+          <Text style={styles.trendAmount}>
+            {formatCurrency(item.projectedRevenue)}
           </Text>
         </View>
       ))}
@@ -223,6 +293,7 @@ export default function OwnerReportsScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [orders, setOrders] = useState<Order[]>([]);
   const [selectedPreset, setSelectedPreset] = useState<ReportPreset>("30");
+  const [exportMessage, setExportMessage] = useState("");
 
   const loadReports = useCallback(async () => {
     setError("");
@@ -265,6 +336,27 @@ export default function OwnerReportsScreen() {
     }
 
     setDateRange(getPresetReportDateRange(Number(preset)));
+  }
+
+  function handleExportReport() {
+    setExportMessage("");
+
+    try {
+      const csv = exportOwnerBusinessReportCsv(report);
+      downloadCsv(
+        `laundryapp-report-${selectedPreset}-${new Date()
+          .toISOString()
+          .slice(0, 10)}.csv`,
+        csv,
+      );
+      setExportMessage("Report exported as CSV.");
+    } catch (exportError) {
+      setExportMessage(
+        exportError instanceof Error
+          ? exportError.message
+          : "Unable to export report right now.",
+      );
+    }
   }
 
   return (
@@ -312,7 +404,15 @@ export default function OwnerReportsScreen() {
             onPress={loadReports}
             variant="secondary"
           />
+          <AppButton
+            label="Export CSV"
+            onPress={handleExportReport}
+            variant="secondary"
+          />
         </View>
+        {exportMessage ? (
+          <Text style={styles.exportMessage}>{exportMessage}</Text>
+        ) : null}
 
         {isLoading ? <ActivityIndicator color={colors.primary} /> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -350,7 +450,7 @@ export default function OwnerReportsScreen() {
 
         <ReportSection
           title="Revenue"
-          subtitle="Money earned, projected revenue, gratuity, and unpaid balance."
+          subtitle="Money earned, projected revenue, gratuity, unpaid balance, and trend movement."
         >
           <View style={styles.detailGrid}>
             <MetricCard
@@ -367,6 +467,18 @@ export default function OwnerReportsScreen() {
               label="Gratuity"
               note="Total customer gratuity in this period"
               value={formatCurrency(report.totalGratuity)}
+            />
+          </View>
+          <View style={styles.splitGrid}>
+            <TrendChart
+              emptyText="No weekly revenue trend yet"
+              items={report.weeklyRevenueTrend}
+              title="Weekly trend"
+            />
+            <TrendChart
+              emptyText="No monthly revenue trend yet"
+              items={report.monthlyRevenueTrend}
+              title="Monthly trend"
             />
           </View>
         </ReportSection>
@@ -822,5 +934,58 @@ const styles = StyleSheet.create({
     color: colors.danger,
     fontSize: 14,
     fontWeight: "700",
+  },
+  exportMessage: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  trendPanel: {
+    backgroundColor: "#F8FAFC",
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    flexBasis: 320,
+    flexGrow: 1,
+    gap: spacing.sm,
+    padding: spacing.md,
+  },
+  trendRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: spacing.sm,
+  },
+  trendLabelGroup: {
+    flexBasis: 108,
+    gap: spacing.xs,
+  },
+  trendLabel: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  trendMeta: {
+    color: colors.muted,
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  trendBarTrack: {
+    backgroundColor: "#E2E8F0",
+    borderRadius: 999,
+    flex: 1,
+    height: 12,
+    overflow: "hidden",
+  },
+  trendBar: {
+    backgroundColor: colors.primary,
+    borderRadius: 999,
+    height: "100%",
+  },
+  trendAmount: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: "900",
+    minWidth: 76,
+    textAlign: "right",
   },
 });

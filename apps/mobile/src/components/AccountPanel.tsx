@@ -1,13 +1,20 @@
-import { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { StyleSheet, Switch, Text, View } from "react-native";
 
 import { useAuth } from "@/context/AuthContext";
 import { resetDemoOrders } from "@/data/demoStore";
 import { resetDemoBusinessSettings } from "@/services/configurationService";
 import { registerForPushNotifications } from "@/services/notificationService";
-import { saveExpoPushToken } from "@/services/profileService";
+import {
+  saveExpoPushToken,
+  saveNotificationPreferences,
+} from "@/services/profileService";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
+import {
+  defaultNotificationPreferences,
+  type NotificationPreferences,
+} from "@/types/domain";
 
 import { AppButton } from "./AppButton";
 
@@ -28,6 +35,71 @@ export function AccountPanel() {
     stopDemoPreviewSession,
   } = useAuth();
   const [notificationMessage, setNotificationMessage] = useState("");
+  const [isSavingPreferences, setIsSavingPreferences] = useState(false);
+  const [preferences, setPreferences] = useState<NotificationPreferences>(
+    defaultNotificationPreferences,
+  );
+
+  useEffect(() => {
+    setPreferences({
+      ...defaultNotificationPreferences,
+      ...(currentUser?.notificationPreferences ?? {}),
+    });
+  }, [currentUser?.id, currentUser?.notificationPreferences]);
+
+  const preferenceOptions = useMemo(() => {
+    if (!currentUser) {
+      return [];
+    }
+
+    if (currentUser.role === "customer") {
+      return [
+        {
+          key: "customerOrderUpdates" as const,
+          title: "Order status updates",
+          description: "Accepted, picked up, cleaning, delivery, and completed updates.",
+        },
+        {
+          key: "rewardsUpdates" as const,
+          title: "Rewards updates",
+          description: "Points earned, redeemed, or adjusted.",
+        },
+      ];
+    }
+
+    if (currentUser.role === "owner") {
+      return [
+        {
+          key: "ownerNewRequests" as const,
+          title: "New order requests",
+          description: "Customer orders that need accept or decline review.",
+        },
+        {
+          key: "ownerPaymentUpdates" as const,
+          title: "Payment updates",
+          description: "Payment and final-price events that need owner awareness.",
+        },
+      ];
+    }
+
+    if (currentUser.role === "driver") {
+      return [
+        {
+          key: "driverAssignedRoutes" as const,
+          title: "Assigned routes",
+          description: "Pickup and delivery batches assigned to you.",
+        },
+      ];
+    }
+
+    return [
+      {
+        key: "ownerNewRequests" as const,
+        title: "Operational notifications",
+        description: "Admin can keep platform operation alerts available.",
+      },
+    ];
+  }, [currentUser]);
 
   if (!currentUser) {
     return null;
@@ -50,6 +122,38 @@ export function AccountPanel() {
           ? error.message
           : "Unable to enable notifications right now.";
       setNotificationMessage(message);
+    }
+  }
+
+  async function updatePreference(
+    key: keyof NotificationPreferences,
+    value: boolean,
+  ) {
+    if (!currentUser) {
+      return;
+    }
+
+    const nextPreferences = {
+      ...preferences,
+      [key]: value,
+    };
+
+    setPreferences(nextPreferences);
+    setNotificationMessage("");
+    setIsSavingPreferences(true);
+
+    try {
+      await saveNotificationPreferences(currentUser.id, nextPreferences);
+      setNotificationMessage("Notification preferences saved.");
+    } catch (error) {
+      setPreferences(preferences);
+      setNotificationMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to save notification preferences.",
+      );
+    } finally {
+      setIsSavingPreferences(false);
     }
   }
 
@@ -106,11 +210,44 @@ export function AccountPanel() {
           />
         </View>
       ) : (
-        <AppButton
-          label="Enable notifications"
-          onPress={handleEnableNotifications}
-          variant="secondary"
-        />
+        <View style={styles.notificationSection}>
+          <View style={styles.notificationHeader}>
+            <View style={styles.notificationHeaderText}>
+              <Text style={styles.sectionTitle}>Notifications</Text>
+              <Text style={styles.notificationCopy}>
+                Choose what this account should hear about. Real push delivery
+                requires the native mobile app.
+              </Text>
+            </View>
+            <AppButton
+              label="Enable"
+              onPress={handleEnableNotifications}
+              variant="secondary"
+            />
+          </View>
+          <View style={styles.preferenceList}>
+            {preferenceOptions.map((option) => (
+              <View
+                key={option.key}
+                style={styles.preferenceRow}
+              >
+                <View style={styles.preferenceText}>
+                  <Text style={styles.preferenceTitle}>{option.title}</Text>
+                  <Text style={styles.preferenceDescription}>
+                    {option.description}
+                  </Text>
+                </View>
+                <Switch
+                  disabled={isSavingPreferences}
+                  onValueChange={(value) => updatePreference(option.key, value)}
+                  thumbColor={preferences[option.key] ? colors.primary : "#FFFFFF"}
+                  trackColor={{ false: "#CBD5E1", true: "#99F6E4" }}
+                  value={preferences[option.key]}
+                />
+              </View>
+            ))}
+          </View>
+        </View>
       )}
       <AppButton label="Sign out" onPress={signOut} variant="secondary" />
     </View>
@@ -167,6 +304,64 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "800",
     textTransform: "uppercase",
+  },
+  sectionTitle: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: "900",
+  },
+  notificationSection: {
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: spacing.md,
+    padding: spacing.md,
+  },
+  notificationHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.md,
+    justifyContent: "space-between",
+  },
+  notificationHeaderText: {
+    flex: 1,
+    gap: spacing.xs,
+    minWidth: 220,
+  },
+  notificationCopy: {
+    color: colors.muted,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  preferenceList: {
+    gap: spacing.sm,
+  },
+  preferenceRow: {
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: spacing.md,
+    justifyContent: "space-between",
+    minHeight: 72,
+    padding: spacing.md,
+  },
+  preferenceText: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  preferenceTitle: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "900",
+  },
+  preferenceDescription: {
+    color: colors.muted,
+    fontSize: 13,
+    lineHeight: 18,
   },
   roleGrid: {
     flexDirection: "row",

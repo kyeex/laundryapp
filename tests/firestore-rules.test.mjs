@@ -310,6 +310,23 @@ async function main() {
           updatedAt: "test",
         }),
       );
+      await assertSucceeds(
+        updateDoc(doc(customerDb, "users", "customer-1"), {
+          notificationPreferences: {
+            customerOrderUpdates: false,
+            rewardsUpdates: true,
+          },
+          updatedAt: "test",
+        }),
+      );
+      await assertFails(
+        updateDoc(doc(customerDb, "users", "customer-1"), {
+          notificationPreferences: {
+            customerOrderUpdates: "yes",
+          },
+          updatedAt: "test",
+        }),
+      );
     });
 
     await runTest("customer cannot access another customer's private data", async () => {

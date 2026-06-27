@@ -939,7 +939,9 @@ export default function NewOrderScreen() {
                 </View>
                 <View style={styles.laundryBag}>
                   <View style={styles.laundryBagHandle} />
-                  <Text style={styles.laundryBagText}>20 lb</Text>
+                  <Text style={styles.laundryBagText}>
+                    {billableLaundryWeight.toFixed(0)} lb
+                  </Text>
                 </View>
                 <View style={styles.deliveryPin}>
                   <Text style={styles.deliveryPinText}>Pickup</Text>

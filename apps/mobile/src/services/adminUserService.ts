@@ -33,7 +33,11 @@ import {
 import { demoUsers } from "@/data/demoData";
 import { recordAuditLog } from "@/services/auditLogService";
 import { requestPasswordReset } from "@/services/authService";
-import type { AppUser, UserRole } from "@/types/domain";
+import {
+  defaultNotificationPreferences,
+  type AppUser,
+  type UserRole,
+} from "@/types/domain";
 import { requireText } from "@/utils/validation";
 
 export type ManagedUserInput = {
@@ -184,6 +188,7 @@ async function createManagedUserWithoutFunctions(input: ManagedUserInput) {
       ...input,
       active: true,
       expoPushTokens: [],
+      notificationPreferences: defaultNotificationPreferences,
       createdAt: null,
       updatedAt: null,
     };
@@ -195,6 +200,7 @@ async function createManagedUserWithoutFunctions(input: ManagedUserInput) {
       phone: input.phone,
       active: true,
       expoPushTokens: [],
+      notificationPreferences: defaultNotificationPreferences,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -247,6 +253,10 @@ export async function getManagedUsers() {
       phone: data.phone ?? "",
       active: data.active ?? true,
       expoPushTokens: data.expoPushTokens ?? [],
+      notificationPreferences: {
+        ...defaultNotificationPreferences,
+        ...(data.notificationPreferences ?? {}),
+      },
       createdAt: data.createdAt?.toDate?.() ?? null,
       updatedAt: data.updatedAt?.toDate?.() ?? null,
     } satisfies AppUser;
@@ -263,6 +273,7 @@ export async function createManagedUser(input: ManagedUserInput) {
       ...normalizedInput,
       active: true,
       expoPushTokens: [],
+      notificationPreferences: defaultNotificationPreferences,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -386,6 +397,8 @@ export async function provisionManagedUserProfile(input: ManagedUserInput & { id
   await setDoc(doc(db, "users", input.id), {
     ...normalizedInput,
     active: true,
+    expoPushTokens: [],
+    notificationPreferences: defaultNotificationPreferences,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });

@@ -60,6 +60,40 @@ service cloud.firestore {
         && request.resource.data.displayName is string;
     }
 
+    function validNotificationPreferences() {
+      return !("notificationPreferences" in request.resource.data)
+        || (
+          request.resource.data.notificationPreferences is map
+          && request.resource.data.notificationPreferences.keys().hasOnly([
+            "customerOrderUpdates",
+            "ownerNewRequests",
+            "ownerPaymentUpdates",
+            "driverAssignedRoutes",
+            "rewardsUpdates"
+          ])
+          && (
+            !("customerOrderUpdates" in request.resource.data.notificationPreferences)
+            || request.resource.data.notificationPreferences.customerOrderUpdates is bool
+          )
+          && (
+            !("ownerNewRequests" in request.resource.data.notificationPreferences)
+            || request.resource.data.notificationPreferences.ownerNewRequests is bool
+          )
+          && (
+            !("ownerPaymentUpdates" in request.resource.data.notificationPreferences)
+            || request.resource.data.notificationPreferences.ownerPaymentUpdates is bool
+          )
+          && (
+            !("driverAssignedRoutes" in request.resource.data.notificationPreferences)
+            || request.resource.data.notificationPreferences.driverAssignedRoutes is bool
+          )
+          && (
+            !("rewardsUpdates" in request.resource.data.notificationPreferences)
+            || request.resource.data.notificationPreferences.rewardsUpdates is bool
+          )
+        );
+    }
+
     function isActiveDriverUser(user) {
       return user.role == "driver" && user.active == true;
     }
@@ -185,10 +219,12 @@ service cloud.firestore {
               "email",
               "phone",
               "expoPushTokens",
+              "notificationPreferences",
               "updatedAt"
             ])
           && request.resource.data.role == resource.data.role
           && request.resource.data.active == resource.data.active
+          && validNotificationPreferences()
         )
         || (isAdmin() && validAdminManagedUser());
       allow delete: if false;

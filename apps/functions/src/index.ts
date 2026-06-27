@@ -12,6 +12,13 @@ const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 const currency = process.env.STRIPE_CURRENCY ?? "usd";
 const stagingSeedTag = "staging-demo";
 const stagingSeedPassword = "LaundryDemo#2026!";
+const defaultNotificationPreferences = {
+  customerOrderUpdates: true,
+  ownerNewRequests: true,
+  ownerPaymentUpdates: true,
+  driverAssignedRoutes: true,
+  rewardsUpdates: true,
+};
 
 const allowedRoles = new Set(["customer", "owner", "driver", "admin"]);
 const stagingSeedUsers = [
@@ -243,6 +250,7 @@ async function ensureStagingSeedUsers() {
         phone: seedUser.phone,
         active: true,
         expoPushTokens: [],
+        notificationPreferences: defaultNotificationPreferences,
         seedTag: stagingSeedTag,
         updatedAt: new Date(),
         createdAt: FieldValue.serverTimestamp(),
@@ -1021,6 +1029,7 @@ export const createManagedUserAccount = onCall<{
     phone,
     active: true,
     expoPushTokens: [],
+    notificationPreferences: defaultNotificationPreferences,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -1524,9 +1533,13 @@ type OrderRecord = {
 };
 
 type UserRecord = {
+  active?: boolean;
   displayName?: string;
   expoPushTokens?: string[];
+  notificationPreferences?: Partial<typeof defaultNotificationPreferences>;
 };
+
+type NotificationPreferenceKey = keyof typeof defaultNotificationPreferences;
 
 function getNotificationContent(event: OrderEvent, order: OrderRecord) {
   if (event.type === "order_created") {
@@ -1573,14 +1586,41 @@ async function getOwnerUserIds() {
   return snapshot.docs.map((docSnapshot) => docSnapshot.id);
 }
 
-async function getPushTokensForUsers(userIds: string[]) {
+function getNotificationPreferenceKey(event: OrderEvent): NotificationPreferenceKey {
+  if (event.type === "order_created") {
+    return "ownerNewRequests";
+  }
+
+  if (event.type === "payment_completed") {
+    return "ownerPaymentUpdates";
+  }
+
+  if (event.type === "batch_assigned") {
+    return "driverAssignedRoutes";
+  }
+
+  return "customerOrderUpdates";
+}
+
+async function getPushTokensForUsers(
+  userIds: string[],
+  preferenceKey: NotificationPreferenceKey,
+) {
   const uniqueUserIds = [...new Set(userIds.filter(Boolean))];
   const users = await Promise.all(
     uniqueUserIds.map(async (userId) => {
       const userSnapshot = await getFirestore().collection("users").doc(userId).get();
       const user = userSnapshot.data() as UserRecord | undefined;
+      const preferences = {
+        ...defaultNotificationPreferences,
+        ...(user?.notificationPreferences ?? {}),
+      };
 
-      return user?.expoPushTokens ?? [];
+      if (!user || user.active === false || preferences[preferenceKey] === false) {
+        return [];
+      }
+
+      return user.expoPushTokens ?? [];
     }),
   );
 
@@ -1652,7 +1692,8 @@ export const sendOrderEventNotification = onDocumentCreated(
       recipientUserIds = [order.customerId];
     }
 
-    const tokens = await getPushTokensForUsers(recipientUserIds);
+    const preferenceKey = getNotificationPreferenceKey(orderEvent);
+    const tokens = await getPushTokensForUsers(recipientUserIds, preferenceKey);
     const content = getNotificationContent(orderEvent, order);
 
     await sendExpoPushNotifications({
