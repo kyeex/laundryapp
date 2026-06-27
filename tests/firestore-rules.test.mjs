@@ -134,6 +134,11 @@ async function seedFirestore(testEnv) {
       defaultAddressId: "customer-1-default",
       notes: "",
     });
+    await setDoc(doc(db, "customerProfiles", userProfiles.otherCustomer.id), {
+      userId: userProfiles.otherCustomer.id,
+      defaultAddressId: "customer-2-default",
+      notes: "",
+    });
     await setDoc(doc(db, "driverProfiles", userProfiles.driver.id), {
       userId: userProfiles.driver.id,
       active: true,
@@ -146,6 +151,13 @@ async function seedFirestore(testEnv) {
       city: "Brooklyn",
       state: "NY",
       postalCode: "11201",
+    });
+    await setDoc(doc(db, "addresses", "customer-2-default"), {
+      userId: userProfiles.otherCustomer.id,
+      street1: "2 Test Street",
+      city: "Queens",
+      state: "NY",
+      postalCode: "11101",
     });
     await setDoc(doc(db, "orders", "order-customer-1"), {
       ...baseOrder,
@@ -190,6 +202,67 @@ async function seedFirestore(testEnv) {
       redeemedPoints: 0,
       recentActivity: [],
     });
+    await setDoc(doc(db, "loyaltyRewards", userProfiles.otherCustomer.id), {
+      customerId: userProfiles.otherCustomer.id,
+      customerName: userProfiles.otherCustomer.displayName,
+      pointsBalance: 50,
+      lifetimePoints: 50,
+      redeemedPoints: 0,
+      recentActivity: [],
+    });
+    await setDoc(doc(db, "loyaltyRewardEvents", "reward-event-customer-1"), {
+      customerId: userProfiles.customer.id,
+      customerName: userProfiles.customer.displayName,
+      points: 25,
+      type: "earned",
+    });
+    await setDoc(doc(db, "loyaltyRewardEvents", "reward-event-customer-2"), {
+      customerId: userProfiles.otherCustomer.id,
+      customerName: userProfiles.otherCustomer.displayName,
+      points: 10,
+      type: "earned",
+    });
+    await setDoc(doc(db, "recurringOrders", "recurring-customer-1"), {
+      customerId: userProfiles.customer.id,
+      status: "active",
+      cadence: "weekly",
+    });
+    await setDoc(doc(db, "recurringOrders", "recurring-customer-2"), {
+      customerId: userProfiles.otherCustomer.id,
+      status: "active",
+      cadence: "weekly",
+    });
+    await setDoc(doc(db, "payments", "payment-customer-1"), {
+      customerId: userProfiles.customer.id,
+      orderId: "order-customer-1",
+      amount: 40,
+      status: "paid",
+    });
+    await setDoc(doc(db, "payments", "payment-customer-2"), {
+      customerId: userProfiles.otherCustomer.id,
+      orderId: "order-other-driver",
+      amount: 42,
+      status: "paid",
+    });
+    await setDoc(doc(db, "orderEvents", "event-customer-1"), {
+      orderId: "order-customer-1",
+      type: "requested",
+      createdBy: userProfiles.customer.id,
+    });
+    await setDoc(doc(db, "orderEvents", "event-assigned-driver"), {
+      orderId: "order-assigned-driver",
+      type: "pickup_assigned",
+      createdBy: userProfiles.owner.id,
+    });
+    await setDoc(doc(db, "settings", "business"), {
+      businessName: "Test Laundry",
+      laundryPricePerPound: 2,
+      deliveryMinimumPounds: 20,
+    });
+    await setDoc(doc(db, "settings", "adminOnly"), {
+      maintenanceMode: false,
+      internalNote: "Private platform setting",
+    });
     await setDoc(doc(db, "auditLogs", "audit-1"), {
       actorId: userProfiles.owner.id,
       actorRole: "owner",
@@ -227,6 +300,7 @@ async function main() {
     const ownerDb = contextDb(testEnv, userProfiles.owner);
     const driverDb = contextDb(testEnv, userProfiles.driver);
     const adminDb = contextDb(testEnv, userProfiles.admin);
+    const unauthenticatedDb = testEnv.unauthenticatedContext().firestore();
 
     await runTest("customer can read and update own profile", async () => {
       await assertSucceeds(getDoc(doc(customerDb, "customerProfiles", "customer-1")));
@@ -238,6 +312,24 @@ async function main() {
       );
     });
 
+    await runTest("customer cannot access another customer's private data", async () => {
+      await assertFails(getDoc(doc(customerDb, "customerProfiles", "customer-2")));
+      await assertFails(getDoc(doc(customerDb, "addresses", "customer-2-default")));
+      await assertFails(getDoc(doc(customerDb, "orders", "order-other-driver")));
+      await assertFails(getDoc(doc(customerDb, "payments", "payment-customer-2")));
+      await assertFails(getDoc(doc(customerDb, "recurringOrders", "recurring-customer-2")));
+      await assertFails(getDoc(doc(customerDb, "loyaltyRewardEvents", "reward-event-customer-2")));
+    });
+
+    await runTest("customer can read own order-adjacent records only", async () => {
+      await assertSucceeds(getDoc(doc(customerDb, "orders", "order-customer-1")));
+      await assertSucceeds(getDoc(doc(customerDb, "addresses", "customer-1-default")));
+      await assertSucceeds(getDoc(doc(customerDb, "payments", "payment-customer-1")));
+      await assertSucceeds(getDoc(doc(customerDb, "recurringOrders", "recurring-customer-1")));
+      await assertSucceeds(getDoc(doc(customerDb, "loyaltyRewardEvents", "reward-event-customer-1")));
+      await assertSucceeds(getDoc(doc(customerDb, "orderEvents", "event-customer-1")));
+    });
+
     await runTest("customer can create own order request", async () => {
       await assertSucceeds(
         addDoc(collection(customerDb, "orders"), {
@@ -246,6 +338,36 @@ async function main() {
           status: "requested",
           paymentStatus: "unpaid",
           finalPrice: null,
+        }),
+      );
+    });
+
+    await runTest("customer cannot create orders for another customer or pre-priced orders", async () => {
+      await assertFails(
+        addDoc(collection(customerDb, "orders"), {
+          ...baseOrder,
+          customerId: "customer-2",
+          status: "requested",
+          paymentStatus: "unpaid",
+          finalPrice: null,
+        }),
+      );
+      await assertFails(
+        addDoc(collection(customerDb, "orders"), {
+          ...baseOrder,
+          customerId: "customer-1",
+          status: "accepted",
+          paymentStatus: "unpaid",
+          finalPrice: null,
+        }),
+      );
+      await assertFails(
+        addDoc(collection(customerDb, "orders"), {
+          ...baseOrder,
+          customerId: "customer-1",
+          status: "requested",
+          paymentStatus: "unpaid",
+          finalPrice: 40,
         }),
       );
     });
@@ -317,10 +439,18 @@ async function main() {
     await runTest("owner cannot access admin-only user tools or audit logs", async () => {
       await assertFails(getDoc(doc(ownerDb, "users", "admin-1")));
       await assertFails(getDoc(doc(ownerDb, "auditLogs", "audit-1")));
+      await assertFails(
+        updateDoc(doc(ownerDb, "users", "customer-1"), {
+          role: "owner",
+          active: true,
+        }),
+      );
     });
 
     await runTest("driver can read assigned batch and update assigned stop", async () => {
       await assertSucceeds(getDoc(doc(driverDb, "batches", "batch-driver-1")));
+      await assertSucceeds(getDoc(doc(driverDb, "orders", "order-assigned-driver")));
+      await assertSucceeds(getDoc(doc(driverDb, "orderEvents", "event-assigned-driver")));
       await assertSucceeds(
         updateDoc(doc(driverDb, "orders", "order-assigned-driver"), {
           status: "picked_up",
@@ -338,6 +468,46 @@ async function main() {
     await runTest("driver cannot see unrelated customer orders or batches", async () => {
       await assertFails(getDoc(doc(driverDb, "orders", "order-other-driver")));
       await assertFails(getDoc(doc(driverDb, "batches", "batch-driver-2")));
+      await assertFails(getDoc(doc(driverDb, "customerProfiles", "customer-1")));
+      await assertFails(getDoc(doc(driverDb, "addresses", "customer-1-default")));
+      await assertFails(getDoc(doc(driverDb, "payments", "payment-customer-1")));
+      await assertFails(getDoc(doc(driverDb, "loyaltyRewards", "customer-1")));
+      await assertFails(getDoc(doc(driverDb, "auditLogs", "audit-1")));
+    });
+
+    await runTest("driver cannot change prices, ownership, or unrelated routes", async () => {
+      await assertFails(
+        updateDoc(doc(driverDb, "orders", "order-assigned-driver"), {
+          finalPrice: 1,
+          updatedAt: "test",
+        }),
+      );
+      await assertFails(
+        updateDoc(doc(driverDb, "orders", "order-assigned-driver"), {
+          assignedPickupDriverId: "driver-2",
+          updatedAt: "test",
+        }),
+      );
+      await assertFails(
+        updateDoc(doc(driverDb, "orders", "order-assigned-driver"), {
+          status: "completed",
+          updatedAt: "test",
+        }),
+      );
+      await assertFails(
+        updateDoc(doc(driverDb, "batches", "batch-driver-2"), {
+          status: "completed",
+          updatedAt: "test",
+        }),
+      );
+      await assertFails(
+        setDoc(doc(driverDb, "batches", "driver-created-batch"), {
+          type: "pickup",
+          status: "assigned",
+          driverId: "driver-1",
+          orderIds: ["order-assigned-driver"],
+        }),
+      );
     });
 
     await runTest("admin can manage users, rewards, and view audit logs", async () => {
@@ -362,6 +532,15 @@ async function main() {
       await assertFails(getDoc(doc(customerDb, "settings", "adminOnly")));
       await assertFails(getDocs(query(collection(driverDb, "orders"), where("customerId", "==", "customer-1"))));
       await assertFails(deleteDoc(doc(customerDb, "orders", "order-customer-1")));
+    });
+
+    await runTest("unauthenticated users can only read public catalog configuration", async () => {
+      await assertSucceeds(getDoc(doc(unauthenticatedDb, "settings", "business")));
+      await assertSucceeds(getDoc(doc(unauthenticatedDb, "services", "wash-fold")));
+      await assertFails(getDoc(doc(unauthenticatedDb, "settings", "adminOnly")));
+      await assertFails(getDoc(doc(unauthenticatedDb, "orders", "order-customer-1")));
+      await assertFails(getDoc(doc(unauthenticatedDb, "users", "customer-1")));
+      await assertFails(getDoc(doc(unauthenticatedDb, "payments", "payment-customer-1")));
     });
   } finally {
     await testEnv.cleanup();

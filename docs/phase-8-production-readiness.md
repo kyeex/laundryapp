@@ -106,56 +106,77 @@ The `.firebaserc` file also has a `demo` alias pointing at `laundryapp-demo`, bu
 
 ## Backup And Export Plan
 
-Minimum plan before real users:
-
-1. Enable Firestore scheduled backups in the Firebase/GCP console if available for the project.
-2. Create a dedicated Google Cloud Storage bucket for Firestore exports.
-3. Use a naming pattern like:
+The detailed backup/export runbook now lives in:
 
 ```text
-gs://laundryapp-production-firestore-backups/YYYY-MM-DD/
+docs/BACKUP_EXPORT_PLAN.md
 ```
 
-4. Export before any major deployment.
-5. Keep at least 30 days of daily backups once the business is live.
-6. Test one restore into a separate recovery/staging project before launch.
+Minimum before real users:
 
-Manual export command shape, if the Google Cloud CLI is installed and configured:
+1. Create staging and production Cloud Storage backup buckets.
+2. Run a manual staging export.
+3. Run a manual production export before the first real customer.
+4. Test one restore into a separate recovery/staging project.
+5. Keep at least 30 days of daily backups during the pilot.
+
+Safe command preview:
 
 ```powershell
-gcloud firestore export gs://laundryapp-production-firestore-backups/manual-YYYY-MM-DD --project laundryapp-production
+npm run backup:production:plan
+```
+
+Production export:
+
+```powershell
+npm run backup:production:run
 ```
 
 ## Monitoring And Log Review Checklist
 
-Daily during staging:
+The detailed monitoring/log review runbook now lives in:
 
-- Firebase Authentication sign-in errors.
-- Firestore permission-denied errors.
-- Cloud Functions errors and timeouts.
-- Audit log volume and missing action types.
-- Unexpected user role changes.
-- Failed order creation or batch creation.
-- Rewards adjustment/redemption errors.
+```text
+docs/MONITORING_LOG_REVIEW.md
+```
 
-Weekly after production launch:
+Safe command preview:
 
-- Review admin and owner actions in Audit Logs.
-- Review inactive or suspicious users.
-- Review Firestore usage and billing.
-- Review Cloud Functions invocations and errors.
-- Review backup completion status.
+```powershell
+npm run monitoring:production:plan
+```
+
+Production function log review:
+
+```powershell
+npm run monitoring:production:logs
+```
+
+Minimum before real users:
+
+1. Confirm owner/admin know where Audit Logs live.
+2. Confirm Firebase Console access for technical admin.
+3. Confirm Cloud Functions logs can be reviewed.
+4. Confirm backup completion review is part of weekly operations.
+5. Confirm incident response steps are documented.
 
 ## Emergency Admin Recovery
 
-Use this if the admin gets locked out.
+The detailed admin recovery runbook now lives in:
 
-1. Open Firebase Console for the correct project.
-2. Go to Authentication and confirm the admin email exists.
-3. Copy that user's UID.
-4. Go to Firestore.
-5. Open or create `users/{uid}`.
-6. Set:
+```text
+docs/ADMIN_RECOVERY_PROCESS.md
+```
+
+Minimum before real users:
+
+1. Confirm at least two active admin users exist.
+2. Confirm a trusted technical admin can access Firebase Console.
+3. Confirm the recovery process has been reviewed.
+4. Confirm recovery requires both Firebase Auth and `users/{uid}` Firestore role repair.
+5. Confirm production recovery is never tested directly with destructive actions.
+
+Admin role document shape:
 
 ```json
 {
@@ -163,10 +184,6 @@ Use this if the admin gets locked out.
   "active": true
 }
 ```
-
-7. Confirm the document also includes the admin email/display name fields used by the app.
-8. Sign out and sign back into the app.
-9. Add an audit log note manually or through the app once access is restored.
 
 ## Blaze Reminder
 

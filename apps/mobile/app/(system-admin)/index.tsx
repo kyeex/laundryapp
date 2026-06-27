@@ -1,32 +1,21 @@
-import { Link } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
 import { AccountPanel } from "@/components/AccountPanel";
 import { DemoWalkthrough } from "@/components/DemoWalkthrough";
+import {
+  ActionGrid,
+  ActionLink,
+  ActionPanel,
+  MetricCard,
+  MetricGrid,
+  PageHeader,
+} from "@/components/OperatingDashboard";
 import { Screen } from "@/components/Screen";
 import { getManagedUsers } from "@/services/adminUserService";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import type { AppUser } from "@/types/domain";
-
-function DashboardCard({
-  label,
-  value,
-  note,
-}: {
-  label: string;
-  value: string;
-  note: string;
-}) {
-  return (
-    <View style={styles.dashboardCard}>
-      <Text style={styles.dashboardLabel}>{label}</Text>
-      <Text style={styles.dashboardValue}>{value}</Text>
-      <Text style={styles.dashboardNote}>{note}</Text>
-    </View>
-  );
-}
 
 export default function SystemAdminHomeScreen() {
   const [users, setUsers] = useState<AppUser[]>([]);
@@ -60,36 +49,39 @@ export default function SystemAdminHomeScreen() {
     <Screen>
       <View style={styles.content}>
         <AccountPanel />
-        <Text style={styles.kicker}>System administration</Text>
-        <Text style={styles.title}>Admin panel</Text>
-        <Text style={styles.body}>
-          Manage platform-level users, access, account recovery, and permission
-          planning outside the owner operations dashboard.
-        </Text>
+        <PageHeader
+          eyebrow="System administration"
+          title="Admin panel"
+          description="Manage platform-level users, access, account recovery, and permission planning outside the owner operations dashboard."
+        />
         {isLoading ? <ActivityIndicator color={colors.primary} /> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
-        <View style={styles.dashboardGrid}>
-          <DashboardCard
+        <MetricGrid>
+          <MetricCard
             label="Signed-up users"
             note="Customer accounts visible to admin."
+            tone="info"
             value={`${signedUpUsers}`}
           />
-          <DashboardCard
+          <MetricCard
             label="Active users"
             note="Accounts currently allowed to use the system."
+            tone="success"
             value={`${activeUsers}`}
           />
-          <DashboardCard
+          <MetricCard
             label="Inactive users"
             note="Accounts blocked from normal use."
+            tone={inactiveUsers > 0 ? "attention" : "neutral"}
             value={`${inactiveUsers}`}
           />
-          <DashboardCard
+          <MetricCard
             label="Admin tools"
             note="Role changes, resets, activation, and permissions."
+            tone="accent"
             value="Ready"
           />
-        </View>
+        </MetricGrid>
         <DemoWalkthrough
           title="Admin demo path"
           steps={[
@@ -98,23 +90,15 @@ export default function SystemAdminHomeScreen() {
             "Review role permissions before production hardening.",
           ]}
         />
-        <View style={styles.grid}>
-          <Link href="/(system-admin)/demo-control" style={styles.card}>
-            Demo control center
-          </Link>
-          <Link href="/(system-admin)/audit-logs" style={styles.card}>
-            Audit logs
-          </Link>
-          <Link href="/(system-admin)/rewards" style={styles.card}>
-            Rewards management
-          </Link>
-          <Link href="/(system-admin)/users" style={styles.card}>
-            User management
-          </Link>
-          <Link href="/(system-admin)/permissions" style={styles.card}>
-            Permission settings
-          </Link>
-        </View>
+        <ActionPanel title="Admin tools">
+          <ActionLink href="/(system-admin)/users" label="User management" primary />
+          <ActionGrid>
+            <ActionLink href="/(system-admin)/demo-control" label="Demo control center" />
+            <ActionLink href="/(system-admin)/audit-logs" label="Audit logs" />
+            <ActionLink href="/(system-admin)/rewards" label="Rewards management" />
+            <ActionLink href="/(system-admin)/permissions" label="Permission settings" />
+          </ActionGrid>
+        </ActionPanel>
         <View style={styles.note}>
           <Text style={styles.noteTitle}>Production note</Text>
           <Text style={styles.noteText}>
@@ -133,35 +117,6 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingTop: spacing.xl,
   },
-  kicker: {
-    color: colors.primary,
-    fontSize: 14,
-    fontWeight: "800",
-    textTransform: "uppercase",
-  },
-  title: {
-    color: colors.text,
-    fontSize: 32,
-    fontWeight: "800",
-  },
-  body: {
-    color: colors.muted,
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  grid: {
-    gap: spacing.sm,
-  },
-  card: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: 8,
-    borderWidth: 1,
-    color: colors.primary,
-    fontSize: 17,
-    fontWeight: "800",
-    padding: spacing.md,
-  },
   note: {
     backgroundColor: "#ECFDF5",
     borderColor: "#A7F3D0",
@@ -179,37 +134,6 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 14,
     lineHeight: 20,
-  },
-  dashboardGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
-  },
-  dashboardCard: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: 8,
-    borderWidth: 1,
-    flexGrow: 1,
-    gap: spacing.xs,
-    minWidth: 160,
-    padding: spacing.md,
-  },
-  dashboardLabel: {
-    color: colors.muted,
-    fontSize: 12,
-    fontWeight: "800",
-    textTransform: "uppercase",
-  },
-  dashboardValue: {
-    color: colors.text,
-    fontSize: 22,
-    fontWeight: "800",
-  },
-  dashboardNote: {
-    color: colors.muted,
-    fontSize: 13,
-    lineHeight: 18,
   },
   error: {
     color: colors.danger,

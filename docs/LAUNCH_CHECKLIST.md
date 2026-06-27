@@ -27,6 +27,16 @@
 - Owner account provisioned.
 - Test customer account created.
 - Test driver account created.
+- Backup/export plan reviewed.
+- Production Firestore backup bucket created.
+- First production Firestore export completed before real users.
+- Restore drill completed into staging or recovery project.
+- Monitoring/log review plan reviewed.
+- Firebase Console access confirmed for technical admin.
+- Production monitoring dry run completed.
+- Admin recovery process reviewed.
+- At least two active admin users confirmed.
+- Emergency admin recovery owner assigned.
 
 ## Stripe
 
@@ -65,5 +75,7 @@
 - Monitor orders manually for first week.
 - Verify notifications are delivered.
 - Verify Stripe payouts.
-- Export/backup Firestore data.
+- Export/backup Firestore data using `docs/BACKUP_EXPORT_PLAN.md`.
+- Review logs and stuck orders using `docs/MONITORING_LOG_REVIEW.md`.
+- Keep admin recovery process available using `docs/ADMIN_RECOVERY_PROCESS.md`.
 - Collect customer and driver feedback.

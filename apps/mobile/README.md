@@ -211,3 +211,31 @@ npx expo export --platform web --output-dir dist-check
 The export command was used to verify the Expo Router bundle path. On this
 Windows/OneDrive workspace, `expo start` and `npm run web` currently hit a local
 React Native DevTools `spawn EPERM` permission issue before binding to a port.
+
+## Real Device Testing
+
+Use the real-device checklist before pilot testing or production release:
+
+```text
+../../docs/REAL_MOBILE_DEVICE_TESTING.md
+```
+
+From the repo root, useful mobile commands are:
+
+```bash
+npm run mobile:start
+npm run mobile:android
+npm run mobile:ios
+npm run mobile:typecheck
+```
+
+Internal staging builds are available through:
+
+```bash
+npm run mobile:build:android:preview
+npm run mobile:build:ios:preview
+```
+
+Do not treat web preview as production mobile QA. Push notifications, Stripe
+native payment flows, device permissions, app deep links, and install/update
+behavior must be tested on real builds.

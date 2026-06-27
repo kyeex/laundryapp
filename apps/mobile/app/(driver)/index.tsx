@@ -1,9 +1,17 @@
-import { Link } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
 import { AccountPanel } from "@/components/AccountPanel";
 import { DemoWalkthrough } from "@/components/DemoWalkthrough";
+import {
+  ActionGrid,
+  ActionLink,
+  ActionPanel,
+  EmptyState,
+  MetricCard,
+  MetricGrid,
+  PageHeader,
+} from "@/components/OperatingDashboard";
 import { Screen } from "@/components/Screen";
 import { useAuth } from "@/context/AuthContext";
 import { getBatchOrders, getDriverBatches } from "@/services/batchService";
@@ -26,24 +34,6 @@ function isPickupStop(batch: Batch, order: Order) {
 
 function isStopCompleted(batch: Batch, order: Order) {
   return order.status === (isPickupStop(batch, order) ? "picked_up" : "delivered");
-}
-
-function DashboardCard({
-  label,
-  value,
-  note,
-}: {
-  label: string;
-  value: string;
-  note: string;
-}) {
-  return (
-    <View style={styles.dashboardCard}>
-      <Text style={styles.dashboardLabel}>{label}</Text>
-      <Text style={styles.dashboardValue}>{value}</Text>
-      <Text style={styles.dashboardNote}>{note}</Text>
-    </View>
-  );
 }
 
 export default function DriverHomeScreen() {
@@ -94,50 +84,55 @@ export default function DriverHomeScreen() {
     <Screen>
       <View style={styles.content}>
         <AccountPanel />
-        <Text style={styles.title}>Driver home</Text>
-        <Text style={styles.body}>
-          Assigned pickup and delivery batches will appear here.
-        </Text>
+        <PageHeader
+          eyebrow="Driver"
+          title="Driver home"
+          description="Assigned pickup and delivery batches will appear here."
+        />
         {isLoading ? <ActivityIndicator color={colors.primary} /> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
         {!isLoading && !nextBatch ? (
-          <View style={styles.empty}>
-            <Text style={styles.emptyTitle}>No route assigned yet</Text>
-            <Text style={styles.emptyText}>
-              Driver work starts after the owner creates and assigns a batch. For
-              the demo, switch to Owner, create a pickup or delivery batch, then
-              return here to open the route and check off stops.
-            </Text>
-          </View>
+          <EmptyState title="No route assigned yet">
+            Driver work starts after the owner creates and assigns a batch. For
+            the demo, switch to Owner, create a pickup or delivery batch, then
+            return here to open the route and check off stops.
+          </EmptyState>
         ) : null}
-        <View style={styles.dashboardGrid}>
-          <DashboardCard
+        <MetricGrid>
+          <MetricCard
             label="Assigned route"
             note={nextBatch ? formatDisplayDate(nextBatch.scheduledDate) : "No route assigned yet."}
+            tone={nextBatch ? "success" : "neutral"}
             value={nextBatch ? "Ready" : "None"}
           />
-          <DashboardCard
+          <MetricCard
             label="Stops remaining"
             note="Stops not yet checked off."
+            tone={remainingStops > 0 ? "attention" : "success"}
             value={`${remainingStops}`}
           />
-          <DashboardCard
+          <MetricCard
             label="Completed stops"
             note="Stops selected for route submission."
+            tone={completedStops > 0 ? "info" : "neutral"}
             value={`${completedStops}`}
           />
-        </View>
-        {nextBatch ? (
-          <Link
-            href={{
-              pathname: "/(driver)/batches/[batchId]",
-              params: { batchId: nextBatch.id },
-            }}
-            style={styles.action}
-          >
-            Open assigned route
-          </Link>
-        ) : null}
+        </MetricGrid>
+        <ActionPanel title="Route actions">
+          {nextBatch ? (
+            <ActionLink
+              href={{
+                pathname: "/(driver)/batches/[batchId]",
+                params: { batchId: nextBatch.id },
+              }}
+              label="Open assigned route"
+              primary
+            />
+          ) : null}
+          <ActionGrid>
+            <ActionLink href="/(driver)/batches" label="View batches" />
+          </ActionGrid>
+        </ActionPanel>
         <DemoWalkthrough
           title="Driver demo path"
           steps={[
@@ -146,9 +141,6 @@ export default function DriverHomeScreen() {
             "Finalize and submit the route for owner review.",
           ]}
         />
-        <Link href="/(driver)/batches" style={styles.link}>
-          View batches
-        </Link>
       </View>
     </Screen>
   );
@@ -158,79 +150,6 @@ const styles = StyleSheet.create({
   content: {
     gap: spacing.md,
     paddingTop: spacing.xl,
-  },
-  title: {
-    color: colors.text,
-    fontSize: 32,
-    fontWeight: "800",
-  },
-  body: {
-    color: colors.muted,
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  link: {
-    color: colors.primary,
-    fontSize: 17,
-    fontWeight: "700",
-  },
-  action: {
-    backgroundColor: colors.primary,
-    borderRadius: 8,
-    color: colors.onPrimary,
-    fontSize: 18,
-    fontWeight: "800",
-    padding: spacing.md,
-    textAlign: "center",
-  },
-  dashboardGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
-  },
-  dashboardCard: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: 8,
-    borderWidth: 1,
-    flexGrow: 1,
-    gap: spacing.xs,
-    minWidth: 160,
-    padding: spacing.md,
-  },
-  dashboardLabel: {
-    color: colors.muted,
-    fontSize: 12,
-    fontWeight: "800",
-    textTransform: "uppercase",
-  },
-  dashboardValue: {
-    color: colors.text,
-    fontSize: 22,
-    fontWeight: "800",
-  },
-  dashboardNote: {
-    color: colors.muted,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  empty: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: 8,
-    borderWidth: 1,
-    gap: spacing.xs,
-    padding: spacing.md,
-  },
-  emptyTitle: {
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: "800",
-  },
-  emptyText: {
-    color: colors.muted,
-    fontSize: 15,
-    lineHeight: 22,
   },
   error: {
     color: colors.danger,
