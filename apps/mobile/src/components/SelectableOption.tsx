@@ -66,12 +66,13 @@ export function SelectableOption({
 
 const styles = StyleSheet.create({
   option: {
-    alignItems: "center",
+    alignItems: "flex-start",
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderRadius: 8,
     borderWidth: 1,
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: spacing.md,
     justifyContent: "space-between",
     minHeight: 72,
@@ -88,6 +89,7 @@ const styles = StyleSheet.create({
   textWrap: {
     flex: 1,
     gap: spacing.xs,
+    minWidth: 0,
   },
   title: {
     color: colors.text,
@@ -103,6 +105,7 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: 15,
     fontWeight: "800",
+    flexShrink: 0,
   },
   selectedText: {
     color: colors.onPrimary,

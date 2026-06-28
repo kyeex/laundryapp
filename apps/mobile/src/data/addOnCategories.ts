@@ -8,7 +8,7 @@ export const addOnCategories: Array<{
   {
     id: "washers",
     title: "Washer loads",
-    description: "Choose washer load sizes that match your laundry.",
+    description: "Select an additional washer for separate items.",
   },
   {
     id: "detergent",
@@ -31,6 +31,7 @@ const addOnCategoryById: Record<string, AddOnCategory> = {
   "small-washer": "washers",
   "medium-washer": "washers",
   "large-washer": "washers",
+  "regular-detergent": "detergent",
   "tide-detergent": "detergent",
   "sensitive-skin-detergent": "detergent",
   "dry-low-heat": "drying",

@@ -2046,7 +2046,7 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: spacing.sm,
     minHeight: 132,
-    minWidth: 240,
+    minWidth: 180,
     padding: spacing.md,
   },
   serviceCardSelected: {
@@ -2057,6 +2057,7 @@ const styles = StyleSheet.create({
   serviceCardHeader: {
     alignItems: "flex-start",
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: spacing.sm,
     justifyContent: "space-between",
   },
@@ -2322,9 +2323,11 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   menuItemWrapper: {
+    flexBasis: 180,
     flexGrow: 1,
+    flexShrink: 1,
     gap: spacing.sm,
-    minWidth: 240,
+    minWidth: 0,
   },
   menuItem: {
     backgroundColor: colors.surface,
@@ -2342,6 +2345,7 @@ const styles = StyleSheet.create({
   menuItemHeader: {
     alignItems: "flex-start",
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: spacing.sm,
     justifyContent: "space-between",
   },
@@ -2350,6 +2354,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     gap: spacing.sm,
+    minWidth: 0,
   },
   addOnIcon: {
     backgroundColor: "#F8FAFC",
@@ -2376,6 +2381,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "800",
     lineHeight: 21,
+    minWidth: 0,
   },
   menuItemTitleSelected: {
     color: colors.onPrimary,
@@ -2384,6 +2390,7 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: 14,
     fontWeight: "800",
+    flexShrink: 0,
   },
   menuItemPriceSelected: {
     color: colors.onPrimary,
