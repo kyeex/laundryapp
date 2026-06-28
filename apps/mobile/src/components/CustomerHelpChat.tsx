@@ -1,11 +1,13 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Modal,
   Pressable,
   ScrollView,
+  type ScrollView as ScrollViewType,
   StyleSheet,
   Text,
   TextInput,
+  type TextInput as TextInputType,
   View,
 } from "react-native";
 
@@ -173,12 +175,33 @@ function getBasicAnswer(question: string) {
 
 export function CustomerHelpChat() {
   const { currentUser } = useAuth();
+  const scrollViewRef = useRef<ScrollViewType>(null);
+  const inputRef = useRef<TextInputType>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [draft, setDraft] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([welcomeMessage]);
 
   const shouldShowChat = currentUser?.role === "customer";
   const quickQuestionButtons = useMemo(() => quickQuestions, []);
+
+  function focusMessageInput() {
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 75);
+  }
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const scrollTimeout = setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 50);
+    focusMessageInput();
+
+    return () => clearTimeout(scrollTimeout);
+  }, [isOpen, messages.length]);
 
   if (!shouldShowChat) {
     return null;
@@ -206,6 +229,7 @@ export function CustomerHelpChat() {
       },
     ]);
     setDraft("");
+    focusMessageInput();
   }
 
   return (
@@ -241,7 +265,13 @@ export function CustomerHelpChat() {
               </Pressable>
             </View>
 
-            <ScrollView contentContainerStyle={styles.messages}>
+            <ScrollView
+              contentContainerStyle={styles.messages}
+              onContentSizeChange={() => {
+                scrollViewRef.current?.scrollToEnd({ animated: true });
+              }}
+              ref={scrollViewRef}
+            >
               {messages.map((message) => (
                 <View
                   key={message.id}
@@ -278,10 +308,12 @@ export function CustomerHelpChat() {
 
             <View style={styles.inputRow}>
               <TextInput
+                blurOnSubmit={false}
                 onChangeText={setDraft}
                 onSubmitEditing={() => sendMessage(draft)}
                 placeholder="Ask a question"
                 placeholderTextColor={colors.muted}
+                ref={inputRef}
                 returnKeyType="send"
                 style={styles.input}
                 value={draft}
