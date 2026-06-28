@@ -1,6 +1,13 @@
 import { useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 import { AppButton } from "@/components/AppButton";
 import { FormTextInput } from "@/components/FormTextInput";
@@ -52,6 +59,7 @@ function getDecisionConfirmLabel(action: InitialOrderDecision) {
 export default function AdminOrderDetailScreen() {
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
   const { currentUser } = useAuth();
+  const scrollViewRef = useRef<ScrollView>(null);
   const [order, setOrder] = useState<Order | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -63,6 +71,7 @@ export default function AdminOrderDetailScreen() {
   >(null);
   const [isConfirmingPayment, setIsConfirmingPayment] = useState(false);
   const [showZeroPriceWarning, setShowZeroPriceWarning] = useState(false);
+  const [decisionSectionY, setDecisionSectionY] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -97,6 +106,21 @@ export default function AdminOrderDetailScreen() {
   useEffect(() => {
     void loadOrder();
   }, [loadOrder]);
+
+  useEffect(() => {
+    if (!pendingDecision || decisionSectionY === null) {
+      return;
+    }
+
+    const scrollTimeout = setTimeout(() => {
+      scrollViewRef.current?.scrollTo({
+        animated: true,
+        y: Math.max(0, decisionSectionY + 120),
+      });
+    }, 75);
+
+    return () => clearTimeout(scrollTimeout);
+  }, [decisionSectionY, pendingDecision]);
 
   const serviceNames = useMemo(() => {
     if (!order) {
@@ -244,7 +268,7 @@ export default function AdminOrderDetailScreen() {
   }
 
   return (
-    <Screen>
+    <Screen scrollViewRef={scrollViewRef}>
       <View style={styles.content}>
         {isLoading ? <ActivityIndicator color={colors.primary} /> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -302,64 +326,70 @@ export default function AdminOrderDetailScreen() {
             <OrderTimeline orientation="horizontal" status={order.status} />
 
             {order.status === "requested" ? (
-              <SectionCard title="Initial order decision">
-                <Text style={styles.muted}>
-                  Accept or decline this new request. A confirmation is required
-                  before the decision is saved.
-                </Text>
-                <View style={styles.actions}>
-                  {initialOrderDecisionActions.map((action) => (
-                    <AppButton
-                      disabled={isSaving}
-                      key={action.status}
-                      label={action.label}
-                      onPress={() => setPendingDecision(action)}
-                      variant={action.status === "declined" ? "secondary" : "primary"}
-                    />
-                  ))}
-                </View>
-                {pendingDecision ? (
-                  <View style={styles.confirmationBox}>
-                    <Text style={styles.confirmationTitle}>
-                      {getDecisionConfirmLabel(pendingDecision)}
-                    </Text>
-                    <Text style={styles.value}>
-                      Are you sure you want to {getDecisionVerb(pendingDecision)} this
-                      order request?
-                    </Text>
-                    <Text style={styles.muted}>
-                      {pendingDecision.status === "accepted"
-                        ? "Accepted orders can move through received at store, in progress, ready for delivery, and complete."
-                        : "Declined orders will not show the workflow action buttons."}
-                    </Text>
-                    <View style={styles.actions}>
+              <View
+                onLayout={(event) => setDecisionSectionY(event.nativeEvent.layout.y)}
+              >
+                <SectionCard title="Initial order decision">
+                  <Text style={styles.muted}>
+                    Accept or decline this new request. A confirmation is required
+                    before the decision is saved.
+                  </Text>
+                  <View style={styles.actions}>
+                    {initialOrderDecisionActions.map((action) => (
                       <AppButton
                         disabled={isSaving}
-                        label={
-                          isSaving
-                            ? "Saving..."
-                            : getDecisionConfirmLabel(pendingDecision)
-                        }
-                        onPress={() =>
-                          handleStatusChange(
-                            pendingDecision.status,
-                            pendingDecision.message,
-                          )
-                        }
-                        variant={
-                          pendingDecision.status === "declined" ? "secondary" : "primary"
-                        }
+                        key={action.status}
+                        label={action.label}
+                        onPress={() => setPendingDecision(action)}
+                        variant={action.status === "declined" ? "secondary" : "primary"}
                       />
-                      <AppButton
-                        disabled={isSaving}
-                        label="Cancel"
-                        onPress={() => setPendingDecision(null)}
-                        variant="secondary"
-                      />
-                    </View>
+                    ))}
                   </View>
-                ) : null}
-              </SectionCard>
+                  {pendingDecision ? (
+                    <View style={styles.confirmationBox}>
+                      <Text style={styles.confirmationTitle}>
+                        {getDecisionConfirmLabel(pendingDecision)}
+                      </Text>
+                      <Text style={styles.value}>
+                        Are you sure you want to {getDecisionVerb(pendingDecision)} this
+                        order request?
+                      </Text>
+                      <Text style={styles.muted}>
+                        {pendingDecision.status === "accepted"
+                          ? "Accepted orders can move through received at store, in progress, ready for delivery, and complete."
+                          : "Declined orders will not show the workflow action buttons."}
+                      </Text>
+                      <View style={styles.actions}>
+                        <AppButton
+                          disabled={isSaving}
+                          label={
+                            isSaving
+                              ? "Saving..."
+                              : getDecisionConfirmLabel(pendingDecision)
+                          }
+                          onPress={() =>
+                            handleStatusChange(
+                              pendingDecision.status,
+                              pendingDecision.message,
+                            )
+                          }
+                          variant={
+                            pendingDecision.status === "declined"
+                              ? "secondary"
+                              : "primary"
+                          }
+                        />
+                        <AppButton
+                          disabled={isSaving}
+                          label="Cancel"
+                          onPress={() => setPendingDecision(null)}
+                          variant="secondary"
+                        />
+                      </View>
+                    </View>
+                  ) : null}
+                </SectionCard>
+              </View>
             ) : null}
 
             {canShowOwnerWorkflowActions(order.status) ? (
