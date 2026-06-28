@@ -3,8 +3,6 @@ import {
   doc,
   getDoc,
   getDocs,
-  limit,
-  orderBy,
   query,
   serverTimestamp,
   setDoc,
@@ -19,7 +17,13 @@ import {
   shouldUseDemoBackend,
 } from "@/config/firebase";
 import { defaultBusinessSettings } from "@/data/serviceCatalog";
-import type { AppUser, LoyaltyRewardSettings, Order, UserRole } from "@/types/domain";
+import type {
+  AppUser,
+  LoyaltyRewardSettings,
+  LoyaltyRewardTier,
+  Order,
+  UserRole,
+} from "@/types/domain";
 
 import { getBusinessSettings } from "./configurationService";
 
@@ -54,30 +58,6 @@ export type LoyaltyRewardsAccount = {
   recentActivity: LoyaltyRewardEvent[];
   updatedAt?: Date | null;
 };
-
-export type LoyaltyTier = {
-  name: string;
-  minimumPoints: number;
-  description: string;
-};
-
-export const loyaltyTiers: LoyaltyTier[] = [
-  {
-    name: "Fresh Start",
-    minimumPoints: 0,
-    description: "Entry rewards for new laundry customers.",
-  },
-  {
-    name: "Fold Favorite",
-    minimumPoints: 250,
-    description: "A regular customer tier with stronger reward value.",
-  },
-  {
-    name: "Laundry Loyalist",
-    minimumPoints: 750,
-    description: "Top customer tier for frequent repeat orders.",
-  },
-];
 
 export type RewardAdjustmentInput = {
   actor: Pick<AppUser, "id" | "role">;
@@ -271,23 +251,49 @@ function saveDemoRewardEvents(events: LoyaltyRewardEvent[]) {
   getStorage()?.setItem(demoRewardEventsStorageKey, JSON.stringify(events));
 }
 
-function getConfiguredTiers(settings?: LoyaltyRewardSettings) {
+export function getConfiguredRewardsTiers(settings?: LoyaltyRewardSettings) {
   const tierSettings = settings ?? defaultBusinessSettings.loyaltyRewards;
+  const configuredTiers =
+    tierSettings.tiers && tierSettings.tiers.length > 0
+      ? tierSettings.tiers
+      : defaultBusinessSettings.loyaltyRewards.tiers.map((tier) => {
+          if (tier.id === "fresh-start") {
+            return {
+              ...tier,
+              minimumPoints: tierSettings.tierThresholds.freshStart,
+            };
+          }
 
-  return [
-    {
-      ...loyaltyTiers[0],
-      minimumPoints: tierSettings.tierThresholds.freshStart,
-    },
-    {
-      ...loyaltyTiers[1],
-      minimumPoints: tierSettings.tierThresholds.foldFavorite,
-    },
-    {
-      ...loyaltyTiers[2],
-      minimumPoints: tierSettings.tierThresholds.laundryLoyalist,
-    },
-  ];
+          if (tier.id === "fold-favorite") {
+            return {
+              ...tier,
+              minimumPoints: tierSettings.tierThresholds.foldFavorite,
+            };
+          }
+
+          if (tier.id === "laundry-loyalist") {
+            return {
+              ...tier,
+              minimumPoints: tierSettings.tierThresholds.laundryLoyalist,
+            };
+          }
+
+          return tier;
+        });
+
+  const activeTiers = configuredTiers
+    .filter((tier): tier is LoyaltyRewardTier => Boolean(tier?.active))
+    .sort((firstTier, secondTier) => {
+      if (firstTier.minimumPoints !== secondTier.minimumPoints) {
+        return firstTier.minimumPoints - secondTier.minimumPoints;
+      }
+
+      return firstTier.sortOrder - secondTier.sortOrder;
+    });
+
+  return activeTiers.length > 0
+    ? activeTiers
+    : [defaultBusinessSettings.loyaltyRewards.tiers[0]];
 }
 
 function getEventExpirationDate(settings: LoyaltyRewardSettings) {
@@ -344,13 +350,19 @@ export async function getLoyaltyRewardSettings() {
 }
 
 export function getRewardsTier(points: number, settings?: LoyaltyRewardSettings) {
-  return [...getConfiguredTiers(settings)]
+  const configuredTiers = getConfiguredRewardsTiers(settings);
+
+  return [...configuredTiers]
     .reverse()
-    .find((tier) => points >= tier.minimumPoints) ?? getConfiguredTiers(settings)[0];
+    .find((tier) => points >= tier.minimumPoints) ?? configuredTiers[0];
 }
 
 export function getNextRewardsTier(points: number, settings?: LoyaltyRewardSettings) {
-  return getConfiguredTiers(settings).find((tier) => tier.minimumPoints > points) ?? null;
+  return (
+    getConfiguredRewardsTiers(settings).find(
+      (tier) => tier.minimumPoints > points,
+    ) ?? null
+  );
 }
 
 export function calculateRewardCredit(
@@ -424,12 +436,18 @@ export async function getCustomerRewardEvents(customerId: string, maxCount = 50)
   const eventsQuery = query(
     collection(db, "loyaltyRewardEvents"),
     where("customerId", "==", customerId),
-    orderBy("createdAt", "desc"),
-    limit(maxCount),
   );
   const snapshot = await getDocs(eventsQuery);
 
-  return snapshot.docs.map((eventDoc) => mapRewardEvent(eventDoc.id, eventDoc.data()));
+  return snapshot.docs
+    .map((eventDoc) => mapRewardEvent(eventDoc.id, eventDoc.data()))
+    .sort((firstEvent, secondEvent) => {
+      const firstTime = firstEvent.createdAt?.getTime() ?? 0;
+      const secondTime = secondEvent.createdAt?.getTime() ?? 0;
+
+      return secondTime - firstTime;
+    })
+    .slice(0, maxCount);
 }
 
 export async function getLoyaltyRewardsDirectory() {

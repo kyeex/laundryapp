@@ -15,9 +15,14 @@ import {
 } from "@/data/orderDraftStore";
 import { serviceCatalog } from "@/data/serviceCatalog";
 import { authorizeDemoOrderPayment } from "@/services/demoPaymentService";
+import {
+  calculateEarnedPoints,
+  getLoyaltyRewardSettings,
+} from "@/services/loyaltyRewardsService";
 import { createCustomerOrder } from "@/services/orderService";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
+import type { LoyaltyRewardSettings } from "@/types/domain";
 import { formatDisplayDate } from "@/utils/dateFormat";
 
 export default function OrderReviewScreen() {
@@ -25,11 +30,24 @@ export default function OrderReviewScreen() {
   const [demoPaymentAuthorized, setDemoPaymentAuthorized] = useState(false);
   const [demoPaymentReference, setDemoPaymentReference] = useState("");
   const [error, setError] = useState("");
+  const [rewardSettings, setRewardSettings] = useState<LoyaltyRewardSettings | null>(
+    null,
+  );
   const [isAuthorizingPayment, setIsAuthorizingPayment] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     setDraft(getOrderDraft());
+
+    async function loadRewards() {
+      try {
+        setRewardSettings(await getLoyaltyRewardSettings());
+      } catch {
+        setRewardSettings(null);
+      }
+    }
+
+    void loadRewards();
   }, []);
 
   const serviceNames = useMemo(() => {
@@ -77,6 +95,8 @@ export default function OrderReviewScreen() {
   const estimatedTotalBeforeGratuity =
     laundryEstimate + addOnsSubtotal + dryCleaningSubtotal;
   const estimatedTotal = estimatedTotalBeforeGratuity + gratuityAmount;
+  const potentialRewardPoints =
+    rewardSettings?.enabled ? calculateEarnedPoints(estimatedTotal, rewardSettings) : 0;
 
   async function handleAuthorizeDemoPayment() {
     setError("");
@@ -227,6 +247,22 @@ export default function OrderReviewScreen() {
           </Text>
         </View>
 
+        <View style={styles.rewardsCard}>
+          <Text style={styles.cardTitle}>Potential rewards</Text>
+          <Text style={styles.value}>
+            {rewardSettings?.enabled
+              ? `${potentialRewardPoints} point${
+                  potentialRewardPoints === 1 ? "" : "s"
+                } estimated`
+              : "Rewards are currently paused"}
+          </Text>
+          <Text style={styles.muted}>
+            {rewardSettings?.enabled
+              ? `Rewards are estimated from this order total at ${rewardSettings.pointsPerDollar} point(s) per $1. Actual points are awarded after the order is paid and completed.`
+              : "The business can turn customer rewards back on from rewards management."}
+          </Text>
+        </View>
+
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Payment</Text>
           <Text style={styles.muted}>
@@ -297,6 +333,14 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: spacing.sm,
+    padding: spacing.md,
+  },
+  rewardsCard: {
+    backgroundColor: "#ECFDF5",
+    borderColor: "#A7F3D0",
     borderRadius: 8,
     borderWidth: 1,
     gap: spacing.sm,

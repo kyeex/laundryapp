@@ -35,6 +35,7 @@ import {
   getCustomerProfileSummary,
   saveCustomerProfileSummary,
 } from "@/services/profileService";
+import { calculateEarnedPoints } from "@/services/loyaltyRewardsService";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import type {
@@ -421,6 +422,9 @@ export default function NewOrderScreen() {
         : 0
       : orderSubtotal * selectedGratuityRate;
   const estimatedOrderTotal = orderSubtotal + gratuityAmount;
+  const potentialRewardPoints = businessSettings.loyaltyRewards.enabled
+    ? calculateEarnedPoints(estimatedOrderTotal, businessSettings.loyaltyRewards)
+    : 0;
   const pickupCalendar = useMemo(
     () => buildPickupCalendar(pickupAvailability),
     [pickupAvailability],
@@ -1572,6 +1576,14 @@ export default function NewOrderScreen() {
                 {businessSettings.deliveryMinimumPounds} lb
               </Text>
             </View>
+            <View style={styles.summaryHighlight}>
+              <Text style={styles.summaryHighlightLabel}>Rewards</Text>
+              <Text style={styles.summaryHighlightValue}>
+                {businessSettings.loyaltyRewards.enabled
+                  ? `${potentialRewardPoints} pts`
+                  : "Paused"}
+              </Text>
+            </View>
           </View>
 
           <View style={styles.summarySection}>
@@ -1664,6 +1676,24 @@ export default function NewOrderScreen() {
             Final invoice may change after the owner confirms actual weight,
             garments, and owner-confirmed add-ons.
           </Text>
+
+          <View style={styles.rewardsEstimateBox}>
+            <Text style={styles.rewardsEstimateTitle}>Potential rewards</Text>
+            <Text style={styles.rewardsEstimateText}>
+              {businessSettings.loyaltyRewards.enabled
+                ? `This estimate could earn about ${potentialRewardPoints} point${
+                    potentialRewardPoints === 1 ? "" : "s"
+                  } after the order is paid and completed.`
+                : "Rewards are currently paused by the business."}
+            </Text>
+            {businessSettings.loyaltyRewards.enabled ? (
+              <Text style={styles.rewardsEstimateMeta}>
+                Rewards estimate uses{" "}
+                {businessSettings.loyaltyRewards.pointsPerDollar} point(s) per $1.
+                Actual points use the final paid order total.
+              </Text>
+            ) : null}
+          </View>
         </View>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -3082,6 +3112,31 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 14,
     lineHeight: 20,
+  },
+  rewardsEstimateBox: {
+    backgroundColor: "#ECFDF5",
+    borderColor: "#A7F3D0",
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: spacing.xs,
+    padding: spacing.md,
+  },
+  rewardsEstimateTitle: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  rewardsEstimateText: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: "800",
+    lineHeight: 22,
+  },
+  rewardsEstimateMeta: {
+    color: colors.muted,
+    fontSize: 13,
+    lineHeight: 18,
   },
   fixedReviewShell: {
     alignItems: "flex-end",

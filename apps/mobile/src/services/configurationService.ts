@@ -76,6 +76,40 @@ function getStorage() {
   }
 }
 
+function normalizeLoyaltyRewardsSettings(
+  loyaltyRewards: Partial<BusinessSettings["loyaltyRewards"]> | undefined,
+) {
+  const mergedThresholds = {
+    ...defaultBusinessSettings.loyaltyRewards.tierThresholds,
+    ...loyaltyRewards?.tierThresholds,
+  };
+  const defaultTiers = defaultBusinessSettings.loyaltyRewards.tiers.map((tier) => {
+    if (tier.id === "fresh-start") {
+      return { ...tier, minimumPoints: mergedThresholds.freshStart };
+    }
+
+    if (tier.id === "fold-favorite") {
+      return { ...tier, minimumPoints: mergedThresholds.foldFavorite };
+    }
+
+    if (tier.id === "laundry-loyalist") {
+      return { ...tier, minimumPoints: mergedThresholds.laundryLoyalist };
+    }
+
+    return tier;
+  });
+
+  return {
+    ...defaultBusinessSettings.loyaltyRewards,
+    ...loyaltyRewards,
+    tierThresholds: mergedThresholds,
+    tiers:
+      loyaltyRewards?.tiers && loyaltyRewards.tiers.length > 0
+        ? loyaltyRewards.tiers
+        : defaultTiers,
+  };
+}
+
 function getDemoBusinessSettings() {
   const storedSettings = getStorage()?.getItem(demoBusinessSettingsStorageKey);
 
@@ -89,14 +123,7 @@ function getDemoBusinessSettings() {
     return {
       ...defaultBusinessSettings,
       ...parsedSettings,
-      loyaltyRewards: {
-        ...defaultBusinessSettings.loyaltyRewards,
-        ...parsedSettings.loyaltyRewards,
-        tierThresholds: {
-          ...defaultBusinessSettings.loyaltyRewards.tierThresholds,
-          ...parsedSettings.loyaltyRewards?.tierThresholds,
-        },
-      },
+      loyaltyRewards: normalizeLoyaltyRewardsSettings(parsedSettings.loyaltyRewards),
       pickupAvailability: {
         ...defaultBusinessSettings.pickupAvailability,
         ...parsedSettings.pickupAvailability,
@@ -322,15 +349,9 @@ export async function getBusinessSettings() {
   return {
     ...defaultBusinessSettings,
     ...(snapshot.data() as Partial<BusinessSettings>),
-    loyaltyRewards: {
-      ...defaultBusinessSettings.loyaltyRewards,
-      ...(snapshot.data() as Partial<BusinessSettings>).loyaltyRewards,
-      tierThresholds: {
-        ...defaultBusinessSettings.loyaltyRewards.tierThresholds,
-        ...(snapshot.data() as Partial<BusinessSettings>).loyaltyRewards
-          ?.tierThresholds,
-      },
-    },
+    loyaltyRewards: normalizeLoyaltyRewardsSettings(
+      (snapshot.data() as Partial<BusinessSettings>).loyaltyRewards,
+    ),
     pickupAvailability: {
       ...defaultBusinessSettings.pickupAvailability,
       ...(snapshot.data() as Partial<BusinessSettings>).pickupAvailability,

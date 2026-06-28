@@ -15,7 +15,7 @@ import {
 } from "@/services/loyaltyRewardsService";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
-import type { AppUser, BusinessSettings } from "@/types/domain";
+import type { AppUser, BusinessSettings, LoyaltyRewardTier } from "@/types/domain";
 import { formatDisplayDateTime } from "@/utils/dateFormat";
 
 import { AppButton } from "./AppButton";
@@ -30,8 +30,36 @@ type RewardsManagementScreenProps = {
   title: string;
 };
 
+const tierColorOptions = [
+  { label: "Mint", value: "#ECFDF5" },
+  { label: "Sky", value: "#EFF6FF" },
+  { label: "Gold", value: "#FEF3C7" },
+  { label: "Rose", value: "#FFE4E6" },
+  { label: "Lavender", value: "#F3E8FF" },
+  { label: "Slate", value: "#F1F5F9" },
+  { label: "Peach", value: "#FFEDD5" },
+  { label: "Aqua", value: "#CCFBF1" },
+];
+
 function formatPoints(points: number) {
   return points > 0 ? `+${points}` : `${points}`;
+}
+
+function parseTierPoints(value: string, fallback: number) {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? Math.max(0, parsed) : fallback;
+}
+
+function createRewardsTier(sortOrder: number): LoyaltyRewardTier {
+  return {
+    id: `tier-${Date.now()}`,
+    name: "New tier",
+    description: "Describe what this tier means for customers.",
+    minimumPoints: 0,
+    color: "#F8FAFC",
+    active: true,
+    sortOrder,
+  };
 }
 
 export function RewardsManagementScreen({
@@ -54,6 +82,7 @@ export function RewardsManagementScreen({
   const [search, setSearch] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [success, setSuccess] = useState("");
+  const [openColorTierId, setOpenColorTierId] = useState<string | null>(null);
 
   const loadRewards = useCallback(async () => {
     setError("");
@@ -238,7 +267,137 @@ export function RewardsManagementScreen({
     }
   }
 
+  function updateProgramTier(
+    tierId: string,
+    updater: (tier: LoyaltyRewardTier) => LoyaltyRewardTier,
+  ) {
+    setProgramSettings((currentSettings) => {
+      if (!currentSettings) {
+        return currentSettings;
+      }
+
+      return {
+        ...currentSettings,
+        loyaltyRewards: {
+          ...currentSettings.loyaltyRewards,
+          tiers: currentSettings.loyaltyRewards.tiers.map((tier) =>
+            tier.id === tierId ? updater(tier) : tier,
+          ),
+        },
+      };
+    });
+  }
+
+  function handleAddTier() {
+    setProgramSettings((currentSettings) => {
+      if (!currentSettings) {
+        return currentSettings;
+      }
+
+      return {
+        ...currentSettings,
+        loyaltyRewards: {
+          ...currentSettings.loyaltyRewards,
+          tiers: [
+            ...currentSettings.loyaltyRewards.tiers,
+            createRewardsTier(currentSettings.loyaltyRewards.tiers.length + 1),
+          ],
+        },
+      };
+    });
+  }
+
+  function handleRemoveTier(tierId: string) {
+    setProgramSettings((currentSettings) => {
+      if (!currentSettings || currentSettings.loyaltyRewards.tiers.length <= 1) {
+        return currentSettings;
+      }
+
+      return {
+        ...currentSettings,
+        loyaltyRewards: {
+          ...currentSettings.loyaltyRewards,
+          tiers: currentSettings.loyaltyRewards.tiers.filter(
+            (tier) => tier.id !== tierId,
+          ),
+        },
+      };
+    });
+  }
+
+  async function handleSaveTierSettings() {
+    if (!currentUser || !programSettings) {
+      return;
+    }
+
+    setError("");
+    setSuccess("");
+    setIsSavingProgram(true);
+
+    const sortedTiers = [...programSettings.loyaltyRewards.tiers]
+      .sort((firstTier, secondTier) => {
+        if (firstTier.minimumPoints !== secondTier.minimumPoints) {
+          return firstTier.minimumPoints - secondTier.minimumPoints;
+        }
+
+        return firstTier.sortOrder - secondTier.sortOrder;
+      })
+      .map((tier, index) => ({
+        ...tier,
+        name: tier.name.trim(),
+        description: tier.description.trim(),
+        color: tier.color.trim() || "#F8FAFC",
+        sortOrder: index + 1,
+      }));
+    const nextSettings: BusinessSettings = {
+      ...programSettings,
+      loyaltyRewards: {
+        ...programSettings.loyaltyRewards,
+        tiers: sortedTiers,
+      },
+    };
+
+    try {
+      await saveBusinessSettings(nextSettings);
+      await recordAuditLog({
+        actorId: currentUser.id,
+        actorRole: currentUser.role,
+        action: "rewards.tiers_updated",
+        resourceType: "configuration",
+        resourceId: "business",
+        summary: "Updated customer rewards tier configuration.",
+        metadata: {
+          tiers: sortedTiers.map((tier) => ({
+            id: tier.id,
+            name: tier.name,
+            minimumPoints: tier.minimumPoints,
+            active: tier.active,
+          })),
+        },
+      });
+      setProgramSettings(nextSettings);
+      setSuccess("Rewards tiers saved.");
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error ? saveError.message : "Unable to save rewards tiers.",
+      );
+    } finally {
+      setIsSavingProgram(false);
+    }
+  }
+
   const rewardsEnabled = programSettings?.loyaltyRewards.enabled ?? false;
+  const rewardTiers = useMemo(
+    () =>
+      [...(programSettings?.loyaltyRewards.tiers ?? [])].sort((firstTier, secondTier) => {
+        if (firstTier.minimumPoints !== secondTier.minimumPoints) {
+          return firstTier.minimumPoints - secondTier.minimumPoints;
+        }
+
+        return firstTier.sortOrder - secondTier.sortOrder;
+      }),
+    [programSettings?.loyaltyRewards.tiers],
+  );
 
   return (
     <Screen>
@@ -252,48 +411,221 @@ export function RewardsManagementScreen({
         </View>
 
         {showProgramToggle ? (
-          <View
-            style={[
-              styles.programPanel,
-              rewardsEnabled ? styles.programPanelEnabled : styles.programPanelDisabled,
-            ]}
-          >
-            <View style={styles.programCopy}>
-              <Text style={styles.programEyebrow}>Rewards availability</Text>
-              <Text style={styles.programTitle}>
-                {rewardsEnabled ? "Rewards are live" : "Rewards are paused"}
-              </Text>
-              <Text style={styles.programText}>
-                {rewardsEnabled
-                  ? "Customers can see rewards, earn points, view their ledger, and apply available credits at checkout."
-                  : "Rewards are hidden from customer home and checkout. Existing point balances remain saved for later."}
-              </Text>
-            </View>
-            <Pressable
-              accessibilityRole="switch"
-              accessibilityState={{
-                checked: rewardsEnabled,
-                disabled: !programSettings || isSavingProgram,
-              }}
-              disabled={!programSettings || isSavingProgram}
-              onPress={handleToggleProgram}
+          <View style={styles.programStack}>
+            <View
               style={[
-                styles.programSwitch,
-                rewardsEnabled && styles.programSwitchEnabled,
-                (!programSettings || isSavingProgram) && styles.programSwitchDisabled,
+                styles.programPanel,
+                rewardsEnabled
+                  ? styles.programPanelEnabled
+                  : styles.programPanelDisabled,
               ]}
             >
-              {rewardsEnabled ? null : <View style={styles.programSwitchThumb} />}
-              <Text
+              <View style={styles.programCopy}>
+                <Text style={styles.programEyebrow}>Rewards availability</Text>
+                <Text style={styles.programTitle}>
+                  {rewardsEnabled ? "Rewards are live" : "Rewards are paused"}
+                </Text>
+                <Text style={styles.programText}>
+                  {rewardsEnabled
+                    ? "Customers can see rewards, earn points, view their ledger, and apply available credits at checkout."
+                    : "Rewards are hidden from customer home and checkout. Existing point balances remain saved for later."}
+                </Text>
+              </View>
+              <Pressable
+                accessibilityRole="switch"
+                accessibilityState={{
+                  checked: rewardsEnabled,
+                  disabled: !programSettings || isSavingProgram,
+                }}
+                disabled={!programSettings || isSavingProgram}
+                onPress={handleToggleProgram}
                 style={[
-                  styles.programSwitchText,
-                  rewardsEnabled && styles.programSwitchTextEnabled,
+                  styles.programSwitch,
+                  rewardsEnabled && styles.programSwitchEnabled,
+                  (!programSettings || isSavingProgram) && styles.programSwitchDisabled,
                 ]}
               >
-                {isSavingProgram ? "Saving" : rewardsEnabled ? "On" : "Off"}
-              </Text>
-              {rewardsEnabled ? <View style={styles.programSwitchThumb} /> : null}
-            </Pressable>
+                {rewardsEnabled ? null : <View style={styles.programSwitchThumb} />}
+                <Text
+                  style={[
+                    styles.programSwitchText,
+                    rewardsEnabled && styles.programSwitchTextEnabled,
+                  ]}
+                >
+                  {isSavingProgram ? "Saving" : rewardsEnabled ? "On" : "Off"}
+                </Text>
+                {rewardsEnabled ? <View style={styles.programSwitchThumb} /> : null}
+              </Pressable>
+            </View>
+
+            <View style={styles.tierEditorPanel}>
+              <View style={styles.tierEditorHeader}>
+                <View style={styles.programCopy}>
+                  <Text style={styles.programEyebrow}>Tier levels</Text>
+                  <Text style={styles.programTitle}>Customer rewards tiers</Text>
+                  <Text style={styles.programText}>
+                    These names, descriptions, colors, and point requirements are
+                    shown on the customer rewards page.
+                  </Text>
+                </View>
+                <View style={styles.tierEditorActions}>
+                  <AppButton
+                    label="Add tier"
+                    onPress={handleAddTier}
+                    variant="secondary"
+                  />
+                  <AppButton
+                    disabled={!programSettings || isSavingProgram}
+                    label={isSavingProgram ? "Saving..." : "Save tiers"}
+                    onPress={handleSaveTierSettings}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.tierList}>
+                {rewardTiers.map((tier) => (
+                  <View key={tier.id} style={styles.tierEditorCard}>
+                    <View
+                      style={[
+                        styles.tierPreview,
+                        { backgroundColor: tier.color, borderColor: tier.color },
+                      ]}
+                    >
+                      <Text style={styles.tierPreviewLabel}>Customer preview</Text>
+                      <Text style={styles.tierPreviewName}>{tier.name}</Text>
+                      <Text style={styles.tierPreviewText}>
+                        {tier.minimumPoints} lifetime points
+                      </Text>
+                    </View>
+
+                    <View style={styles.tierForm}>
+                      <View style={styles.tierRow}>
+                        <View style={styles.tierField}>
+                          <FormTextInput
+                            label="Tier name"
+                            onChangeText={(value) =>
+                              updateProgramTier(tier.id, (currentTier) => ({
+                                ...currentTier,
+                                name: value,
+                              }))
+                            }
+                            value={tier.name}
+                          />
+                        </View>
+                        <View style={styles.tierField}>
+                          <FormTextInput
+                            keyboardType="number-pad"
+                            label="Required points"
+                            onChangeText={(value) =>
+                              updateProgramTier(tier.id, (currentTier) => ({
+                                ...currentTier,
+                                minimumPoints: parseTierPoints(
+                                  value,
+                                  currentTier.minimumPoints,
+                                ),
+                              }))
+                            }
+                            value={tier.minimumPoints.toString()}
+                          />
+                        </View>
+                        <View style={styles.tierField}>
+                          <Text style={styles.fieldLabel}>Tier color</Text>
+                          <Pressable
+                            accessibilityRole="button"
+                            onPress={() =>
+                              setOpenColorTierId((currentTierId) =>
+                                currentTierId === tier.id ? null : tier.id,
+                              )
+                            }
+                            style={styles.colorSelect}
+                          >
+                            <View
+                              style={[
+                                styles.colorSwatch,
+                                { backgroundColor: tier.color },
+                              ]}
+                            />
+                            <Text style={styles.colorSelectText}>
+                              {tierColorOptions.find(
+                                (option) => option.value === tier.color,
+                              )?.label ?? tier.color}
+                            </Text>
+                            <Text style={styles.colorChevron}>
+                              {openColorTierId === tier.id ? "-" : "+"}
+                            </Text>
+                          </Pressable>
+                          {openColorTierId === tier.id ? (
+                            <View style={styles.colorDropdown}>
+                              {tierColorOptions.map((option) => {
+                                const selected = tier.color === option.value;
+
+                                return (
+                                  <Pressable
+                                    accessibilityRole="button"
+                                    key={option.value}
+                                    onPress={() => {
+                                      updateProgramTier(tier.id, (currentTier) => ({
+                                        ...currentTier,
+                                        color: option.value,
+                                      }));
+                                      setOpenColorTierId(null);
+                                    }}
+                                    style={[
+                                      styles.colorOption,
+                                      selected && styles.colorOptionSelected,
+                                    ]}
+                                  >
+                                    <View
+                                      style={[
+                                        styles.colorSwatch,
+                                        { backgroundColor: option.value },
+                                      ]}
+                                    />
+                                    <Text style={styles.colorOptionText}>
+                                      {option.label}
+                                    </Text>
+                                  </Pressable>
+                                );
+                              })}
+                            </View>
+                          ) : null}
+                        </View>
+                      </View>
+                      <FormTextInput
+                        label="Tier description"
+                        multiline
+                        onChangeText={(value) =>
+                          updateProgramTier(tier.id, (currentTier) => ({
+                            ...currentTier,
+                            description: value,
+                          }))
+                        }
+                        style={styles.tierDescriptionInput}
+                        value={tier.description}
+                      />
+                      <View style={styles.tierButtonRow}>
+                        <AppButton
+                          label={tier.active ? "Tier active" : "Tier hidden"}
+                          onPress={() =>
+                            updateProgramTier(tier.id, (currentTier) => ({
+                              ...currentTier,
+                              active: !currentTier.active,
+                            }))
+                          }
+                          variant={tier.active ? "primary" : "secondary"}
+                        />
+                        <AppButton
+                          disabled={rewardTiers.length <= 1}
+                          label="Remove tier"
+                          onPress={() => handleRemoveTier(tier.id)}
+                          variant="secondary"
+                        />
+                      </View>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </View>
           </View>
         ) : null}
 
@@ -458,6 +790,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
   },
+  programStack: {
+    gap: spacing.md,
+  },
   programPanel: {
     alignItems: "center",
     borderRadius: 8,
@@ -534,6 +869,150 @@ const styles = StyleSheet.create({
   },
   programSwitchTextEnabled: {
     color: colors.onPrimary,
+  },
+  tierEditorPanel: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: spacing.md,
+    padding: spacing.lg,
+  },
+  tierEditorHeader: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.md,
+    justifyContent: "space-between",
+  },
+  tierEditorActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  tierList: {
+    gap: spacing.md,
+  },
+  tierEditorCard: {
+    alignItems: "stretch",
+    backgroundColor: "#F8FAFC",
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.md,
+    padding: spacing.md,
+  },
+  tierPreview: {
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: spacing.xs,
+    justifyContent: "center",
+    minWidth: 210,
+    padding: spacing.md,
+  },
+  tierPreviewLabel: {
+    color: colors.muted,
+    fontSize: 11,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  tierPreviewName: {
+    color: colors.text,
+    fontSize: 22,
+    fontWeight: "900",
+  },
+  tierPreviewText: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  tierForm: {
+    flex: 1,
+    gap: spacing.sm,
+    minWidth: 280,
+  },
+  tierRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  tierField: {
+    flex: 1,
+    gap: spacing.xs,
+    minWidth: 150,
+  },
+  tierDescriptionInput: {
+    minHeight: 76,
+    paddingVertical: spacing.sm,
+  },
+  fieldLabel: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  colorSelect: {
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: spacing.sm,
+    minHeight: 52,
+    paddingHorizontal: spacing.md,
+  },
+  colorSwatch: {
+    borderColor: colors.border,
+    borderRadius: 999,
+    borderWidth: 1,
+    height: 24,
+    width: 24,
+  },
+  colorSelectText: {
+    color: colors.text,
+    flex: 1,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  colorChevron: {
+    color: colors.primary,
+    fontSize: 20,
+    fontWeight: "900",
+  },
+  colorDropdown: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+    padding: spacing.xs,
+  },
+  colorOption: {
+    alignItems: "center",
+    borderColor: "transparent",
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  colorOptionSelected: {
+    backgroundColor: "#F0FDFA",
+    borderColor: colors.primary,
+  },
+  colorOptionText: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  tierButtonRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
   },
   layout: {
     alignItems: "flex-start",

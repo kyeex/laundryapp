@@ -76,11 +76,22 @@ export type PickupAvailability = {
   unavailableDates: string[];
 };
 
+export type LoyaltyRewardTier = {
+  id: string;
+  name: string;
+  description: string;
+  minimumPoints: number;
+  color: string;
+  active: boolean;
+  sortOrder: number;
+};
+
 export type LoyaltyRewardSettings = {
   enabled: boolean;
   pointsPerDollar: number;
   pointsPerRewardDollar: number;
   signupBonusPoints: number;
+  tiers: LoyaltyRewardTier[];
   tierThresholds: {
     freshStart: number;
     foldFavorite: number;

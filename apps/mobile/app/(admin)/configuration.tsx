@@ -761,74 +761,12 @@ export default function AdminConfigurationScreen() {
                 />
               </View>
             </View>
-            <Text style={styles.fieldLabel}>Tier thresholds</Text>
-            <View style={styles.row}>
-              <View style={styles.rowItem}>
-                <FormTextInput
-                  keyboardType="number-pad"
-                  label="Fresh Start"
-                  onChangeText={(value) =>
-                    setSettings((current) => ({
-                      ...current,
-                      loyaltyRewards: {
-                        ...current.loyaltyRewards,
-                        tierThresholds: {
-                          ...current.loyaltyRewards.tierThresholds,
-                          freshStart: parseRequiredNumber(
-                            value,
-                            current.loyaltyRewards.tierThresholds.freshStart,
-                          ),
-                        },
-                      },
-                    }))
-                  }
-                  value={settings.loyaltyRewards.tierThresholds.freshStart.toString()}
-                />
-              </View>
-              <View style={styles.rowItem}>
-                <FormTextInput
-                  keyboardType="number-pad"
-                  label="Fold Favorite"
-                  onChangeText={(value) =>
-                    setSettings((current) => ({
-                      ...current,
-                      loyaltyRewards: {
-                        ...current.loyaltyRewards,
-                        tierThresholds: {
-                          ...current.loyaltyRewards.tierThresholds,
-                          foldFavorite: parseRequiredNumber(
-                            value,
-                            current.loyaltyRewards.tierThresholds.foldFavorite,
-                          ),
-                        },
-                      },
-                    }))
-                  }
-                  value={settings.loyaltyRewards.tierThresholds.foldFavorite.toString()}
-                />
-              </View>
-              <View style={styles.rowItem}>
-                <FormTextInput
-                  keyboardType="number-pad"
-                  label="Laundry Loyalist"
-                  onChangeText={(value) =>
-                    setSettings((current) => ({
-                      ...current,
-                      loyaltyRewards: {
-                        ...current.loyaltyRewards,
-                        tierThresholds: {
-                          ...current.loyaltyRewards.tierThresholds,
-                          laundryLoyalist: parseRequiredNumber(
-                            value,
-                            current.loyaltyRewards.tierThresholds.laundryLoyalist,
-                          ),
-                        },
-                      },
-                    }))
-                  }
-                  value={settings.loyaltyRewards.tierThresholds.laundryLoyalist.toString()}
-                />
-              </View>
+            <View style={styles.inlineNotice}>
+              <Text style={styles.fieldLabel}>Tier levels</Text>
+              <Text style={styles.muted}>
+                Tier names, descriptions, colors, active status, and point
+                requirements are managed from the Rewards page.
+              </Text>
             </View>
           </View>
         </View>
@@ -1667,6 +1605,14 @@ const styles = StyleSheet.create({
   rowItem: {
     flex: 1,
     minWidth: 160,
+  },
+  inlineNotice: {
+    backgroundColor: "#F8FAFC",
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: spacing.xs,
+    padding: spacing.md,
   },
   weekdayGrid: {
     flexDirection: "row",

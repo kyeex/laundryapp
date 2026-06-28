@@ -158,9 +158,20 @@ export default function CustomerRewardsScreen() {
                   Worth up to ${availableCredit.toFixed(2)} in reward credit.
                 </Text>
               </View>
-              <View style={styles.tierCard}>
+              <View
+                style={[
+                  styles.tierCard,
+                  {
+                    backgroundColor: currentTier.color,
+                    borderColor: currentTier.color,
+                  },
+                ]}
+              >
                 <Text style={styles.tierLabel}>Current tier</Text>
                 <Text style={styles.tierName}>{currentTier.name}</Text>
+                <Text style={styles.tierRequirement}>
+                  {currentTier.minimumPoints} lifetime points required
+                </Text>
                 <Text style={styles.tierDescription}>{currentTier.description}</Text>
               </View>
             </View>
@@ -377,6 +388,11 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 20,
     fontWeight: "900",
+  },
+  tierRequirement: {
+    color: colors.text,
+    fontSize: 12,
+    fontWeight: "800",
   },
   tierDescription: {
     color: colors.muted,

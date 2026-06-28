@@ -272,7 +272,34 @@ export default function AdminOrderDetailScreen() {
               <StatusPill label={formatOrderStatus(order.status)} tone="info" />
             </View>
 
-            <OrderTimeline status={order.status} />
+            <SectionCard title="Customer details">
+              <DetailRow
+                label="Name"
+                value={order.customerName || "Customer name unavailable"}
+              />
+              <DetailRow
+                label="Pickup"
+                value={`${formatDisplayDate(order.scheduledPickupDate)} · ${
+                  order.scheduledPickupWindow
+                }`}
+              />
+              <DetailRow
+                label="Email"
+                value={order.customerEmail || "No email on order"}
+              />
+              <DetailRow
+                label="Phone"
+                value={order.customerPhone || "No phone on order"}
+              />
+              <DetailRow label="Address" value={formatAddress(order.addressSnapshot)} />
+              {order.addressSnapshot.deliveryInstructions ? (
+                <Text style={styles.muted}>
+                  {order.addressSnapshot.deliveryInstructions}
+                </Text>
+              ) : null}
+            </SectionCard>
+
+            <OrderTimeline orientation="horizontal" status={order.status} />
 
             {order.status === "requested" ? (
               <SectionCard title="Initial order decision">
@@ -472,29 +499,6 @@ export default function AdminOrderDetailScreen() {
                 ) : null}
               </SectionCard>
             ) : null}
-
-            <SectionCard title="Customer address">
-              <DetailRow
-                label="Pickup"
-                value={`${formatDisplayDate(order.scheduledPickupDate)} · ${
-                  order.scheduledPickupWindow
-                }`}
-              />
-              <DetailRow
-                label="Email"
-                value={order.customerEmail || "No email on order"}
-              />
-              <DetailRow
-                label="Phone"
-                value={order.customerPhone || "No phone on order"}
-              />
-              <DetailRow label="Address" value={formatAddress(order.addressSnapshot)} />
-              {order.addressSnapshot.deliveryInstructions ? (
-                <Text style={styles.muted}>
-                  {order.addressSnapshot.deliveryInstructions}
-                </Text>
-              ) : null}
-            </SectionCard>
 
             <SectionCard title="Drop-off">
               <Text style={styles.value}>

@@ -77,21 +77,94 @@ function TimelineRow({
   );
 }
 
-export function OrderTimeline({ status }: { status: OrderStatus }) {
+function HorizontalTimelineStep({
+  description,
+  isLast,
+  state,
+  title,
+}: {
+  description: string;
+  isLast: boolean;
+  state: StepState;
+  title: string;
+}) {
+  return (
+    <View style={styles.horizontalStep}>
+      <View style={styles.horizontalVisual}>
+        <View
+          style={[
+            styles.stepDot,
+            state === "complete" && styles.stepDotComplete,
+            state === "active" && styles.stepDotActive,
+            state === "issue" && styles.stepDotIssue,
+          ]}
+        >
+          <Text
+            style={[
+              styles.stepDotText,
+              state !== "pending" && styles.stepDotTextActive,
+            ]}
+          >
+            {state === "complete" ? "✓" : state === "issue" ? "!" : ""}
+          </Text>
+        </View>
+        {!isLast ? (
+          <View
+            style={[
+              styles.horizontalLine,
+              state === "complete" && styles.stepLineComplete,
+            ]}
+          />
+        ) : null}
+      </View>
+      <Text style={[styles.stepTitle, state === "active" && styles.stepTitleActive]}>
+        {title}
+      </Text>
+      <Text style={styles.stepDescription}>{description}</Text>
+    </View>
+  );
+}
+
+export function OrderTimeline({
+  orientation = "vertical",
+  status,
+}: {
+  orientation?: "vertical" | "horizontal";
+  status: OrderStatus;
+}) {
   const activeIndex = getOrderTimelineStepIndex(status);
+  const steps = orderTimelineSteps.map((step, index) => ({
+    ...step,
+    isLast: index === orderTimelineSteps.length - 1,
+    state: getOrderStepState(index, activeIndex, status),
+  }));
 
   return (
     <View style={styles.card}>
       <Text style={styles.cardTitle}>Order timeline</Text>
-      {orderTimelineSteps.map((step, index) => (
-        <TimelineRow
-          description={step.description}
-          isLast={index === orderTimelineSteps.length - 1}
-          key={step.id}
-          state={getOrderStepState(index, activeIndex, status)}
-          title={step.title}
-        />
-      ))}
+      {orientation === "horizontal" ? (
+        <View style={styles.horizontalTrack}>
+          {steps.map((step) => (
+            <HorizontalTimelineStep
+              description={step.description}
+              isLast={step.isLast}
+              key={step.id}
+              state={step.state}
+              title={step.title}
+            />
+          ))}
+        </View>
+      ) : (
+        steps.map((step) => (
+          <TimelineRow
+            description={step.description}
+            isLast={step.isLast}
+            key={step.id}
+            state={step.state}
+            title={step.title}
+          />
+        ))
+      )}
     </View>
   );
 }
@@ -231,5 +304,30 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 14,
     lineHeight: 20,
+  },
+  horizontalTrack: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  horizontalStep: {
+    backgroundColor: "#F8FAFC",
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    flex: 1,
+    gap: spacing.xs,
+    minWidth: 150,
+    padding: spacing.sm,
+  },
+  horizontalVisual: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: spacing.xs,
+  },
+  horizontalLine: {
+    backgroundColor: colors.border,
+    flex: 1,
+    height: 2,
   },
 });

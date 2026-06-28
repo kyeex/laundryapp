@@ -126,6 +126,20 @@ export function validateBusinessSettings(settings: BusinessSettings) {
     throw new Error("Rewards expiration months must be blank or greater than zero.");
   }
 
+  if (settings.loyaltyRewards.tiers.length === 0) {
+    throw new Error("Create at least one rewards tier.");
+  }
+
+  settings.loyaltyRewards.tiers.forEach((tier) => {
+    requireText(tier.name, "Rewards tier name");
+    requireText(tier.description, "Rewards tier description");
+    requireText(tier.color, "Rewards tier color");
+
+    if (!Number.isFinite(tier.minimumPoints) || tier.minimumPoints < 0) {
+      throw new Error("Rewards tier point requirements must be zero or greater.");
+    }
+  });
+
   settings.gratuityRateOptions.forEach((rate) => {
     if (!Number.isFinite(rate) || rate < 0) {
       throw new Error("Gratuity rates must be valid positive percentages.");
