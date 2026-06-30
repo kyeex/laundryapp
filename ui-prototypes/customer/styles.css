@@ -684,3 +684,322 @@ dd {
     grid-column: 2;
   }
 }
+
+/* Shared premium polish */
+:root {
+  --paper: #f7f3ec;
+  --surface: #fffdf9;
+  --ink: #101917;
+  --muted: #66736d;
+  --line: rgba(16, 25, 23, 0.1);
+  --teal: #04766e;
+  --teal-dark: #064c49;
+  --coral: #f46555;
+  --yellow: #f2bd47;
+  --blue: #2f55e7;
+  --shadow: 0 28px 90px rgba(16, 25, 23, 0.14);
+  --button-shadow: 0 16px 34px rgba(16, 25, 23, 0.18);
+}
+
+body {
+  background:
+    radial-gradient(circle at 12% 8%, rgba(244, 101, 85, 0.18), transparent 20rem),
+    radial-gradient(circle at 82% 4%, rgba(4, 118, 110, 0.17), transparent 24rem),
+    linear-gradient(180deg, #fffaf3 0%, #f4efe6 100%);
+}
+
+.app-shell {
+  gap: 22px;
+  max-width: 1440px;
+}
+
+.sidebar,
+.panel,
+.form-card,
+.phone-preview {
+  backdrop-filter: blur(22px);
+  background: rgba(255, 253, 249, 0.86);
+  border-color: rgba(255, 255, 255, 0.74);
+  box-shadow: var(--shadow);
+}
+
+.sidebar {
+  background:
+    linear-gradient(180deg, rgba(255, 253, 249, 0.94), rgba(255, 253, 249, 0.76)),
+    rgba(255, 255, 255, 0.86);
+  border-radius: 32px;
+  min-height: calc(100vh - 36px);
+}
+
+.brand-mark {
+  background: linear-gradient(135deg, var(--ink), var(--teal-dark));
+  box-shadow: 0 12px 24px rgba(16, 25, 23, 0.22);
+}
+
+.nav-item {
+  align-items: center;
+  display: flex;
+  position: relative;
+  transition:
+    background 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.nav-item:hover {
+  background: rgba(16, 25, 23, 0.06);
+  color: var(--ink);
+  transform: translateX(2px);
+}
+
+.nav-item.is-active {
+  background: linear-gradient(135deg, var(--ink), #1e3530);
+  box-shadow: 0 14px 32px rgba(16, 25, 23, 0.22);
+}
+
+.sidebar-card {
+  background:
+    linear-gradient(135deg, rgba(215, 245, 232, 0.96), rgba(255, 255, 255, 0.86));
+  border: 1px solid rgba(4, 118, 110, 0.16);
+  box-shadow: 0 16px 36px rgba(4, 118, 110, 0.1);
+}
+
+.topbar {
+  background: rgba(255, 253, 249, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.64);
+  border-radius: 28px;
+  box-shadow: 0 18px 48px rgba(16, 25, 23, 0.08);
+  padding: 18px;
+}
+
+.hero {
+  background:
+    linear-gradient(135deg, rgba(255, 253, 249, 0.96), rgba(255, 255, 255, 0.72)),
+    rgba(255, 255, 255, 0.9);
+  border-radius: 34px;
+  gap: 30px;
+  min-height: 610px;
+  padding: 36px;
+}
+
+.hero h2 {
+  max-width: 780px;
+}
+
+.hero p {
+  max-width: 640px;
+}
+
+.hero-media {
+  border: 10px solid rgba(255, 255, 255, 0.72);
+  box-shadow: 0 30px 70px rgba(16, 25, 23, 0.2);
+  isolation: isolate;
+  min-height: 470px;
+  position: relative;
+}
+
+.hero-media::after {
+  background: linear-gradient(180deg, transparent 46%, rgba(16, 25, 23, 0.56));
+  content: "";
+  inset: 0;
+  position: absolute;
+  z-index: 1;
+}
+
+.hero-stat-card {
+  backdrop-filter: blur(18px);
+  background: rgba(255, 253, 249, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 20px;
+  box-shadow: 0 18px 44px rgba(16, 25, 23, 0.2);
+  display: grid;
+  gap: 4px;
+  padding: 15px 17px;
+  position: absolute;
+  z-index: 2;
+}
+
+.hero-stat-card span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.hero-stat-card strong {
+  color: var(--ink);
+  font-size: 24px;
+  line-height: 1;
+}
+
+.hero-stat-card.primary {
+  bottom: 20px;
+  left: 20px;
+}
+
+.hero-stat-card.secondary {
+  right: 20px;
+  top: 20px;
+}
+
+.trust-ribbon {
+  align-items: center;
+  background: rgba(16, 25, 23, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 24px;
+  color: white;
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(3, 1fr);
+  margin-top: 16px;
+  overflow: hidden;
+}
+
+.trust-ribbon span {
+  align-items: center;
+  display: flex;
+  font-weight: 900;
+  min-height: 68px;
+  padding: 18px;
+}
+
+.trust-ribbon span + span {
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.primary-action,
+.secondary-action,
+.segmented button,
+.nav-item,
+.prototype-card {
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease,
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.primary-action {
+  background: linear-gradient(135deg, var(--ink), #203833);
+  box-shadow: var(--button-shadow);
+}
+
+.primary-action:hover,
+.secondary-action:hover {
+  transform: translateY(-2px);
+}
+
+.secondary-action {
+  background: rgba(255, 253, 249, 0.9);
+  box-shadow: 0 12px 26px rgba(16, 25, 23, 0.08);
+}
+
+.metric-grid article,
+.preference-card,
+.choice-card,
+.toggle-row,
+.estimate-pill,
+.auth-card,
+.auth-visual,
+.order-summary,
+.timeline {
+  border-color: rgba(255, 255, 255, 0.7);
+}
+
+.metric-grid article {
+  box-shadow: 0 20px 44px rgba(16, 25, 23, 0.12);
+  overflow: hidden;
+  position: relative;
+}
+
+.metric-grid article::after {
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 50%;
+  content: "";
+  height: 120px;
+  position: absolute;
+  right: -38px;
+  top: -42px;
+  width: 120px;
+}
+
+.choice-card,
+.toggle-row,
+.preference-card,
+.request-card,
+.job-card,
+.driver-card,
+.earnings-card {
+  box-shadow: 0 12px 30px rgba(16, 25, 23, 0.06);
+}
+
+.choice-card:hover,
+.toggle-row:hover,
+.preference-card:hover {
+  border-color: rgba(4, 118, 110, 0.22);
+  transform: translateY(-1px);
+}
+
+.auth-visual,
+.phone-preview {
+  background:
+    radial-gradient(circle at 15% 0%, rgba(244, 101, 85, 0.26), transparent 13rem),
+    linear-gradient(160deg, #101917 0%, #15342f 58%, #04766e 100%);
+}
+
+input,
+select,
+textarea {
+  background: rgba(255, 255, 255, 0.9);
+  min-height: 50px;
+}
+
+textarea {
+  line-height: 1.45;
+}
+
+@media (max-width: 1020px) {
+  .sidebar {
+    min-height: auto;
+  }
+
+  .hero {
+    min-height: auto;
+  }
+}
+
+@media (max-width: 680px) {
+  .topbar {
+    border-radius: 22px;
+    padding: 14px;
+  }
+
+  .hero {
+    border-radius: 26px;
+    padding: 20px;
+  }
+
+  .hero-media {
+    border-width: 6px;
+    min-height: 330px;
+  }
+
+  .hero-stat-card {
+    border-radius: 16px;
+    padding: 12px 13px;
+  }
+
+  .hero-stat-card strong {
+    font-size: 19px;
+  }
+
+  .trust-ribbon {
+    grid-template-columns: 1fr;
+  }
+
+  .trust-ribbon span + span {
+    border-left: 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+  }
+}

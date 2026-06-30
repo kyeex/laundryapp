@@ -20,14 +20,29 @@ The function:
 
 ## Environment
 
-Copy `.env.example` to `.env` and set:
+For deployed staging/production functions, set the Stripe key as a Firebase
+secret:
 
-```bash
-STRIPE_SECRET_KEY=
+```powershell
+firebase functions:secrets:set STRIPE_SECRET_KEY --project laundryapp-staging
+firebase functions:secrets:set STRIPE_SECRET_KEY --project laundryapp-production
+```
+
+Then deploy the functions that use it:
+
+```powershell
+npm run deploy:staging:functions
+```
+
+For local-only function development, a local `.env` can still provide:
+
+```text
+STRIPE_SECRET_KEY=sk_test_or_rk_test_value
 STRIPE_CURRENCY=usd
 ```
 
 Never put the Stripe secret key in the mobile app.
+Never commit Stripe secret keys to GitHub.
 
 ## Verification
 

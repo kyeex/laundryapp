@@ -3,12 +3,13 @@ import { getAuth } from "firebase-admin/auth";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { onDocumentCreated } from "firebase-functions/firestore";
 import { HttpsError, onCall } from "firebase-functions/https";
+import { defineSecret } from "firebase-functions/params";
 import { randomUUID } from "node:crypto";
 import Stripe from "stripe";
 
 initializeApp();
 
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+const stripeSecretKey = defineSecret("STRIPE_SECRET_KEY");
 const currency = process.env.STRIPE_CURRENCY ?? "usd";
 const stagingSeedTag = "staging-demo";
 const stagingSeedPassword = "LaundryDemo#2026!";
@@ -603,14 +604,16 @@ async function resetStagingSeedBusinessData() {
 }
 
 function getStripe() {
-  if (!stripeSecretKey) {
+  const secretKey = stripeSecretKey.value() || process.env.STRIPE_SECRET_KEY;
+
+  if (!secretKey) {
     throw new HttpsError(
       "failed-precondition",
       "STRIPE_SECRET_KEY is not configured.",
     );
   }
 
-  return new Stripe(stripeSecretKey);
+  return new Stripe(secretKey);
 }
 
 const defaultRewardSettings = {
@@ -1303,6 +1306,7 @@ export const createPaymentIntent = onCall<{
   orderId: string;
   rewardCreditDollars?: number;
 }>(
+  { secrets: [stripeSecretKey] },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Sign in before paying.");
@@ -1439,6 +1443,7 @@ export const createPaymentIntent = onCall<{
 );
 
 export const confirmOrderPayment = onCall<{ orderId: string }>(
+  { secrets: [stripeSecretKey] },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Sign in before confirming payment.");
