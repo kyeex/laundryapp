@@ -26,9 +26,17 @@ import {
 import { initializeAndPresentPaymentSheet } from "@/services/stripePaymentSheet";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
-import type { LoyaltyRewardSettings, Order } from "@/types/domain";
+import type { LoyaltyRewardSettings, Order, OrderStatus } from "@/types/domain";
 
 const rewardCreditOptions = [0, 1, 2, 5, 10];
+const payableOrderStatuses = new Set<OrderStatus>([
+  "accepted",
+  "received_at_store",
+  "in_progress",
+  "priced",
+  "payment_requested",
+  "ready_for_delivery",
+]);
 
 export default function CustomerPayOrderScreen() {
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
@@ -46,6 +54,7 @@ export default function CustomerPayOrderScreen() {
   const [success, setSuccess] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isPaying, setIsPaying] = useState(false);
+  const [paymentStep, setPaymentStep] = useState("");
 
   const loadOrder = useCallback(async () => {
     if (!currentUser || !orderId) {
@@ -95,6 +104,7 @@ export default function CustomerPayOrderScreen() {
 
     setError("");
     setSuccess("");
+    setPaymentStep("Preparing secure checkout...");
     setIsPaying(true);
 
     try {
@@ -102,7 +112,9 @@ export default function CustomerPayOrderScreen() {
         order.id,
         selectedRewardCredit,
       );
+      setPaymentStep("Opening Stripe secure payment...");
       await initializeAndPresentPaymentSheet(paymentSetup);
+      setPaymentStep("Confirming payment...");
       await confirmOrderPayment(order.id);
 
       if (shouldUseDemoBackend && selectedRewardCredit > 0) {
@@ -116,6 +128,7 @@ export default function CustomerPayOrderScreen() {
       }
 
       setSuccess("Payment complete.");
+      await loadOrder();
       router.replace({
         pathname: "/(customer)/my-orders/[orderId]",
         params: { orderId: order.id },
@@ -123,23 +136,44 @@ export default function CustomerPayOrderScreen() {
     } catch (payError) {
       const message =
         payError instanceof Error ? payError.message : "Unable to complete payment.";
-      setError(message);
+      setError(
+        message.toLowerCase().includes("cancel")
+          ? "Payment was canceled. No charge was completed."
+          : message,
+      );
     } finally {
+      setPaymentStep("");
       setIsPaying(false);
     }
   }
 
-  const canPay =
-    Boolean(order?.finalPrice) && order?.paymentStatus !== "paid" && !isPaying;
   const availableRewardCredit =
     rewardsAccount && rewardSettings
       ? calculateRewardCredit(rewardsAccount.pointsBalance, rewardSettings)
       : 0;
   const finalPrice = order?.finalPrice ?? 0;
   const payableAmount = Math.max(0, finalPrice - selectedRewardCredit);
+  const isPaymentEligible =
+    Boolean(order && payableOrderStatuses.has(order.status)) &&
+    order?.paymentStatus !== "paid";
+  const canPay =
+    isPaymentEligible &&
+    finalPrice > 0 &&
+    payableAmount > 0 &&
+    !isPaying;
   const hasSavedPaymentMethod = Boolean(
     paymentMethod?.brand && paymentMethod.last4 && paymentMethod.expirationMonth,
   );
+  const paymentDisabledReason =
+    order?.paymentStatus === "paid"
+      ? "This order has already been paid."
+      : !isPaymentEligible
+        ? "This order is not ready for payment yet."
+        : finalPrice <= 0
+          ? "The owner must set a final price before payment."
+          : payableAmount <= 0
+            ? "Rewards cannot cover the entire balance yet."
+            : "";
 
   return (
     <Screen>
@@ -147,6 +181,7 @@ export default function CustomerPayOrderScreen() {
         {isLoading ? <ActivityIndicator color={colors.primary} /> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
         {success ? <Text style={styles.success}>{success}</Text> : null}
+        {paymentStep ? <Text style={styles.pending}>{paymentStep}</Text> : null}
 
         {!isLoading && !order ? (
           <View style={styles.card}>
@@ -168,6 +203,9 @@ export default function CustomerPayOrderScreen() {
                   : `$${order.finalPrice.toFixed(2)}`}
               </Text>
               <Text style={styles.muted}>Payment status: {order.paymentStatus}</Text>
+              {paymentDisabledReason ? (
+                <Text style={styles.muted}>{paymentDisabledReason}</Text>
+              ) : null}
             </View>
 
             <View style={styles.card}>
@@ -232,8 +270,8 @@ export default function CustomerPayOrderScreen() {
                 </>
               ) : (
                 <Text style={styles.muted}>
-                  No saved payment method yet. Add one from Payment Method, or
-                  continue with card checkout.
+                  Stripe PaymentSheet will collect card details securely during checkout.
+                  Saved Stripe payment methods will be added in the next payment pass.
                 </Text>
               )}
             </View>
@@ -243,9 +281,7 @@ export default function CustomerPayOrderScreen() {
               label={
                 isPaying
                   ? "Opening payment..."
-                  : hasSavedPaymentMethod
-                    ? "Pay with saved method"
-                    : "Pay with card"
+                  : "Pay securely with Stripe"
               }
               onPress={handlePay}
             />
@@ -326,5 +362,10 @@ const styles = StyleSheet.create({
     color: colors.success,
     fontSize: 14,
     fontWeight: "700",
+  },
+  pending: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: "800",
   },
 });

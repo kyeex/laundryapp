@@ -17,9 +17,18 @@ import {
 } from "@/services/orderService";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
-import type { Order } from "@/types/domain";
+import type { Order, OrderStatus } from "@/types/domain";
 import { formatDisplayDate } from "@/utils/dateFormat";
 import { formatOrderStatus } from "@/workflows/orderWorkflow";
+
+const payableOrderStatuses = new Set<OrderStatus>([
+  "accepted",
+  "received_at_store",
+  "in_progress",
+  "priced",
+  "payment_requested",
+  "ready_for_delivery",
+]);
 
 export default function CustomerOrderDetailScreen() {
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
@@ -64,6 +73,12 @@ export default function CustomerOrderDetailScreen() {
       .filter(Boolean)
       .join(", ");
   }, [order]);
+  const canOpenPayment =
+    order !== null &&
+    payableOrderStatuses.has(order.status) &&
+    order.finalPrice !== null &&
+    order.finalPrice > 0 &&
+    order.paymentStatus !== "paid";
 
   return (
     <Screen>
@@ -192,7 +207,7 @@ export default function CustomerOrderDetailScreen() {
                   : `$${order.finalPrice.toFixed(2)}`}
               </Text>
               <Text style={styles.muted}>Payment status: {order.paymentStatus}</Text>
-              {order.finalPrice !== null && order.paymentStatus !== "paid" ? (
+              {canOpenPayment ? (
                 <Link
                   href={{
                     pathname: "/(customer)/my-orders/[orderId]/pay",

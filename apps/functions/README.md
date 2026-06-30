@@ -25,7 +25,9 @@ secret:
 
 ```powershell
 firebase functions:secrets:set STRIPE_SECRET_KEY --project laundryapp-staging
+firebase functions:secrets:set STRIPE_WEBHOOK_SECRET --project laundryapp-staging
 firebase functions:secrets:set STRIPE_SECRET_KEY --project laundryapp-production
+firebase functions:secrets:set STRIPE_WEBHOOK_SECRET --project laundryapp-production
 ```
 
 Then deploy the functions that use it:
@@ -38,6 +40,7 @@ For local-only function development, a local `.env` can still provide:
 
 ```text
 STRIPE_SECRET_KEY=sk_test_or_rk_test_value
+STRIPE_WEBHOOK_SECRET=whsec_test_value
 STRIPE_CURRENCY=usd
 ```
 

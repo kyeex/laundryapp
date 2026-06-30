@@ -2,7 +2,7 @@ import { initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { onDocumentCreated } from "firebase-functions/firestore";
-import { HttpsError, onCall } from "firebase-functions/https";
+import { HttpsError, onCall, onRequest } from "firebase-functions/https";
 import { defineSecret } from "firebase-functions/params";
 import { randomUUID } from "node:crypto";
 import Stripe from "stripe";
@@ -10,7 +10,9 @@ import Stripe from "stripe";
 initializeApp();
 
 const stripeSecretKey = defineSecret("STRIPE_SECRET_KEY");
+const stripeWebhookSecret = defineSecret("STRIPE_WEBHOOK_SECRET");
 const currency = process.env.STRIPE_CURRENCY ?? "usd";
+const stripeCurrency = currency.toLowerCase();
 const stagingSeedTag = "staging-demo";
 const stagingSeedPassword = "LaundryDemo#2026!";
 const defaultNotificationPreferences = {
@@ -22,6 +24,14 @@ const defaultNotificationPreferences = {
 };
 
 const allowedRoles = new Set(["customer", "owner", "driver", "admin"]);
+const paymentEligibleOrderStatuses = new Set([
+  "accepted",
+  "received_at_store",
+  "in_progress",
+  "priced",
+  "payment_requested",
+  "ready_for_delivery",
+]);
 const stagingSeedUsers = [
   {
     uid: "staging-demo-customer",
@@ -84,6 +94,16 @@ async function assertOwnerOrAdminUser(uid: string) {
 
   if (user.role !== "owner" && user.role !== "admin") {
     throw new HttpsError("permission-denied", "Owner or admin access is required.");
+  }
+
+  return user;
+}
+
+async function assertCustomerUser(uid: string) {
+  const user = await getActiveUserProfile(uid);
+
+  if (user.role !== "customer") {
+    throw new HttpsError("permission-denied", "Customer access is required.");
   }
 
   return user;
@@ -637,6 +657,18 @@ function requirePositiveNumber(value: unknown, fieldName: string) {
   return value;
 }
 
+function requireNonNegativeMoney(value: unknown, fieldName: string) {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    throw new HttpsError("invalid-argument", `${fieldName} cannot be negative.`);
+  }
+
+  return Math.round(value * 100) / 100;
+}
+
+function toStripeAmount(value: number) {
+  return Math.round(value * 100);
+}
+
 function calculatePointsForRewardCredit(creditDollars: number, settings: typeof defaultRewardSettings) {
   return Math.max(0, Math.round(creditDollars * settings.pointsPerRewardDollar));
 }
@@ -821,6 +853,59 @@ async function redeemRewardsForPaidOrderInternal(input: {
   return account;
 }
 
+async function awardOrderRewardsForPaidOrderInternal(input: {
+  actorId: string;
+  actorRole: string;
+  customerId: string;
+  customerName: string;
+  orderId: string;
+  orderNumber?: string | null;
+  orderValue: number;
+}) {
+  const settings = await getRewardSettings();
+
+  if (!settings.enabled) {
+    return { account: null, points: 0 };
+  }
+
+  const earnedPoints = calculateEarnedPoints(input.orderValue, settings);
+
+  if (earnedPoints <= 0) {
+    return { account: null, points: 0 };
+  }
+
+  const account = await applyRewardEvent({
+    customerId: input.customerId,
+    customerName: input.customerName,
+    eventId: `earn-${input.orderId}`,
+    event: {
+      type: "earned",
+      createdBy: input.actorId,
+      label: `Earned from order ${input.orderNumber ?? input.orderId}`,
+      orderId: input.orderId,
+      points: earnedPoints,
+      createdAt: new Date(),
+      expiresAt: getEventExpirationDate(settings),
+    },
+  });
+
+  await writeAuditLog({
+    actorId: input.actorId,
+    actorRole: input.actorRole,
+    action: "rewards.earned",
+    resourceType: "rewards",
+    resourceId: input.customerId,
+    summary: `Awarded ${earnedPoints} points for a paid order.`,
+    metadata: {
+      customerId: input.customerId,
+      orderId: input.orderId,
+      points: earnedPoints,
+    },
+  });
+
+  return { account, points: earnedPoints };
+}
+
 export const redeemRewardsForOrder = onCall<{
   orderId: string;
   rewardCreditDollars: number;
@@ -887,52 +972,20 @@ export const awardOrderRewardsForPaidOrder = onCall<{ orderId: string }>(
       );
     }
 
-    const settings = await getRewardSettings();
-
-    if (!settings.enabled) {
-      return { account: null, points: 0 };
-    }
-
     const orderValue =
       typeof order.finalPrice === "number"
         ? order.finalPrice
         : Number(order.estimatedSubtotal ?? 0);
-    const earnedPoints = calculateEarnedPoints(orderValue, settings);
 
-    if (earnedPoints <= 0) {
-      return { account: null, points: 0 };
-    }
-
-    const account = await applyRewardEvent({
-      customerId: order.customerId,
-      customerName: order.customerName ?? "Customer",
-      eventId: `earn-${orderId}`,
-      event: {
-        type: "earned",
-        createdBy: request.auth.uid,
-        label: `Earned from order ${order.orderNumber ?? orderId}`,
-        orderId,
-        points: earnedPoints,
-        createdAt: new Date(),
-        expiresAt: getEventExpirationDate(settings),
-      },
-    });
-
-    await writeAuditLog({
+    return await awardOrderRewardsForPaidOrderInternal({
       actorId: request.auth.uid,
       actorRole: actor.role,
-      action: "rewards.earned",
-      resourceType: "rewards",
-      resourceId: order.customerId,
-      summary: `Awarded ${earnedPoints} points for a paid order.`,
-      metadata: {
-        customerId: order.customerId,
-        orderId,
-        points: earnedPoints,
-      },
+      customerId: order.customerId,
+      customerName: order.customerName ?? "Customer",
+      orderId,
+      orderNumber: order.orderNumber ?? null,
+      orderValue,
     });
-
-    return { account, points: earnedPoints };
   },
 );
 
@@ -1312,15 +1365,12 @@ export const createPaymentIntent = onCall<{
       throw new HttpsError("unauthenticated", "Sign in before paying.");
     }
 
-    const { orderId } = request.data;
-    const rewardCreditDollars =
-      typeof request.data.rewardCreditDollars === "number"
-        ? request.data.rewardCreditDollars
-        : 0;
-
-    if (!orderId) {
-      throw new HttpsError("invalid-argument", "orderId is required.");
-    }
+    const customer = await assertCustomerUser(request.auth.uid);
+    const orderId = requireString(request.data.orderId, "orderId");
+    const rewardCreditDollars = requireNonNegativeMoney(
+      request.data.rewardCreditDollars ?? 0,
+      "rewardCreditDollars",
+    );
 
     const db = getFirestore();
     const orderRef = db.collection("orders").doc(orderId);
@@ -1340,6 +1390,13 @@ export const createPaymentIntent = onCall<{
       throw new HttpsError("permission-denied", "This order belongs to another customer.");
     }
 
+    if (!paymentEligibleOrderStatuses.has(order.status)) {
+      throw new HttpsError(
+        "failed-precondition",
+        "This order is not ready for payment yet.",
+      );
+    }
+
     if (order.paymentStatus === "paid") {
       throw new HttpsError("failed-precondition", "This order is already paid.");
     }
@@ -1349,10 +1406,6 @@ export const createPaymentIntent = onCall<{
         "failed-precondition",
         "The owner must set a final price before payment.",
       );
-    }
-
-    if (rewardCreditDollars < 0) {
-      throw new HttpsError("invalid-argument", "Reward credit cannot be negative.");
     }
 
     if (rewardCreditDollars > order.finalPrice) {
@@ -1398,7 +1451,7 @@ export const createPaymentIntent = onCall<{
       }
     }
 
-    const payableAmount = order.finalPrice - rewardCreditDollars;
+    const payableAmount = Math.round((order.finalPrice - rewardCreditDollars) * 100) / 100;
 
     if (payableAmount <= 0) {
       throw new HttpsError(
@@ -1407,28 +1460,102 @@ export const createPaymentIntent = onCall<{
       );
     }
 
-    const amount = Math.round(payableAmount * 100);
+    const amount = toStripeAmount(payableAmount);
+
+    if (amount <= 0) {
+      throw new HttpsError("failed-precondition", "Payment amount must be greater than $0.00.");
+    }
+
     const stripe = getStripe();
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount,
-      currency,
-      automatic_payment_methods: {
-        enabled: true,
+
+    if (
+      order.paymentStatus === "pending"
+      && typeof order.paymentId === "string"
+      && order.paymentId
+    ) {
+      const existingPaymentIntent = await stripe.paymentIntents.retrieve(order.paymentId);
+      const rewardCreditMatches =
+        existingPaymentIntent.metadata.rewardCreditDollars ===
+        String(rewardCreditDollars);
+
+      if (existingPaymentIntent.status === "succeeded") {
+        throw new HttpsError(
+          "failed-precondition",
+          "This payment already succeeded and is waiting for confirmation.",
+        );
+      }
+
+      if (
+        existingPaymentIntent.status !== "canceled"
+        && existingPaymentIntent.amount === amount
+        && existingPaymentIntent.currency === stripeCurrency
+        && rewardCreditMatches
+        && existingPaymentIntent.client_secret
+      ) {
+        return {
+          paymentIntentClientSecret: existingPaymentIntent.client_secret,
+        };
+      }
+
+      const canCancelExistingPaymentIntent =
+        existingPaymentIntent.status === "requires_payment_method"
+        || existingPaymentIntent.status === "requires_confirmation"
+        || existingPaymentIntent.status === "requires_action";
+
+      if (canCancelExistingPaymentIntent) {
+        await stripe.paymentIntents.cancel(order.paymentId);
+      } else {
+        throw new HttpsError(
+          "failed-precondition",
+          "A previous payment is still processing. Wait for it to finish before starting a new payment.",
+        );
+      }
+    }
+
+    const paymentIntent = await stripe.paymentIntents.create(
+      {
+        amount,
+        currency: stripeCurrency,
+        automatic_payment_methods: {
+          enabled: true,
+        },
+        metadata: {
+          orderId,
+          customerId: request.auth.uid,
+          rewardCreditDollars: String(rewardCreditDollars),
+          rewardPointsToRedeem: String(rewardPointsToRedeem),
+        },
+        description: `Laundry order ${order.orderNumber ?? orderId}`,
       },
-      metadata: {
-        orderId,
-        customerId: request.auth.uid,
-        rewardCreditDollars: String(rewardCreditDollars),
-        rewardPointsToRedeem: String(rewardPointsToRedeem),
+      {
+        idempotencyKey: `order-${orderId}-amount-${amount}-reward-${rewardPointsToRedeem}`,
       },
-    });
+    );
 
     await orderRef.update({
       paymentStatus: "pending",
       paymentId: paymentIntent.id,
+      paymentAmountDue: payableAmount,
       rewardCreditAmount: rewardCreditDollars,
       rewardPointsRedeemed: rewardPointsToRedeem,
       rewardRedemptionId: rewardCreditDollars > 0 ? `redeem-${orderId}` : null,
+      updatedAt: new Date(),
+    });
+
+    await db.collection("payments").doc(paymentIntent.id).set({
+      amount,
+      amountDollars: payableAmount,
+      currency: stripeCurrency,
+      customerId: request.auth.uid,
+      customerName: order.customerName ?? customer.displayName,
+      orderId,
+      orderNumber: order.orderNumber ?? null,
+      paymentIntentId: paymentIntent.id,
+      provider: "stripe",
+      rewardCreditAmount: rewardCreditDollars,
+      rewardPointsRedeemed: rewardPointsToRedeem,
+      status: paymentIntent.status,
+      createdAt: new Date(),
       updatedAt: new Date(),
     });
 
@@ -1442,6 +1569,382 @@ export const createPaymentIntent = onCall<{
   },
 );
 
+function getExpectedStripeAmount(order: Record<string, any>) {
+  if (typeof order.paymentAmountDue === "number") {
+    return toStripeAmount(order.paymentAmountDue);
+  }
+
+  const finalPrice = typeof order.finalPrice === "number" ? order.finalPrice : 0;
+  const rewardCreditAmount =
+    typeof order.rewardCreditAmount === "number" ? order.rewardCreditAmount : 0;
+
+  return toStripeAmount(finalPrice - rewardCreditAmount);
+}
+
+async function getOrderForPaymentIntent(paymentIntent: Stripe.PaymentIntent) {
+  const orderId = paymentIntent.metadata.orderId;
+  const customerId = paymentIntent.metadata.customerId;
+
+  if (!orderId || !customerId) {
+    throw new HttpsError(
+      "failed-precondition",
+      "Stripe PaymentIntent is missing required order metadata.",
+    );
+  }
+
+  const db = getFirestore();
+  const orderRef = db.collection("orders").doc(orderId);
+  const orderSnapshot = await orderRef.get();
+  const order = orderSnapshot.data();
+
+  if (!order) {
+    throw new HttpsError("not-found", "Order not found for Stripe PaymentIntent.");
+  }
+
+  if (order.customerId !== customerId) {
+    throw new HttpsError(
+      "failed-precondition",
+      "Stripe customer metadata does not match the order customer.",
+    );
+  }
+
+  if (typeof order.paymentId === "string" && order.paymentId !== paymentIntent.id) {
+    throw new HttpsError(
+      "failed-precondition",
+      "Stripe PaymentIntent does not match the order payment reference.",
+    );
+  }
+
+  const expectedAmount = getExpectedStripeAmount(order);
+
+  if (
+    paymentIntent.amount !== expectedAmount
+    || paymentIntent.currency !== stripeCurrency
+  ) {
+    throw new HttpsError(
+      "failed-precondition",
+      "Stripe payment amount does not match the order balance.",
+    );
+  }
+
+  return { db, order, orderId, orderRef };
+}
+
+async function markStripePaymentSucceeded(input: {
+  paymentIntent: Stripe.PaymentIntent;
+  actorId: string;
+  actorRole: string;
+}) {
+  const { db, order, orderId, orderRef } = await getOrderForPaymentIntent(
+    input.paymentIntent,
+  );
+
+  await db.collection("payments").doc(input.paymentIntent.id).set(
+    {
+      amount: input.paymentIntent.amount,
+      amountDollars: input.paymentIntent.amount / 100,
+      currency: input.paymentIntent.currency,
+      customerId: order.customerId,
+      customerName: order.customerName ?? "Customer",
+      orderId,
+      orderNumber: order.orderNumber ?? null,
+      paymentIntentId: input.paymentIntent.id,
+      provider: "stripe",
+      status: input.paymentIntent.status,
+      updatedAt: new Date(),
+    },
+    { merge: true },
+  );
+
+  if (order.paymentStatus === "paid") {
+    return { status: "paid" };
+  }
+
+  await orderRef.update({
+    paymentStatus: "paid",
+    status: "paid",
+    paymentId: input.paymentIntent.id,
+    updatedAt: new Date(),
+  });
+
+  await db.collection("orderEvents").doc(`payment-${input.paymentIntent.id}-completed`).set(
+    {
+      orderId,
+      type: "payment_completed",
+      fromStatus: order.status ?? null,
+      toStatus: "paid",
+      message: "Customer completed payment.",
+      createdBy: input.actorId,
+      createdAt: new Date(),
+    },
+    { merge: false },
+  ).catch(async (error) => {
+    if (error?.code !== 6 && error?.code !== "already-exists") {
+      throw error;
+    }
+  });
+
+  await writeAuditLog({
+    actorId: input.actorId,
+    actorRole: input.actorRole,
+    action: "payment.completed",
+    resourceType: "payment",
+    resourceId: input.paymentIntent.id,
+    summary: `Payment completed for order ${order.orderNumber ?? orderId}.`,
+    metadata: {
+      customerId: order.customerId,
+      orderId,
+      paymentIntentId: input.paymentIntent.id,
+      amount: input.paymentIntent.amount,
+      currency: input.paymentIntent.currency,
+    },
+  });
+
+  if (typeof order.rewardCreditAmount === "number" && order.rewardCreditAmount > 0) {
+    await redeemRewardsForPaidOrderInternal({
+      actorId: input.actorId,
+      customerId: order.customerId,
+      customerName: order.customerName ?? "Customer",
+      orderId,
+      rewardCreditDollars: order.rewardCreditAmount,
+    });
+  }
+
+  const orderValue =
+    typeof order.finalPrice === "number"
+      ? order.finalPrice
+      : Number(order.estimatedSubtotal ?? 0);
+
+  await awardOrderRewardsForPaidOrderInternal({
+    actorId: input.actorId,
+    actorRole: input.actorRole,
+    customerId: order.customerId,
+    customerName: order.customerName ?? "Customer",
+    orderId,
+    orderNumber: order.orderNumber ?? null,
+    orderValue,
+  });
+
+  return { status: "paid" };
+}
+
+async function markStripePaymentProcessing(paymentIntent: Stripe.PaymentIntent) {
+  const { db, order, orderId, orderRef } = await getOrderForPaymentIntent(paymentIntent);
+
+  if (order.paymentStatus !== "paid") {
+    await orderRef.update({
+      paymentStatus: "pending",
+      paymentId: paymentIntent.id,
+      updatedAt: new Date(),
+    });
+  }
+
+  await db.collection("payments").doc(paymentIntent.id).set(
+    {
+      amount: paymentIntent.amount,
+      amountDollars: paymentIntent.amount / 100,
+      currency: paymentIntent.currency,
+      customerId: order.customerId,
+      orderId,
+      paymentIntentId: paymentIntent.id,
+      provider: "stripe",
+      status: paymentIntent.status,
+      updatedAt: new Date(),
+    },
+    { merge: true },
+  );
+
+  await db.collection("orderEvents").doc(`payment-${paymentIntent.id}-processing`).set(
+    {
+      orderId,
+      type: "payment_processing",
+      fromStatus: order.status ?? null,
+      toStatus: "pending",
+      message: "Payment is processing.",
+      createdBy: "stripe",
+      createdAt: new Date(),
+    },
+    { merge: true },
+  );
+}
+
+async function markStripePaymentFailed(paymentIntent: Stripe.PaymentIntent) {
+  const { db, order, orderId, orderRef } = await getOrderForPaymentIntent(paymentIntent);
+  const failureMessage =
+    paymentIntent.last_payment_error?.message ?? "Stripe reported payment failure.";
+
+  if (order.paymentStatus !== "paid") {
+    await orderRef.update({
+      paymentStatus: "unpaid",
+      paymentFailureMessage: failureMessage,
+      updatedAt: new Date(),
+    });
+  }
+
+  await db.collection("payments").doc(paymentIntent.id).set(
+    {
+      amount: paymentIntent.amount,
+      amountDollars: paymentIntent.amount / 100,
+      currency: paymentIntent.currency,
+      customerId: order.customerId,
+      orderId,
+      paymentIntentId: paymentIntent.id,
+      provider: "stripe",
+      status: paymentIntent.status,
+      failureMessage,
+      updatedAt: new Date(),
+    },
+    { merge: true },
+  );
+
+  await db.collection("orderEvents").doc(`payment-${paymentIntent.id}-failed`).set(
+    {
+      orderId,
+      type: "payment_failed",
+      fromStatus: order.status ?? null,
+      toStatus: "unpaid",
+      message: failureMessage,
+      createdBy: "stripe",
+      createdAt: new Date(),
+    },
+    { merge: true },
+  );
+
+  await writeAuditLog({
+    actorId: "stripe",
+    actorRole: "system",
+    action: "payment.failed",
+    resourceType: "payment",
+    resourceId: paymentIntent.id,
+    summary: `Stripe payment failed for order ${order.orderNumber ?? orderId}.`,
+    metadata: {
+      customerId: order.customerId,
+      orderId,
+      paymentIntentId: paymentIntent.id,
+      failureMessage,
+    },
+  });
+}
+
+async function markStripePaymentRefunded(input: {
+  paymentIntentId: string;
+  amountRefunded?: number;
+  refundId?: string;
+  status?: string;
+}) {
+  const db = getFirestore();
+  const paymentSnapshot = await db.collection("payments").doc(input.paymentIntentId).get();
+  const payment = paymentSnapshot.data();
+
+  if (!payment?.orderId) {
+    return;
+  }
+
+  const orderRef = db.collection("orders").doc(payment.orderId);
+  const orderSnapshot = await orderRef.get();
+  const order = orderSnapshot.data();
+
+  if (!order) {
+    return;
+  }
+
+  await orderRef.update({
+    paymentStatus: "refunded",
+    refundStatus: input.status ?? "refunded",
+    updatedAt: new Date(),
+  });
+
+  await db.collection("payments").doc(input.paymentIntentId).set(
+    {
+      amountRefunded: input.amountRefunded ?? null,
+      refundId: input.refundId ?? null,
+      refundStatus: input.status ?? "refunded",
+      status: "refunded",
+      updatedAt: new Date(),
+    },
+    { merge: true },
+  );
+
+  await db.collection("orderEvents").doc(`payment-${input.paymentIntentId}-refunded`).set(
+    {
+      orderId: payment.orderId,
+      type: "payment_refunded",
+      fromStatus: order.status ?? null,
+      toStatus: "refunded",
+      message: "Stripe reported a refund for this order.",
+      createdBy: "stripe",
+      createdAt: new Date(),
+    },
+    { merge: true },
+  );
+
+  await writeAuditLog({
+    actorId: "stripe",
+    actorRole: "system",
+    action: "payment.refunded",
+    resourceType: "payment",
+    resourceId: input.paymentIntentId,
+    summary: `Stripe refund recorded for order ${order.orderNumber ?? payment.orderId}.`,
+    metadata: {
+      orderId: payment.orderId,
+      paymentIntentId: input.paymentIntentId,
+      refundId: input.refundId,
+      amountRefunded: input.amountRefunded,
+    },
+  });
+}
+
+async function markStripePaymentDisputed(input: {
+  paymentIntentId: string;
+  disputeId: string;
+  status?: string;
+}) {
+  const db = getFirestore();
+  const paymentSnapshot = await db.collection("payments").doc(input.paymentIntentId).get();
+  const payment = paymentSnapshot.data();
+
+  if (!payment?.orderId) {
+    return;
+  }
+
+  await db.collection("payments").doc(input.paymentIntentId).set(
+    {
+      disputeId: input.disputeId,
+      disputeStatus: input.status ?? "needs_response",
+      updatedAt: new Date(),
+    },
+    { merge: true },
+  );
+
+  await db.collection("orderEvents").doc(`payment-${input.paymentIntentId}-disputed`).set(
+    {
+      orderId: payment.orderId,
+      type: "payment_dispute_created",
+      fromStatus: null,
+      toStatus: "disputed",
+      message: "Stripe reported a payment dispute.",
+      createdBy: "stripe",
+      createdAt: new Date(),
+    },
+    { merge: true },
+  );
+
+  await writeAuditLog({
+    actorId: "stripe",
+    actorRole: "system",
+    action: "payment.dispute_created",
+    resourceType: "payment",
+    resourceId: input.paymentIntentId,
+    summary: `Stripe dispute created for order ${payment.orderNumber ?? payment.orderId}.`,
+    metadata: {
+      orderId: payment.orderId,
+      paymentIntentId: input.paymentIntentId,
+      disputeId: input.disputeId,
+      status: input.status,
+    },
+  });
+}
+
 export const confirmOrderPayment = onCall<{ orderId: string }>(
   { secrets: [stripeSecretKey] },
   async (request) => {
@@ -1449,11 +1952,8 @@ export const confirmOrderPayment = onCall<{ orderId: string }>(
       throw new HttpsError("unauthenticated", "Sign in before confirming payment.");
     }
 
-    const { orderId } = request.data;
-
-    if (!orderId) {
-      throw new HttpsError("invalid-argument", "orderId is required.");
-    }
+    await assertCustomerUser(request.auth.uid);
+    const orderId = requireString(request.data.orderId, "orderId");
 
     const db = getFirestore();
     const orderRef = db.collection("orders").doc(orderId);
@@ -1493,33 +1993,119 @@ export const confirmOrderPayment = onCall<{ orderId: string }>(
       );
     }
 
-    await orderRef.update({
-      paymentStatus: "paid",
-      status: "paid",
-      updatedAt: new Date(),
+    return await markStripePaymentSucceeded({
+      paymentIntent,
+      actorId: request.auth.uid,
+      actorRole: "customer",
     });
+  },
+);
 
-    await db.collection("orderEvents").add({
-      orderId,
-      type: "payment_completed",
-      fromStatus: order.status ?? null,
-      toStatus: "paid",
-      message: "Customer completed payment.",
-      createdBy: request.auth.uid,
-      createdAt: new Date(),
-    });
-
-    if (typeof order.rewardCreditAmount === "number" && order.rewardCreditAmount > 0) {
-      await redeemRewardsForPaidOrderInternal({
-        actorId: request.auth.uid,
-        customerId: order.customerId,
-        customerName: order.customerName ?? "Customer",
-        orderId,
-        rewardCreditDollars: order.rewardCreditAmount,
-      });
+export const stripeWebhook = onRequest(
+  { secrets: [stripeSecretKey, stripeWebhookSecret] },
+  async (request, response) => {
+    if (request.method !== "POST") {
+      response.status(405).send("Method not allowed.");
+      return;
     }
 
-    return { status: "paid" };
+    const signature = request.headers["stripe-signature"];
+    const webhookSecret = stripeWebhookSecret.value();
+
+    if (!signature || Array.isArray(signature)) {
+      response.status(400).send("Missing Stripe signature.");
+      return;
+    }
+
+    if (!webhookSecret) {
+      response.status(500).send("Stripe webhook secret is not configured.");
+      return;
+    }
+
+    let event: Stripe.Event;
+
+    try {
+      event = getStripe().webhooks.constructEvent(
+        request.rawBody,
+        signature,
+        webhookSecret,
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Invalid Stripe webhook signature.";
+      response.status(400).send(`Webhook signature verification failed: ${message}`);
+      return;
+    }
+
+    try {
+      if (event.type === "payment_intent.succeeded") {
+        await markStripePaymentSucceeded({
+          paymentIntent: event.data.object as Stripe.PaymentIntent,
+          actorId: "stripe",
+          actorRole: "system",
+        });
+      } else if (event.type === "payment_intent.payment_failed") {
+        await markStripePaymentFailed(event.data.object as Stripe.PaymentIntent);
+      } else if (event.type === "payment_intent.processing") {
+        await markStripePaymentProcessing(event.data.object as Stripe.PaymentIntent);
+      } else if (event.type === "charge.refunded") {
+        const charge = event.data.object as Stripe.Charge;
+        const paymentIntentId =
+          typeof charge.payment_intent === "string" ? charge.payment_intent : null;
+
+        if (paymentIntentId) {
+          await markStripePaymentRefunded({
+            paymentIntentId,
+            amountRefunded: charge.amount_refunded,
+            status:
+              charge.amount_refunded >= charge.amount
+                ? "refunded"
+                : "partially_refunded",
+          });
+        }
+      } else if (event.type === "refund.created" || event.type === "refund.updated") {
+        const refund = event.data.object as Stripe.Refund;
+        const paymentIntentId =
+          typeof refund.payment_intent === "string" ? refund.payment_intent : null;
+
+        if (paymentIntentId) {
+          await markStripePaymentRefunded({
+            paymentIntentId,
+            amountRefunded: refund.amount,
+            refundId: refund.id,
+            status: refund.status ?? "refunded",
+          });
+        }
+      } else if (event.type === "charge.dispute.created") {
+        const dispute = event.data.object as Stripe.Dispute;
+        const chargeId = typeof dispute.charge === "string" ? dispute.charge : null;
+
+        if (chargeId) {
+          const charge = await getStripe().charges.retrieve(chargeId);
+          const paymentIntentId =
+            typeof charge.payment_intent === "string" ? charge.payment_intent : null;
+
+          if (paymentIntentId) {
+            await markStripePaymentDisputed({
+              paymentIntentId,
+              disputeId: dispute.id,
+              status: dispute.status,
+            });
+          }
+        }
+      }
+
+      response.status(200).json({ received: true });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to process Stripe webhook.";
+      console.error("Stripe webhook processing failed", {
+        eventId: event.id,
+        eventType: event.type,
+        message,
+      });
+      response.status(500).send(message);
+    }
   },
 );
 
@@ -1575,6 +2161,34 @@ function getNotificationContent(event: OrderEvent, order: OrderRecord) {
     };
   }
 
+  if (event.type === "payment_processing") {
+    return {
+      title: "Payment processing",
+      body: event.message ?? "Your payment is still processing.",
+    };
+  }
+
+  if (event.type === "payment_failed") {
+    return {
+      title: "Payment did not go through",
+      body: event.message ?? "Your payment was not completed.",
+    };
+  }
+
+  if (event.type === "payment_refunded") {
+    return {
+      title: "Payment refund recorded",
+      body: `${order.customerName ?? "A customer"} has a refund recorded.`,
+    };
+  }
+
+  if (event.type === "payment_dispute_created") {
+    return {
+      title: "Payment dispute opened",
+      body: `${order.customerName ?? "A customer"} has a Stripe dispute that needs review.`,
+    };
+  }
+
   return {
     title: "Laundry order update",
     body: event.message ?? "Your laundry order status changed.",
@@ -1596,7 +2210,11 @@ function getNotificationPreferenceKey(event: OrderEvent): NotificationPreference
     return "ownerNewRequests";
   }
 
-  if (event.type === "payment_completed") {
+  if (
+    event.type === "payment_completed"
+    || event.type === "payment_refunded"
+    || event.type === "payment_dispute_created"
+  ) {
     return "ownerPaymentUpdates";
   }
 
@@ -1683,7 +2301,12 @@ export const sendOrderEventNotification = onDocumentCreated(
     let recipientUserIds: string[] = [];
     let url = `/(customer)/orders/${orderEvent.orderId}`;
 
-    if (orderEvent.type === "order_created" || orderEvent.type === "payment_completed") {
+    if (
+      orderEvent.type === "order_created"
+      || orderEvent.type === "payment_completed"
+      || orderEvent.type === "payment_refunded"
+      || orderEvent.type === "payment_dispute_created"
+    ) {
       recipientUserIds = await getOwnerUserIds();
       url = `/(admin)/orders/${orderEvent.orderId}`;
     } else if (orderEvent.type === "batch_assigned") {

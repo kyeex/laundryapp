@@ -57,6 +57,7 @@
     "qa:staging:roles": "node scripts/staging-role-qa.mjs",
     "qa:staging:rewards": "node scripts/staging-rewards-qa.mjs",
     "qa:staging:notifications": "node scripts/staging-notifications-qa.mjs",
+    "qa:staging:stripe-paymentintent": "node scripts/staging-stripe-paymentintent-qa.mjs",
     "phase6:staging:check": "powershell -ExecutionPolicy Bypass -File ./scripts/production-hardening-check.ps1 -Environment staging",
     "phase6:production:check": "powershell -ExecutionPolicy Bypass -File ./scripts/production-hardening-check.ps1 -Environment production",
     "phase6:all:check": "powershell -ExecutionPolicy Bypass -File ./scripts/production-hardening-check.ps1 -Environment all",
