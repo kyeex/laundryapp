@@ -201,6 +201,33 @@ service cloud.firestore {
         );
     }
 
+    function validCustomerProfileWrite(userId) {
+      return isCustomer()
+        && ownsUserDoc(userId)
+        && request.resource.data.userId == userId
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly([
+            "userId",
+            "defaultAddressId",
+            "notes",
+            "createdAt",
+            "updatedAt"
+          ]);
+    }
+
+    function validCustomerProfileCreate(userId) {
+      return isCustomer()
+        && ownsUserDoc(userId)
+        && request.resource.data.userId == userId
+        && request.resource.data.keys().hasOnly([
+          "userId",
+          "defaultAddressId",
+          "notes",
+          "createdAt",
+          "updatedAt"
+        ]);
+    }
+
     match /users/{userId} {
       allow read: if ownsUserDoc(userId)
         || isAdmin()
@@ -231,8 +258,9 @@ service cloud.firestore {
     }
 
     match /customerProfiles/{userId} {
-      allow read, create, update: if (isCustomer() && ownsUserDoc(userId))
-        || isAdmin();
+      allow read: if (isCustomer() && ownsUserDoc(userId)) || isAdmin();
+      allow create: if validCustomerProfileCreate(userId) || isAdmin();
+      allow update: if validCustomerProfileWrite(userId) || isAdmin();
       allow delete: if isAdmin();
     }
 

@@ -258,7 +258,6 @@ export async function saveCustomerProfileSummary(
     {
       userId,
       defaultAddressId: `${userId}-default`,
-      paymentMethod: normalizedProfile.paymentMethod,
       updatedAt: serverTimestamp(),
     },
     { merge: true },
@@ -298,19 +297,9 @@ export async function saveCustomerPaymentMethod(
     return normalizedPaymentMethod;
   }
 
-  const db = getFirebaseFirestore();
-
-  await setDoc(
-    doc(db, "customerProfiles", userId),
-    {
-      userId,
-      paymentMethod: normalizedPaymentMethod,
-      updatedAt: serverTimestamp(),
-    },
-    { merge: true },
+  throw new Error(
+    "Payment methods must be saved through Stripe's secure card setup.",
   );
-
-  return normalizedPaymentMethod;
 }
 
 export async function getCustomerLaundryPreferences(userId: string) {

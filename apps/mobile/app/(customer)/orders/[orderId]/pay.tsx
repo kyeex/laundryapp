@@ -8,6 +8,7 @@ import { shouldUseDemoBackend } from "@/config/firebase";
 import { useAuth } from "@/context/AuthContext";
 import { getCustomerOrderById } from "@/services/orderService";
 import {
+  chargeSavedOrderPayment,
   confirmOrderPayment,
   createOrderPaymentIntent,
 } from "@/services/paymentService";
@@ -112,14 +113,19 @@ export default function CustomerPayOrderScreen() {
     setIsPaying(true);
 
     try {
-      const paymentSetup = await createOrderPaymentIntent(
-        order.id,
-        selectedRewardCredit,
-      );
-      setPaymentStep("Opening Stripe secure payment...");
-      await initializeAndPresentPaymentSheet(paymentSetup);
-      setPaymentStep("Confirming payment...");
-      await confirmOrderPayment(order.id);
+      if (!shouldUseDemoBackend && hasSavedPaymentMethod) {
+        setPaymentStep("Charging saved card securely...");
+        await chargeSavedOrderPayment(order.id, selectedRewardCredit);
+      } else {
+        const paymentSetup = await createOrderPaymentIntent(
+          order.id,
+          selectedRewardCredit,
+        );
+        setPaymentStep("Opening Stripe secure payment...");
+        await initializeAndPresentPaymentSheet(paymentSetup);
+        setPaymentStep("Confirming payment...");
+        await confirmOrderPayment(order.id);
+      }
 
       if (shouldUseDemoBackend && selectedRewardCredit > 0) {
         await redeemRewardsForOrder({
@@ -160,18 +166,23 @@ export default function CustomerPayOrderScreen() {
   const isPaymentEligible =
     Boolean(order && payableOrderStatuses.has(order.status)) &&
     order?.paymentStatus !== "paid";
+  const hasSavedPaymentMethod = Boolean(
+    paymentMethod?.brand &&
+      paymentMethod.last4 &&
+      paymentMethod.expirationMonth &&
+      paymentMethod.stripeCustomerId &&
+      paymentMethod.stripePaymentMethodId,
+  );
+  const canUseSavedProfileCard = !shouldUseDemoBackend && hasSavedPaymentMethod;
   const canPay =
     isPaymentEligible &&
-    isStripeMobileCheckoutConfigured &&
+    (canUseSavedProfileCard || isStripeMobileCheckoutConfigured) &&
     finalPrice > 0 &&
     payableAmount > 0 &&
     !isPaying;
-  const hasSavedPaymentMethod = Boolean(
-    paymentMethod?.brand && paymentMethod.last4 && paymentMethod.expirationMonth,
-  );
   const paymentDisabledReason =
-    !isStripeMobileCheckoutConfigured
-      ? "Native Stripe checkout is not configured in this mobile build. Add the Stripe publishable key, rebuild the APK, and install the new build."
+    !canUseSavedProfileCard && !isStripeMobileCheckoutConfigured
+      ? "Stripe checkout is not configured in this build. Save a profile card first or rebuild with a valid Stripe publishable key."
       : order?.paymentStatus === "paid"
       ? "This order has already been paid."
       : !isPaymentEligible
@@ -218,18 +229,21 @@ export default function CustomerPayOrderScreen() {
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Before you pay</Text>
               <Text style={styles.muted}>
-                Stripe PaymentSheet will open after the backend creates a secure
-                PaymentIntent for this order.
+                {canUseSavedProfileCard
+                  ? "Your saved profile card can be charged securely by the backend for this final balance."
+                  : "Stripe PaymentSheet will open after the backend creates a secure PaymentIntent for this order."}
               </Text>
               <Text
                 style={
-                  isStripeMobileCheckoutConfigured
+                  canUseSavedProfileCard || isStripeMobileCheckoutConfigured
                     ? styles.checkoutReady
                     : styles.checkoutBlocked
                 }
               >
-                {isStripeMobileCheckoutConfigured
-                  ? "Native Stripe checkout is configured for this build."
+                {canUseSavedProfileCard
+                  ? "Saved profile card is ready for payment."
+                  : isStripeMobileCheckoutConfigured
+                  ? "Stripe checkout is configured for this build."
                   : "Native Stripe checkout is missing a valid publishable key."}
               </Text>
             </View>
@@ -289,7 +303,7 @@ export default function CustomerPayOrderScreen() {
               ) : (
                 <Text style={styles.muted}>
                   Stripe PaymentSheet will collect card details securely during checkout.
-                  Saved Stripe payment methods will be added in the next payment pass.
+                  You can also save a default card from your profile for faster payment.
                 </Text>
               )}
             </View>
@@ -298,8 +312,10 @@ export default function CustomerPayOrderScreen() {
               disabled={!canPay}
               label={
                 isPaying
-                  ? "Opening payment..."
-                  : "Pay securely with Stripe"
+                  ? "Processing payment..."
+                  : canUseSavedProfileCard
+                    ? "Pay with saved card"
+                    : "Pay securely with Stripe"
               }
               onPress={handlePay}
             />

@@ -22,10 +22,37 @@ import {
   getLoyaltyRewardSettings,
 } from "@/services/loyaltyRewardsService";
 import { createCustomerOrder } from "@/services/orderService";
+import {
+  getCustomerProfileSummary,
+  type CustomerPaymentMethod,
+} from "@/services/profileService";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import type { LoyaltyRewardSettings, SavedStripePaymentMethod } from "@/types/domain";
 import { formatDisplayDate } from "@/utils/dateFormat";
+
+function toSavedStripePaymentMethod(
+  paymentMethod: CustomerPaymentMethod,
+): SavedStripePaymentMethod | null {
+  if (
+    !paymentMethod.brand ||
+    !paymentMethod.last4 ||
+    !paymentMethod.stripeCustomerId ||
+    !paymentMethod.stripePaymentMethodId
+  ) {
+    return null;
+  }
+
+  return {
+    brand: paymentMethod.brand,
+    expirationMonth: paymentMethod.expirationMonth,
+    expirationYear: paymentMethod.expirationYear,
+    last4: paymentMethod.last4,
+    paymentMethodId: paymentMethod.stripePaymentMethodId,
+    setupIntentId: paymentMethod.stripeSetupIntentId ?? "",
+    stripeCustomerId: paymentMethod.stripeCustomerId,
+  };
+}
 
 export default function OrderReviewScreen() {
   const [draft, setDraft] = useState<OrderDraft | null>(null);
@@ -41,17 +68,31 @@ export default function OrderReviewScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    setDraft(getOrderDraft());
+    const nextDraft = getOrderDraft();
+    setDraft(nextDraft);
 
-    async function loadRewards() {
+    async function loadInitialData() {
       try {
         setRewardSettings(await getLoyaltyRewardSettings());
       } catch {
         setRewardSettings(null);
       }
+
+      if (!shouldUseDemoBackend && nextDraft) {
+        try {
+          const profile = await getCustomerProfileSummary(nextDraft.customer.id);
+          const savedPaymentMethod = toSavedStripePaymentMethod(profile.paymentMethod);
+
+          if (savedPaymentMethod) {
+            setSavedStripePaymentMethod(savedPaymentMethod);
+          }
+        } catch {
+          setSavedStripePaymentMethod(null);
+        }
+      }
     }
 
-    void loadRewards();
+    void loadInitialData();
   }, []);
 
   const serviceNames = useMemo(() => {
@@ -315,6 +356,13 @@ export default function OrderReviewScreen() {
             disabled={isSubmitting}
             estimatedTotal={estimatedTotal}
             onSaved={setSavedStripePaymentMethod}
+            savedPaymentMethod={savedStripePaymentMethod}
+            subtitle={
+              savedStripePaymentMethod
+                ? "Your saved default card is ready for this order. You can keep it or update the card before placing the request."
+                : "Add a card with Stripe before placing this order. The laundromat charges the final confirmed price after the order is reviewed."
+            }
+            summaryLabel="Payment method"
           />
         )}
 

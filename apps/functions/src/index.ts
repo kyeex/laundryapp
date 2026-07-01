@@ -2057,15 +2057,22 @@ async function markStripePaymentFailed(paymentIntent: Stripe.PaymentIntent) {
   });
 }
 
-export const chargeOrderSavedPaymentMethod = onCall<{ orderId: string }>(
+export const chargeOrderSavedPaymentMethod = onCall<{
+  orderId: string;
+  rewardCreditDollars?: number;
+}>(
   { secrets: [stripeSecretKey] },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Sign in before charging an order.");
     }
 
-    const actor = await assertOwnerOrAdminUser(request.auth.uid);
+    const actor = await getActiveUserProfile(request.auth.uid);
     const orderId = requireString(request.data.orderId, "orderId");
+    const rewardCreditDollars = requireNonNegativeMoney(
+      request.data.rewardCreditDollars ?? 0,
+      "rewardCreditDollars",
+    );
     const db = getFirestore();
     const orderRef = db.collection("orders").doc(orderId);
     const orderSnapshot = await orderRef.get();
@@ -2075,8 +2082,26 @@ export const chargeOrderSavedPaymentMethod = onCall<{ orderId: string }>(
       throw new HttpsError("not-found", "Order not found.");
     }
 
+    const isStaffCharging = actor.role === "owner" || actor.role === "admin";
+    const isCustomerChargingOwnOrder =
+      actor.role === "customer" && order.customerId === request.auth.uid;
+
+    if (!isStaffCharging && !isCustomerChargingOwnOrder) {
+      throw new HttpsError(
+        "permission-denied",
+        "You do not have access to charge this order.",
+      );
+    }
+
     if (order.paymentStatus === "paid") {
       return { status: "paid" };
+    }
+
+    if (!paymentEligibleOrderStatuses.has(order.status)) {
+      throw new HttpsError(
+        "failed-precondition",
+        "This order is not ready for payment yet.",
+      );
     }
 
     if (typeof order.finalPrice !== "number" || order.finalPrice <= 0) {
@@ -2086,11 +2111,62 @@ export const chargeOrderSavedPaymentMethod = onCall<{ orderId: string }>(
       );
     }
 
+    if (rewardCreditDollars > order.finalPrice) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Reward credit cannot exceed the final price.",
+      );
+    }
+
+    let rewardPointsToRedeem = 0;
+
+    if (rewardCreditDollars > 0) {
+      const settings = await getRewardSettings();
+
+      if (!settings.enabled) {
+        throw new HttpsError("failed-precondition", "Rewards are not enabled.");
+      }
+
+      rewardPointsToRedeem = calculatePointsForRewardCredit(
+        rewardCreditDollars,
+        settings,
+      );
+
+      const rewardsSnapshot = await db
+        .collection("loyaltyRewards")
+        .doc(order.customerId)
+        .get();
+      const rewardsAccount = mapRewardsAccount(
+        order.customerId,
+        order.customerName ?? "Customer",
+        rewardsSnapshot.data(),
+      );
+
+      if (rewardPointsToRedeem <= 0) {
+        throw new HttpsError("invalid-argument", "Choose a valid reward credit.");
+      }
+
+      if (rewardsAccount.pointsBalance < rewardPointsToRedeem) {
+        throw new HttpsError(
+          "failed-precondition",
+          "Not enough rewards points for that credit.",
+        );
+      }
+    }
+
+    const customerProfileSnapshot = await db
+      .collection("customerProfiles")
+      .doc(order.customerId)
+      .get();
+    const profilePaymentMethod = customerProfileSnapshot.data()?.paymentMethod ?? {};
+    const stripeCustomerId = profilePaymentMethod.stripeCustomerId;
+    const stripePaymentMethodId = profilePaymentMethod.stripePaymentMethodId;
+
     if (
-      typeof order.stripeCustomerId !== "string"
-      || !order.stripeCustomerId
-      || typeof order.stripePaymentMethodId !== "string"
-      || !order.stripePaymentMethodId
+      typeof stripeCustomerId !== "string"
+      || !stripeCustomerId
+      || typeof stripePaymentMethodId !== "string"
+      || !stripePaymentMethodId
     ) {
       throw new HttpsError(
         "failed-precondition",
@@ -2098,7 +2174,16 @@ export const chargeOrderSavedPaymentMethod = onCall<{ orderId: string }>(
       );
     }
 
-    const amount = toStripeAmount(order.finalPrice);
+    const payableAmount = Math.round((order.finalPrice - rewardCreditDollars) * 100) / 100;
+
+    if (payableAmount <= 0) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Reward credit cannot cover the entire balance until no-card checkout is enabled.",
+      );
+    }
+
+    const amount = toStripeAmount(payableAmount);
     const stripe = getStripe();
 
     if (
@@ -2127,20 +2212,22 @@ export const chargeOrderSavedPaymentMethod = onCall<{ orderId: string }>(
         {
           amount,
           currency: stripeCurrency,
-          customer: order.stripeCustomerId,
-          payment_method: order.stripePaymentMethodId,
+          customer: stripeCustomerId,
+          payment_method: stripePaymentMethodId,
           off_session: true,
           confirm: true,
           metadata: {
             orderId,
             customerId: order.customerId,
             chargedBy: request.auth.uid,
+            rewardCreditDollars: String(rewardCreditDollars),
+            rewardPointsToRedeem: String(rewardPointsToRedeem),
             source: "saved_payment_method",
           },
           description: `Laundry order ${order.orderNumber ?? orderId}`,
         },
         {
-          idempotencyKey: `order-${orderId}-saved-card-${amount}`,
+          idempotencyKey: `order-${orderId}-saved-card-${amount}-reward-${rewardPointsToRedeem}`,
         },
       );
 
@@ -2148,13 +2235,20 @@ export const chargeOrderSavedPaymentMethod = onCall<{ orderId: string }>(
         paymentStatus:
           paymentIntent.status === "succeeded" ? "pending" : "pending",
         paymentId: paymentIntent.id,
-        paymentAmountDue: order.finalPrice,
+        paymentAmountDue: payableAmount,
+        stripeCustomerId,
+        stripePaymentMethodId,
+        paymentMethodBrand: order.paymentMethodBrand ?? profilePaymentMethod.brand ?? null,
+        paymentMethodLast4: order.paymentMethodLast4 ?? profilePaymentMethod.last4 ?? null,
+        rewardCreditAmount: rewardCreditDollars,
+        rewardPointsRedeemed: rewardPointsToRedeem,
+        rewardRedemptionId: rewardCreditDollars > 0 ? `redeem-${orderId}` : null,
         updatedAt: new Date(),
       });
 
       await db.collection("payments").doc(paymentIntent.id).set({
         amount,
-        amountDollars: order.finalPrice,
+        amountDollars: payableAmount,
         currency: stripeCurrency,
         customerId: order.customerId,
         customerName: order.customerName ?? "",
@@ -2162,6 +2256,8 @@ export const chargeOrderSavedPaymentMethod = onCall<{ orderId: string }>(
         orderNumber: order.orderNumber ?? null,
         paymentIntentId: paymentIntent.id,
         provider: "stripe",
+        rewardCreditAmount: rewardCreditDollars,
+        rewardPointsRedeemed: rewardPointsToRedeem,
         source: "saved_payment_method",
         status: paymentIntent.status,
         createdAt: new Date(),

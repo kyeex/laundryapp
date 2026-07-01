@@ -71,13 +71,16 @@ export async function confirmOrderReviewSetupIntent(setupIntentId: string) {
   return response.data;
 }
 
-export async function chargeSavedOrderPayment(orderId: string) {
+export async function chargeSavedOrderPayment(
+  orderId: string,
+  rewardCreditDollars = 0,
+) {
   const chargePayment = httpsCallable<
-    { orderId: string },
+    { orderId: string; rewardCreditDollars?: number },
     ChargeSavedPaymentResponse
   >(getFirebaseFunctions(), "chargeOrderSavedPaymentMethod");
 
-  const response = await chargePayment({ orderId });
+  const response = await chargePayment({ orderId, rewardCreditDollars });
 
   return response.data;
 }

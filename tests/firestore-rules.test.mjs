@@ -305,6 +305,12 @@ async function main() {
     await runTest("customer can read and update own profile", async () => {
       await assertSucceeds(getDoc(doc(customerDb, "customerProfiles", "customer-1")));
       await assertSucceeds(
+        updateDoc(doc(customerDb, "customerProfiles", "customer-1"), {
+          notes: "Leave bags by the side door.",
+          updatedAt: "test",
+        }),
+      );
+      await assertSucceeds(
         updateDoc(doc(customerDb, "users", "customer-1"), {
           phone: "555-1111",
           updatedAt: "test",
@@ -324,6 +330,27 @@ async function main() {
           notificationPreferences: {
             customerOrderUpdates: "yes",
           },
+          updatedAt: "test",
+        }),
+      );
+    });
+
+    await runTest("customer cannot write Stripe payment references directly", async () => {
+      await assertFails(
+        updateDoc(doc(customerDb, "customerProfiles", "customer-1"), {
+          paymentMethod: {
+            brand: "visa",
+            last4: "4242",
+            stripeCustomerId: "cus_fake",
+            stripePaymentMethodId: "pm_fake",
+          },
+          updatedAt: "test",
+        }),
+      );
+      await assertFails(
+        updateDoc(doc(customerDb, "customerProfiles", "customer-1"), {
+          stripeCustomerId: "cus_fake",
+          stripePaymentMethodId: "pm_fake",
           updatedAt: "test",
         }),
       );

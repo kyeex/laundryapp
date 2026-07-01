@@ -385,6 +385,8 @@ export async function setOrderFinalPrice(input: {
     throw new Error("Payment is finalized. Final price changes are locked.");
   }
 
+  const db = getFirebaseFirestore();
+
   await updateDoc(doc(db, "orders", input.orderId), {
     finalPrice: input.finalPrice,
     paymentStatus,

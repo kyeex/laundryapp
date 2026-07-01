@@ -1,17 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
-import { AppButton } from "@/components/AppButton";
-import { FormTextInput } from "@/components/FormTextInput";
 import { Screen } from "@/components/Screen";
+import { StripePaymentMethodPanel } from "@/components/StripePaymentMethodPanel";
 import { useAuth } from "@/context/AuthContext";
 import {
   getCustomerProfileSummary,
-  saveCustomerPaymentMethod,
   type CustomerPaymentMethod,
 } from "@/services/profileService";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
+import type { SavedStripePaymentMethod } from "@/types/domain";
 
 const emptyPaymentMethod: CustomerPaymentMethod = {
   cardholderName: "",
@@ -28,7 +27,6 @@ export default function CustomerPaymentMethodScreen() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
 
   const loadPaymentMethod = useCallback(async () => {
     if (!currentUser) {
@@ -56,42 +54,34 @@ export default function CustomerPaymentMethodScreen() {
     void loadPaymentMethod();
   }, [loadPaymentMethod]);
 
-  function updatePaymentMethod(field: keyof CustomerPaymentMethod, value: string) {
-    setPaymentMethod((current) => ({
-      ...current,
-      [field]: value,
-    }));
-  }
-
-  async function handleSavePaymentMethod() {
-    if (!currentUser) {
-      return;
-    }
-
-    setError("");
-    setSuccess("");
-    setIsSaving(true);
-
-    try {
-      const savedPaymentMethod = await saveCustomerPaymentMethod(
-        currentUser.id,
-        paymentMethod,
-      );
-      setPaymentMethod(savedPaymentMethod);
-      setSuccess("Payment method saved.");
-    } catch (saveError) {
-      const message =
-        saveError instanceof Error
-          ? saveError.message
-          : "Unable to save payment method right now.";
-      setError(message);
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
   const hasSavedCard =
     paymentMethod.brand && paymentMethod.last4 && paymentMethod.expirationMonth;
+  const savedStripePaymentMethod: SavedStripePaymentMethod | null =
+    hasSavedCard && paymentMethod.stripeCustomerId && paymentMethod.stripePaymentMethodId
+      ? {
+          brand: paymentMethod.brand,
+          expirationMonth: paymentMethod.expirationMonth,
+          expirationYear: paymentMethod.expirationYear,
+          last4: paymentMethod.last4,
+          paymentMethodId: paymentMethod.stripePaymentMethodId,
+          setupIntentId: paymentMethod.stripeSetupIntentId ?? "",
+          stripeCustomerId: paymentMethod.stripeCustomerId,
+        }
+      : null;
+
+  function handleStripePaymentMethodSaved(savedPaymentMethod: SavedStripePaymentMethod) {
+    setPaymentMethod({
+      brand: savedPaymentMethod.brand,
+      cardholderName: currentUser?.displayName ?? "",
+      expirationMonth: savedPaymentMethod.expirationMonth,
+      expirationYear: savedPaymentMethod.expirationYear,
+      last4: savedPaymentMethod.last4,
+      stripeCustomerId: savedPaymentMethod.stripeCustomerId,
+      stripePaymentMethodId: savedPaymentMethod.paymentMethodId,
+      stripeSetupIntentId: savedPaymentMethod.setupIntentId,
+    });
+    setSuccess("Payment method saved securely with Stripe.");
+  }
 
   return (
     <Screen>
@@ -99,8 +89,8 @@ export default function CustomerPaymentMethodScreen() {
         <View style={styles.header}>
           <Text style={styles.title}>Payment method</Text>
           <Text style={styles.body}>
-            Save a card summary for checkout. This demo stores only card summary
-            fields, not a full card number or CVV.
+            Save a default Stripe payment method for future laundry orders. Card
+            details are entered only through Stripe's secure UI.
           </Text>
         </View>
 
@@ -114,69 +104,27 @@ export default function CustomerPaymentMethodScreen() {
               <Text style={styles.summaryLabel}>Saved payment</Text>
               <Text style={styles.summaryValue}>
                 {hasSavedCard
-                  ? `${paymentMethod.brand} ending in ${paymentMethod.last4}`
-                  : "No saved card summary"}
+                  ? `${paymentMethod.brand.toUpperCase()} ending in ${paymentMethod.last4}`
+                  : "No default card saved"}
               </Text>
               <Text style={styles.summaryMeta}>
                 {hasSavedCard
                   ? `Expires ${paymentMethod.expirationMonth}/${paymentMethod.expirationYear || "YYYY"}`
-                  : "Add the card summary you want available at checkout."}
+                  : "Add a card once and use it to speed up future order review."}
               </Text>
             </View>
 
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Card summary</Text>
-              <FormTextInput
-                label="Cardholder name"
-                onChangeText={(value) => updatePaymentMethod("cardholderName", value)}
-                value={paymentMethod.cardholderName}
-              />
-              <FormTextInput
-                label="Card brand"
-                onChangeText={(value) => updatePaymentMethod("brand", value)}
-                placeholder="Visa, Mastercard, Amex"
-                value={paymentMethod.brand}
-              />
-              <FormTextInput
-                keyboardType="number-pad"
-                label="Last 4 digits"
-                maxLength={4}
-                onChangeText={(value) => updatePaymentMethod("last4", value)}
-                placeholder="4242"
-                value={paymentMethod.last4}
-              />
-              <View style={styles.row}>
-                <View style={styles.rowItem}>
-                  <FormTextInput
-                    keyboardType="number-pad"
-                    label="Exp month"
-                    maxLength={2}
-                    onChangeText={(value) =>
-                      updatePaymentMethod("expirationMonth", value)
-                    }
-                    placeholder="06"
-                    value={paymentMethod.expirationMonth}
-                  />
-                </View>
-                <View style={styles.rowItem}>
-                  <FormTextInput
-                    keyboardType="number-pad"
-                    label="Exp year"
-                    maxLength={4}
-                    onChangeText={(value) =>
-                      updatePaymentMethod("expirationYear", value)
-                    }
-                    placeholder="2028"
-                    value={paymentMethod.expirationYear}
-                  />
-                </View>
-              </View>
-            </View>
-
-            <AppButton
-              disabled={isSaving}
-              label={isSaving ? "Saving..." : "Save payment method"}
-              onPress={handleSavePaymentMethod}
+            <StripePaymentMethodPanel
+              customerEmail={currentUser?.email ?? ""}
+              customerName={currentUser?.displayName ?? ""}
+              estimatedTotal={0}
+              footerNote="Saving a default card does not create a charge. You are charged only after an order has a confirmed final price."
+              mode="profile"
+              onSaved={handleStripePaymentMethodSaved}
+              savedPaymentMethod={savedStripePaymentMethod}
+              subtitle="Use Stripe to save a default card for future orders. LaundryApp stores only the card brand, last four digits, and Stripe references."
+              summaryLabel="Default card"
+              title="Manage default card"
             />
           </>
         ) : null}
@@ -226,26 +174,6 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 14,
     lineHeight: 20,
-  },
-  card: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: 8,
-    borderWidth: 1,
-    gap: spacing.md,
-    padding: spacing.md,
-  },
-  cardTitle: {
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: "800",
-  },
-  row: {
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  rowItem: {
-    flex: 1,
   },
   error: {
     color: colors.danger,
