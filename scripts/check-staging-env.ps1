@@ -164,6 +164,10 @@ if (($Environment -eq "demo" -or $Environment -eq "staging") -and $stripeKey.Sta
   throw "$Environment is using a live Stripe publishable key. Use a Stripe test key for non-production."
 }
 
+if ($Environment -eq "staging" -and -not $stripeKey.StartsWith("pk_test_")) {
+  throw "Staging Stripe publishable key should start with pk_test_. Copy the test publishable key from Stripe Dashboard > Developers > API keys."
+}
+
 if ($Environment -eq "production" -and $stripeKey.StartsWith("pk_test_")) {
   throw "Production is using a Stripe test publishable key. Use a live key before production launch."
 }

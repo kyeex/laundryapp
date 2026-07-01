@@ -1,4 +1,4 @@
-import { Link, router, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
@@ -208,15 +208,15 @@ export default function CustomerOrderDetailScreen() {
               </Text>
               <Text style={styles.muted}>Payment status: {order.paymentStatus}</Text>
               {canOpenPayment ? (
-                <Link
-                  href={{
-                    pathname: "/(customer)/my-orders/[orderId]/pay",
-                    params: { orderId: order.id },
-                  }}
-                  style={styles.payLink}
-                >
-                  Pay final balance
-                </Link>
+                <AppButton
+                  label="Pay final balance"
+                  onPress={() =>
+                    router.push({
+                      pathname: "/(customer)/my-orders/[orderId]/pay",
+                      params: { orderId: order.id },
+                    })
+                  }
+                />
               ) : null}
             </View>
 
@@ -291,12 +291,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 15,
     lineHeight: 22,
-  },
-  payLink: {
-    color: colors.primary,
-    fontSize: 17,
-    fontWeight: "800",
-    marginTop: spacing.xs,
   },
   error: {
     color: colors.danger,

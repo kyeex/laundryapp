@@ -29,6 +29,10 @@ import { spacing } from "@/theme/spacing";
 import type { LoyaltyRewardSettings, Order, OrderStatus } from "@/types/domain";
 
 const rewardCreditOptions = [0, 1, 2, 5, 10];
+const stripePublishableKey = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "";
+const isStripeMobileCheckoutConfigured =
+  stripePublishableKey.startsWith("pk_test_") ||
+  stripePublishableKey.startsWith("pk_live_");
 const payableOrderStatuses = new Set<OrderStatus>([
   "accepted",
   "received_at_store",
@@ -158,6 +162,7 @@ export default function CustomerPayOrderScreen() {
     order?.paymentStatus !== "paid";
   const canPay =
     isPaymentEligible &&
+    isStripeMobileCheckoutConfigured &&
     finalPrice > 0 &&
     payableAmount > 0 &&
     !isPaying;
@@ -165,7 +170,9 @@ export default function CustomerPayOrderScreen() {
     paymentMethod?.brand && paymentMethod.last4 && paymentMethod.expirationMonth,
   );
   const paymentDisabledReason =
-    order?.paymentStatus === "paid"
+    !isStripeMobileCheckoutConfigured
+      ? "Native Stripe checkout is not configured in this mobile build. Add the Stripe publishable key, rebuild the APK, and install the new build."
+      : order?.paymentStatus === "paid"
       ? "This order has already been paid."
       : !isPaymentEligible
         ? "This order is not ready for payment yet."
@@ -213,6 +220,17 @@ export default function CustomerPayOrderScreen() {
               <Text style={styles.muted}>
                 Stripe PaymentSheet will open after the backend creates a secure
                 PaymentIntent for this order.
+              </Text>
+              <Text
+                style={
+                  isStripeMobileCheckoutConfigured
+                    ? styles.checkoutReady
+                    : styles.checkoutBlocked
+                }
+              >
+                {isStripeMobileCheckoutConfigured
+                  ? "Native Stripe checkout is configured for this build."
+                  : "Native Stripe checkout is missing a valid publishable key."}
               </Text>
             </View>
 
@@ -362,6 +380,16 @@ const styles = StyleSheet.create({
     color: colors.success,
     fontSize: 14,
     fontWeight: "700",
+  },
+  checkoutReady: {
+    color: colors.success,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  checkoutBlocked: {
+    color: colors.danger,
+    fontSize: 14,
+    fontWeight: "800",
   },
   pending: {
     color: colors.primary,

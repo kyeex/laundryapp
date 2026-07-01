@@ -45,6 +45,9 @@ export type CustomerPaymentMethod = {
   last4: string;
   expirationMonth: string;
   expirationYear: string;
+  stripeCustomerId?: string;
+  stripePaymentMethodId?: string;
+  stripeSetupIntentId?: string;
 };
 
 export type CustomerLaundryPreferences = {
@@ -125,6 +128,9 @@ function normalizePaymentMethod(
     expirationYear: (paymentMethod?.expirationYear ?? "")
       .replace(/\D/g, "")
       .slice(0, 4),
+    stripeCustomerId: paymentMethod?.stripeCustomerId?.trim() ?? "",
+    stripePaymentMethodId: paymentMethod?.stripePaymentMethodId?.trim() ?? "",
+    stripeSetupIntentId: paymentMethod?.stripeSetupIntentId?.trim() ?? "",
   };
 }
 

@@ -34,6 +34,7 @@ import { validateCreateOrderInput, validateMoney } from "@/utils/validation";
 
 import { recordAuditLog } from "./auditLogService";
 import { awardOrderRewardsForPaidOrder } from "./loyaltyRewardsService";
+import { chargeSavedOrderPayment } from "./paymentService";
 
 function calculateEstimatedSubtotal(addOns: CreateOrderInput["selectedAddOns"]) {
   return addOns.reduce(
@@ -107,6 +108,10 @@ export function mapOrder(id: string, data: DocumentData): Order {
     estimatedSubtotal: data.estimatedSubtotal ?? 0,
     paymentStatus: data.paymentStatus ?? "unpaid",
     finalPrice: data.finalPrice ?? null,
+    stripeCustomerId: data.stripeCustomerId ?? null,
+    stripePaymentMethodId: data.stripePaymentMethodId ?? null,
+    paymentMethodBrand: data.paymentMethodBrand ?? null,
+    paymentMethodLast4: data.paymentMethodLast4 ?? null,
     rewardCreditAmount: data.rewardCreditAmount ?? 0,
     rewardPointsRedeemed: data.rewardPointsRedeemed ?? 0,
     rewardRedemptionId: data.rewardRedemptionId ?? null,
@@ -176,6 +181,11 @@ export async function createCustomerOrder(customer: AppUser, input: CreateOrderI
     estimatedSubtotal,
     finalPrice: null,
     paymentStatus: "unpaid",
+    stripeCustomerId: input.stripeCustomerId ?? null,
+    stripeSetupIntentId: input.stripeSetupIntentId ?? null,
+    stripePaymentMethodId: input.stripePaymentMethodId ?? null,
+    paymentMethodBrand: input.paymentMethodBrand ?? null,
+    paymentMethodLast4: input.paymentMethodLast4 ?? null,
     rewardCreditAmount: 0,
     rewardPointsRedeemed: 0,
     rewardRedemptionId: null,
@@ -369,7 +379,6 @@ export async function setOrderFinalPrice(input: {
     return;
   }
 
-  const db = getFirebaseFirestore();
   const order = await getAdminOrderById(input.orderId);
 
   if (order?.paymentStatus === "paid") {
@@ -444,45 +453,7 @@ export async function finalizeOrderPayment(input: {
     throw new Error("Payment is already finalized.");
   }
 
-  await updateDoc(doc(db, "orders", input.orderId), {
-    paymentStatus: "paid" satisfies PaymentStatus,
-    status: "paid" satisfies OrderStatus,
-    updatedAt: serverTimestamp(),
-  });
-
-  await addOrderEvent({
-    orderId: input.orderId,
-    type: "payment_completed",
-    fromStatus: order.status,
-    toStatus: "paid",
-    message: "Owner finalized payment for this order.",
-    createdBy: input.ownerId,
-  });
-
-  await recordAuditLog({
-    actorId: input.ownerId,
-    actorRole: "owner",
-    action: "payment.finalized_by_owner",
-    resourceType: "payment",
-    resourceId: input.orderId,
-    summary: "Owner finalized payment for an order.",
-    metadata: {
-      orderId: input.orderId,
-      finalPrice: order.finalPrice,
-      fromStatus: order.status,
-      toStatus: "paid",
-    },
-  });
-
-  await awardOrderRewardsForPaidOrder({
-    actorId: input.ownerId,
-    actorRole: "owner",
-    order: {
-      ...order,
-      paymentStatus: "paid",
-      status: "paid",
-    },
-  });
+  await chargeSavedOrderPayment(input.orderId);
 }
 
 export function formatAddress(address: AddressInput) {

@@ -636,6 +636,62 @@ function getStripe() {
   return new Stripe(secretKey);
 }
 
+async function getOrCreateStripeCustomer(input: {
+  uid: string;
+  email?: string;
+  displayName?: string;
+  phone?: string;
+}) {
+  const db = getFirestore();
+  const profileRef = db.collection("customerProfiles").doc(input.uid);
+  const profileSnapshot = await profileRef.get();
+  const existingStripeCustomerId = profileSnapshot.data()?.stripeCustomerId;
+
+  if (typeof existingStripeCustomerId === "string" && existingStripeCustomerId) {
+    return existingStripeCustomerId;
+  }
+
+  const stripeCustomer = await getStripe().customers.create({
+    email: input.email,
+    name: input.displayName,
+    phone: input.phone,
+    metadata: {
+      appUserId: input.uid,
+    },
+  });
+
+  await profileRef.set(
+    {
+      userId: input.uid,
+      stripeCustomerId: stripeCustomer.id,
+      updatedAt: new Date(),
+      createdAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  return stripeCustomer.id;
+}
+
+function getStripePaymentMethodId(paymentMethod: string | Stripe.PaymentMethod) {
+  return typeof paymentMethod === "string" ? paymentMethod : paymentMethod.id;
+}
+
+function getStripeCardSummary(paymentMethod: Stripe.PaymentMethod) {
+  const card = paymentMethod.card;
+
+  if (!card) {
+    throw new HttpsError("failed-precondition", "Only card payment methods are supported.");
+  }
+
+  return {
+    brand: card.brand,
+    last4: card.last4,
+    expirationMonth: String(card.exp_month).padStart(2, "0"),
+    expirationYear: String(card.exp_year),
+  };
+}
+
 const defaultRewardSettings = {
   enabled: true,
   pointsPerDollar: 1,
@@ -1518,6 +1574,7 @@ export const createPaymentIntent = onCall<{
         currency: stripeCurrency,
         automatic_payment_methods: {
           enabled: true,
+          allow_redirects: "never",
         },
         metadata: {
           orderId,
@@ -1565,6 +1622,165 @@ export const createPaymentIntent = onCall<{
 
     return {
       paymentIntentClientSecret: paymentIntent.client_secret,
+    };
+  },
+);
+
+export const createOrderReviewSetupIntent = onCall<{ estimatedTotal?: number }>(
+  { secrets: [stripeSecretKey] },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Sign in before adding a card.");
+    }
+
+    const customer = await assertCustomerUser(request.auth.uid);
+    const stripeCustomerId = await getOrCreateStripeCustomer({
+      uid: request.auth.uid,
+      email: customer.email,
+      displayName: customer.displayName,
+      phone: customer.phone,
+    });
+
+    const setupIntent = await getStripe().setupIntents.create({
+      customer: stripeCustomerId,
+      payment_method_types: ["card"],
+      usage: "off_session",
+      metadata: {
+        customerId: request.auth.uid,
+        estimatedTotal: String(request.data.estimatedTotal ?? ""),
+        purpose: "laundry_order_review",
+      },
+    });
+
+    if (!setupIntent.client_secret) {
+      throw new HttpsError("internal", "Stripe did not return a setup client secret.");
+    }
+
+    await getFirestore().collection("paymentSetups").doc(setupIntent.id).set({
+      customerId: request.auth.uid,
+      stripeCustomerId,
+      setupIntentId: setupIntent.id,
+      status: setupIntent.status,
+      provider: "stripe",
+      purpose: "laundry_order_review",
+      estimatedTotal: request.data.estimatedTotal ?? null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    return {
+      setupIntentClientSecret: setupIntent.client_secret,
+      setupIntentId: setupIntent.id,
+      stripeCustomerId,
+    };
+  },
+);
+
+export const confirmOrderReviewSetupIntent = onCall<{ setupIntentId: string }>(
+  { secrets: [stripeSecretKey] },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Sign in before saving a card.");
+    }
+
+    await assertCustomerUser(request.auth.uid);
+    const setupIntentId = requireString(request.data.setupIntentId, "setupIntentId");
+    const stripe = getStripe();
+    const setupIntent = await stripe.setupIntents.retrieve(setupIntentId);
+
+    if (setupIntent.metadata?.customerId !== request.auth.uid) {
+      throw new HttpsError(
+        "permission-denied",
+        "This saved payment method belongs to another customer.",
+      );
+    }
+
+    if (setupIntent.status !== "succeeded") {
+      throw new HttpsError(
+        "failed-precondition",
+        `Stripe setup is ${setupIntent.status}.`,
+      );
+    }
+
+    if (!setupIntent.payment_method) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Stripe did not attach a payment method.",
+      );
+    }
+
+    const paymentMethodId = getStripePaymentMethodId(setupIntent.payment_method);
+    const paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId);
+    const cardSummary = getStripeCardSummary(paymentMethod);
+    const stripeCustomerId =
+      typeof setupIntent.customer === "string"
+        ? setupIntent.customer
+        : setupIntent.customer?.id;
+
+    if (!stripeCustomerId) {
+      throw new HttpsError("failed-precondition", "Stripe customer is missing.");
+    }
+
+    await stripe.customers.update(stripeCustomerId, {
+      invoice_settings: {
+        default_payment_method: paymentMethodId,
+      },
+    });
+
+    await getFirestore().collection("customerProfiles").doc(request.auth.uid).set(
+      {
+        userId: request.auth.uid,
+        stripeCustomerId,
+        stripePaymentMethodId: paymentMethodId,
+        paymentMethod: {
+          cardholderName: paymentMethod.billing_details.name ?? "",
+          brand: cardSummary.brand,
+          last4: cardSummary.last4,
+          expirationMonth: cardSummary.expirationMonth,
+          expirationYear: cardSummary.expirationYear,
+          stripeCustomerId,
+          stripePaymentMethodId: paymentMethodId,
+          stripeSetupIntentId: setupIntent.id,
+        },
+        updatedAt: new Date(),
+      },
+      { merge: true },
+    );
+
+    await getFirestore().collection("paymentSetups").doc(setupIntent.id).set(
+      {
+        customerId: request.auth.uid,
+        stripeCustomerId,
+        setupIntentId: setupIntent.id,
+        stripePaymentMethodId: paymentMethodId,
+        status: setupIntent.status,
+        brand: cardSummary.brand,
+        last4: cardSummary.last4,
+        updatedAt: new Date(),
+      },
+      { merge: true },
+    );
+
+    await writeAuditLog({
+      actorId: request.auth.uid,
+      actorRole: "customer",
+      action: "payment.method_saved",
+      resourceType: "payment",
+      resourceId: setupIntent.id,
+      summary: "Customer saved a Stripe payment method for order review.",
+      metadata: {
+        stripeCustomerId,
+        stripePaymentMethodId: paymentMethodId,
+        brand: cardSummary.brand,
+        last4: cardSummary.last4,
+      },
+    });
+
+    return {
+      stripeCustomerId,
+      setupIntentId: setupIntent.id,
+      paymentMethodId,
+      ...cardSummary,
     };
   },
 );
@@ -1628,6 +1844,21 @@ async function getOrderForPaymentIntent(paymentIntent: Stripe.PaymentIntent) {
   }
 
   return { db, order, orderId, orderRef };
+}
+
+function shouldIgnoreStripeWebhookError(error: unknown) {
+  return error instanceof HttpsError
+    && (error.code === "failed-precondition" || error.code === "not-found");
+}
+
+function logIgnoredStripeWebhook(event: Stripe.Event, error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+
+  console.info("Ignoring Stripe webhook event that does not match a LaundryApp order.", {
+    eventId: event.id,
+    eventType: event.type,
+    message,
+  });
 }
 
 async function markStripePaymentSucceeded(input: {
@@ -1825,6 +2056,174 @@ async function markStripePaymentFailed(paymentIntent: Stripe.PaymentIntent) {
     },
   });
 }
+
+export const chargeOrderSavedPaymentMethod = onCall<{ orderId: string }>(
+  { secrets: [stripeSecretKey] },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Sign in before charging an order.");
+    }
+
+    const actor = await assertOwnerOrAdminUser(request.auth.uid);
+    const orderId = requireString(request.data.orderId, "orderId");
+    const db = getFirestore();
+    const orderRef = db.collection("orders").doc(orderId);
+    const orderSnapshot = await orderRef.get();
+    const order = orderSnapshot.data();
+
+    if (!order) {
+      throw new HttpsError("not-found", "Order not found.");
+    }
+
+    if (order.paymentStatus === "paid") {
+      return { status: "paid" };
+    }
+
+    if (typeof order.finalPrice !== "number" || order.finalPrice <= 0) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Save a final price before charging the customer.",
+      );
+    }
+
+    if (
+      typeof order.stripeCustomerId !== "string"
+      || !order.stripeCustomerId
+      || typeof order.stripePaymentMethodId !== "string"
+      || !order.stripePaymentMethodId
+    ) {
+      throw new HttpsError(
+        "failed-precondition",
+        "This order does not have a saved Stripe payment method.",
+      );
+    }
+
+    const amount = toStripeAmount(order.finalPrice);
+    const stripe = getStripe();
+
+    if (
+      order.paymentStatus === "pending"
+      && typeof order.paymentId === "string"
+      && order.paymentId
+    ) {
+      const existingPaymentIntent = await stripe.paymentIntents.retrieve(order.paymentId);
+
+      if (existingPaymentIntent.status === "succeeded") {
+        return await markStripePaymentSucceeded({
+          paymentIntent: existingPaymentIntent,
+          actorId: request.auth.uid,
+          actorRole: actor.role,
+        });
+      }
+
+      throw new HttpsError(
+        "failed-precondition",
+        `A previous payment is ${existingPaymentIntent.status}.`,
+      );
+    }
+
+    try {
+      const paymentIntent = await stripe.paymentIntents.create(
+        {
+          amount,
+          currency: stripeCurrency,
+          customer: order.stripeCustomerId,
+          payment_method: order.stripePaymentMethodId,
+          off_session: true,
+          confirm: true,
+          metadata: {
+            orderId,
+            customerId: order.customerId,
+            chargedBy: request.auth.uid,
+            source: "saved_payment_method",
+          },
+          description: `Laundry order ${order.orderNumber ?? orderId}`,
+        },
+        {
+          idempotencyKey: `order-${orderId}-saved-card-${amount}`,
+        },
+      );
+
+      await orderRef.update({
+        paymentStatus:
+          paymentIntent.status === "succeeded" ? "pending" : "pending",
+        paymentId: paymentIntent.id,
+        paymentAmountDue: order.finalPrice,
+        updatedAt: new Date(),
+      });
+
+      await db.collection("payments").doc(paymentIntent.id).set({
+        amount,
+        amountDollars: order.finalPrice,
+        currency: stripeCurrency,
+        customerId: order.customerId,
+        customerName: order.customerName ?? "",
+        orderId,
+        orderNumber: order.orderNumber ?? null,
+        paymentIntentId: paymentIntent.id,
+        provider: "stripe",
+        source: "saved_payment_method",
+        status: paymentIntent.status,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      if (paymentIntent.status === "succeeded") {
+        return await markStripePaymentSucceeded({
+          paymentIntent,
+          actorId: request.auth.uid,
+          actorRole: actor.role,
+        });
+      }
+
+      if (paymentIntent.status === "processing") {
+        await markStripePaymentProcessing(paymentIntent);
+        return { status: "pending" };
+      }
+
+      throw new HttpsError(
+        "failed-precondition",
+        `Stripe payment is ${paymentIntent.status}.`,
+      );
+    } catch (error) {
+      if (error instanceof HttpsError) {
+        throw error;
+      }
+
+      const message = error instanceof Error ? error.message : "Stripe charge failed.";
+      await orderRef.update({
+        paymentStatus: "unpaid",
+        paymentFailureMessage: message,
+        updatedAt: new Date(),
+      });
+
+      await db.collection("orderEvents").add({
+        orderId,
+        type: "payment_failed",
+        fromStatus: order.status ?? null,
+        toStatus: order.status ?? null,
+        message,
+        createdBy: request.auth.uid,
+        createdAt: new Date(),
+      });
+
+      await writeAuditLog({
+        actorId: request.auth.uid,
+        actorRole: actor.role,
+        action: "payment.charge_failed",
+        resourceType: "payment",
+        resourceId: orderId,
+        summary: "Saved payment method charge failed.",
+        metadata: {
+          orderId,
+          message,
+        },
+      });
+
+      throw new HttpsError("failed-precondition", message);
+    }
+  },
+);
 
 async function markStripePaymentRefunded(input: {
   paymentIntentId: string;
@@ -2097,6 +2496,12 @@ export const stripeWebhook = onRequest(
 
       response.status(200).json({ received: true });
     } catch (error) {
+      if (shouldIgnoreStripeWebhookError(error)) {
+        logIgnoredStripeWebhook(event, error);
+        response.status(200).json({ ignored: true, received: true });
+        return;
+      }
+
       const message =
         error instanceof Error ? error.message : "Unable to process Stripe webhook.";
       console.error("Stripe webhook processing failed", {

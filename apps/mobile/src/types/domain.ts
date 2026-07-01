@@ -194,6 +194,10 @@ export type Order = {
   estimatedSubtotal: number;
   paymentStatus: PaymentStatus;
   finalPrice: number | null;
+  stripeCustomerId?: string | null;
+  stripePaymentMethodId?: string | null;
+  paymentMethodBrand?: string | null;
+  paymentMethodLast4?: string | null;
   rewardCreditAmount?: number;
   rewardPointsRedeemed?: number;
   rewardRedemptionId?: string | null;
@@ -219,6 +223,27 @@ export type CreateOrderInput = {
   scheduledDropoffWindow: string;
   gratuityAmount: number;
   customerNotes: string;
+  stripeCustomerId?: string | null;
+  stripeSetupIntentId?: string | null;
+  stripePaymentMethodId?: string | null;
+  paymentMethodBrand?: string | null;
+  paymentMethodLast4?: string | null;
+};
+
+export type PaymentMethodSetup = {
+  setupIntentClientSecret: string;
+  setupIntentId: string;
+  stripeCustomerId: string;
+};
+
+export type SavedStripePaymentMethod = {
+  stripeCustomerId: string;
+  setupIntentId: string;
+  paymentMethodId: string;
+  brand: string;
+  last4: string;
+  expirationMonth: string;
+  expirationYear: string;
 };
 
 export type Batch = {

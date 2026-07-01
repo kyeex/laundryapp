@@ -3,6 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
 import { AppButton } from "@/components/AppButton";
+import { StripePaymentMethodPanel } from "@/components/StripePaymentMethodPanel";
+import { shouldUseDemoBackend } from "@/config/firebase";
 import { Screen } from "@/components/Screen";
 import {
   calculateBillableLaundryWeight,
@@ -22,13 +24,15 @@ import {
 import { createCustomerOrder } from "@/services/orderService";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
-import type { LoyaltyRewardSettings } from "@/types/domain";
+import type { LoyaltyRewardSettings, SavedStripePaymentMethod } from "@/types/domain";
 import { formatDisplayDate } from "@/utils/dateFormat";
 
 export default function OrderReviewScreen() {
   const [draft, setDraft] = useState<OrderDraft | null>(null);
   const [demoPaymentAuthorized, setDemoPaymentAuthorized] = useState(false);
   const [demoPaymentReference, setDemoPaymentReference] = useState("");
+  const [savedStripePaymentMethod, setSavedStripePaymentMethod] =
+    useState<SavedStripePaymentMethod | null>(null);
   const [error, setError] = useState("");
   const [rewardSettings, setRewardSettings] = useState<LoyaltyRewardSettings | null>(
     null,
@@ -97,6 +101,9 @@ export default function OrderReviewScreen() {
   const estimatedTotal = estimatedTotalBeforeGratuity + gratuityAmount;
   const potentialRewardPoints =
     rewardSettings?.enabled ? calculateEarnedPoints(estimatedTotal, rewardSettings) : 0;
+  const paymentAuthorized = shouldUseDemoBackend
+    ? demoPaymentAuthorized
+    : Boolean(savedStripePaymentMethod);
 
   async function handleAuthorizeDemoPayment() {
     setError("");
@@ -129,11 +136,20 @@ export default function OrderReviewScreen() {
     setIsSubmitting(true);
 
     try {
-      if (!demoPaymentAuthorized) {
-        throw new Error("Authorize demo payment before placing the order.");
+      if (!paymentAuthorized) {
+        throw new Error("Authorize a payment method before placing the order.");
       }
 
-      const orderId = await createCustomerOrder(draft.customer, draft.input);
+      const orderInput = {
+        ...draft.input,
+        stripeCustomerId: savedStripePaymentMethod?.stripeCustomerId ?? null,
+        stripeSetupIntentId: savedStripePaymentMethod?.setupIntentId ?? null,
+        stripePaymentMethodId: savedStripePaymentMethod?.paymentMethodId ?? null,
+        paymentMethodBrand: savedStripePaymentMethod?.brand ?? null,
+        paymentMethodLast4: savedStripePaymentMethod?.last4 ?? null,
+      };
+
+      const orderId = await createCustomerOrder(draft.customer, orderInput);
       clearOrderDraft();
       router.replace({
         pathname: "/(customer)/my-orders/[orderId]",
@@ -175,8 +191,9 @@ export default function OrderReviewScreen() {
         <View style={styles.header}>
           <Text style={styles.title}>Review & payment</Text>
           <Text style={styles.body}>
-            Confirm the request and authorize demo payment before sending it to
-            the laundromat.
+            Confirm the request and authorize a card before sending it to the
+            laundromat. Your card is saved securely with Stripe and charged only
+            after the owner confirms the final price.
           </Text>
         </View>
 
@@ -263,40 +280,49 @@ export default function OrderReviewScreen() {
           </Text>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Payment</Text>
-          <Text style={styles.muted}>
-            No real payment data is collected in this demo. Production will use
-            Stripe PaymentSheet through the existing payment service so card
-            details are entered only inside Stripe's secure UI.
-          </Text>
-          <View style={styles.paymentStatus}>
-            <Text style={styles.value}>
-              Status: {demoPaymentAuthorized ? "Demo authorized" : "Not authorized"}
+        {shouldUseDemoBackend ? (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Payment</Text>
+            <Text style={styles.muted}>
+              Demo mode uses a simulated authorization. Staging and production
+              use Stripe's secure card entry on this same review step.
             </Text>
-            {demoPaymentReference ? (
-              <Text style={styles.muted}>Reference: {demoPaymentReference}</Text>
-            ) : null}
+            <View style={styles.paymentStatus}>
+              <Text style={styles.value}>
+                Status: {demoPaymentAuthorized ? "Demo authorized" : "Not authorized"}
+              </Text>
+              {demoPaymentReference ? (
+                <Text style={styles.muted}>Reference: {demoPaymentReference}</Text>
+              ) : null}
+            </View>
+            <AppButton
+              disabled={isAuthorizingPayment || demoPaymentAuthorized}
+              label={
+                demoPaymentAuthorized
+                  ? "Demo payment authorized"
+                  : isAuthorizingPayment
+                    ? "Authorizing..."
+                    : "Authorize demo payment"
+              }
+              onPress={handleAuthorizeDemoPayment}
+              variant={demoPaymentAuthorized ? "secondary" : "primary"}
+            />
           </View>
-          <AppButton
-            disabled={isAuthorizingPayment || demoPaymentAuthorized}
-            label={
-              demoPaymentAuthorized
-                ? "Demo payment authorized"
-                : isAuthorizingPayment
-                  ? "Authorizing..."
-                  : "Authorize demo payment"
-            }
-            onPress={handleAuthorizeDemoPayment}
-            variant={demoPaymentAuthorized ? "secondary" : "primary"}
+        ) : (
+          <StripePaymentMethodPanel
+            customerEmail={draft.customer.email}
+            customerName={draft.customer.displayName}
+            disabled={isSubmitting}
+            estimatedTotal={estimatedTotal}
+            onSaved={setSavedStripePaymentMethod}
           />
-        </View>
+        )}
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
         {isSubmitting ? <ActivityIndicator color={colors.primary} /> : null}
 
         <AppButton
-          disabled={isSubmitting || !demoPaymentAuthorized}
+          disabled={isSubmitting || !paymentAuthorized}
           label={isSubmitting ? "Placing order..." : "Place order request"}
           onPress={handlePlaceOrder}
         />

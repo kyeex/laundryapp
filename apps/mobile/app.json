@@ -24,11 +24,6 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "extra": {
-      "eas": {
-        "projectId": "REPLACE_WITH_EAS_PROJECT_ID"
-      }
-    },
     "plugins": [
       "expo-router",
       "expo-splash-screen",
@@ -46,6 +41,13 @@
           "defaultChannel": "default"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "30c4be39-ea4c-412c-aad6-414350e02100"
+      }
+    },
+    "owner": "kyee3"
   }
 }
