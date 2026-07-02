@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Platform, StyleSheet, Text, View } from "react-native";
 
 import { AccountPanel } from "@/components/AccountPanel";
 import { DemoWalkthrough } from "@/components/DemoWalkthrough";
@@ -101,18 +101,38 @@ export default function CustomerHomeScreen() {
 
   const activeOrders = useMemo(() => orders.filter(isActiveOrder), [orders]);
   const upcomingPickup = activeOrders.find((order) => order.scheduledPickupDate);
+  const customerName =
+    currentUser?.displayName || currentUser?.email?.split("@")[0] || "user";
 
   return (
     <Screen>
       <View style={styles.content}>
-        <AccountPanel />
-        <PageHeader
-          eyebrow="Customer"
-          title="Customer home"
-          description="Request wash and fold, dry cleaning, or both with configurable add-ons."
-        />
+        <View style={styles.welcomeCard}>
+          <AccountPanel showNotifications={false} showSignOut={false} />
+          <View style={styles.welcomeCopy}>
+            <Text style={styles.welcomeEyebrow}>Customer home</Text>
+            <Text style={styles.welcomeTitle}>Welcome, {customerName}</Text>
+            <Text style={styles.welcomeText}>
+              Start an order, check your laundry status, or manage your profile.
+            </Text>
+          </View>
+        </View>
         {isLoading ? <ActivityIndicator color={colors.primary} /> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
+
+        <ActionPanel title="Quick actions">
+          <ActionLink href="/(customer)/new-order" label="Start new order" primary />
+          <ActionGrid>
+            <ActionLink href="/(customer)/my-orders" label="View order history" />
+            <ActionLink href="/(customer)/profile-summary" label="Profile summary" />
+            <ActionLink href="/(customer)/payment-method" label="Payment method" />
+            <ActionLink href="/(customer)/recurring-orders" label="Recurring orders" />
+            {rewardsEnabled ? (
+              <ActionLink href="/(customer)/rewards" label="Rewards" />
+            ) : null}
+          </ActionGrid>
+        </ActionPanel>
+
         <MetricGrid>
           <MetricCard
             label="Upcoming pickup"
@@ -153,18 +173,7 @@ export default function CustomerHomeScreen() {
             "Review the estimate, authorize demo payment, and track status.",
           ]}
         />
-        <ActionPanel title="Quick actions">
-          <ActionLink href="/(customer)/new-order" label="Start new order" primary />
-          <ActionGrid>
-            <ActionLink href="/(customer)/my-orders" label="View order history" />
-            <ActionLink href="/(customer)/profile-summary" label="Profile summary" />
-            <ActionLink href="/(customer)/payment-method" label="Payment method" />
-            <ActionLink href="/(customer)/recurring-orders" label="Recurring orders" />
-            {rewardsEnabled ? (
-              <ActionLink href="/(customer)/rewards" label="Rewards" />
-            ) : null}
-          </ActionGrid>
-        </ActionPanel>
+        <AccountPanel showAccountInfo={false} />
       </View>
     </Screen>
   );
@@ -172,8 +181,53 @@ export default function CustomerHomeScreen() {
 
 const styles = StyleSheet.create({
   content: {
-    gap: spacing.md,
-    paddingTop: spacing.xl,
+    gap: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
+    paddingTop: Platform.select({
+      default: spacing.sm,
+      web: spacing.xl,
+    }),
+  },
+  welcomeCard: {
+    backgroundColor: "#ECFDF5",
+    borderColor: "#A7F3D0",
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: spacing.sm,
+    padding: spacing.sm,
+  },
+  welcomeCopy: {
+    alignItems: "center",
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingBottom: spacing.sm,
+  },
+  welcomeEyebrow: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  welcomeTitle: {
+    color: colors.text,
+    fontSize: Platform.select({
+      default: 25,
+      web: 30,
+    }),
+    fontWeight: "900",
+    lineHeight: Platform.select({
+      default: 31,
+      web: 36,
+    }),
+    textAlign: "center",
+  },
+  welcomeText: {
+    color: colors.muted,
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: "center",
   },
   error: {
     color: colors.danger,

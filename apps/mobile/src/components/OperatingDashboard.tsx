@@ -323,17 +323,20 @@ const styles = StyleSheet.create({
     }),
   },
   metricContent: {
-    alignItems: Platform.select({
-      default: "center",
-      web: "flex-start",
+    alignItems: "center",
+    flexDirection: Platform.select({
+      default: "column-reverse",
+      web: "row",
     }),
-    flexDirection: "row",
     gap: spacing.sm,
-    justifyContent: "space-between",
+    justifyContent: "center",
     width: "100%",
   },
   metricTextGroup: {
-    flex: 1,
+    flex: Platform.select({
+      default: undefined,
+      web: 1,
+    }),
     gap: spacing.xs,
     minWidth: 0,
   },
@@ -342,6 +345,10 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "900",
     lineHeight: 14,
+    textAlign: Platform.select({
+      default: "center",
+      web: "left",
+    }),
     textTransform: "uppercase",
   },
   metricStatus: {
@@ -371,10 +378,10 @@ const styles = StyleSheet.create({
       web: 38,
     }),
     minWidth: Platform.select({
-      default: 64,
+      default: 0,
       web: 52,
     }),
-    textAlign: "right",
+    textAlign: "center",
   },
   metricNote: {
     color: colors.muted,
@@ -383,6 +390,10 @@ const styles = StyleSheet.create({
       web: 13,
     }),
     lineHeight: 18,
+    textAlign: Platform.select({
+      default: "center",
+      web: "left",
+    }),
   },
   actionPanel: {
     backgroundColor: colors.surface,

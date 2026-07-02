@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { StyleSheet, Switch, Text, View } from "react-native";
+import { Platform, StyleSheet, Switch, Text, View } from "react-native";
 
 import { useAuth } from "@/context/AuthContext";
 import { resetDemoOrders } from "@/data/demoStore";
@@ -25,7 +25,15 @@ const demoRoles = [
   { label: "Admin", role: "admin" },
 ] as const;
 
-export function AccountPanel() {
+export function AccountPanel({
+  showAccountInfo = true,
+  showNotifications = true,
+  showSignOut = true,
+}: {
+  showAccountInfo?: boolean;
+  showNotifications?: boolean;
+  showSignOut?: boolean;
+}) {
   const {
     currentUser,
     isDemoMode,
@@ -165,12 +173,14 @@ export function AccountPanel() {
 
   return (
     <View style={styles.panel}>
-      <View>
-        <Text style={styles.name}>{currentUser.displayName || "Signed in"}</Text>
-        <Text style={styles.meta}>
-          {currentUser.email} · {currentUser.role}
-        </Text>
-      </View>
+      {showAccountInfo ? (
+        <View>
+          <Text style={styles.name}>{currentUser.displayName || "Signed in"}</Text>
+          <Text style={styles.meta}>
+            {currentUser.email} · {currentUser.role}
+          </Text>
+        </View>
+      ) : null}
       {notificationMessage ? (
         <Text style={styles.message}>{notificationMessage}</Text>
       ) : null}
@@ -209,7 +219,7 @@ export function AccountPanel() {
             variant="secondary"
           />
         </View>
-      ) : (
+      ) : showNotifications ? (
         <View style={styles.notificationSection}>
           <View style={styles.notificationHeader}>
             <View style={styles.notificationHeaderText}>
@@ -248,8 +258,8 @@ export function AccountPanel() {
             ))}
           </View>
         </View>
-      )}
-      <AppButton label="Sign out" onPress={signOut} variant="secondary" />
+      ) : null}
+      {showSignOut ? <AppButton label="Sign out" onPress={signOut} variant="secondary" /> : null}
     </View>
   );
 }
@@ -260,8 +270,14 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 8,
     borderWidth: 1,
-    gap: spacing.md,
-    padding: spacing.md,
+    gap: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
+    padding: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
   },
   name: {
     color: colors.text,
@@ -314,20 +330,32 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 8,
     borderWidth: 1,
-    gap: spacing.md,
-    padding: spacing.md,
+    gap: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
+    padding: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
   },
   notificationHeader: {
-    alignItems: "center",
+    alignItems: Platform.select({
+      default: "stretch",
+      web: "center",
+    }),
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: spacing.md,
+    gap: spacing.sm,
     justifyContent: "space-between",
   },
   notificationHeaderText: {
     flex: 1,
     gap: spacing.xs,
-    minWidth: 220,
+    minWidth: Platform.select({
+      default: "100%",
+      web: 220,
+    }),
   },
   notificationCopy: {
     color: colors.muted,
@@ -338,16 +366,22 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   preferenceRow: {
-    alignItems: "center",
+    alignItems: Platform.select({
+      default: "flex-start",
+      web: "center",
+    }),
     backgroundColor: "#F8FAFC",
     borderColor: colors.border,
     borderRadius: 8,
     borderWidth: 1,
     flexDirection: "row",
-    gap: spacing.md,
+    gap: spacing.sm,
     justifyContent: "space-between",
     minHeight: 72,
-    padding: spacing.md,
+    padding: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
   },
   preferenceText: {
     flex: 1,
