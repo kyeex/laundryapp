@@ -25,5 +25,5 @@ createServer((request, response) => {
   response.writeHead(200, { "content-type": types.get(extname(filePath)) || "application/octet-stream" });
   createReadStream(filePath).pipe(response);
 }).listen(port, "127.0.0.1", () => {
-  console.log(`LaundryApp driver prototype: http://127.0.0.1:${port}/`);
+  console.log(`LaundryStar driver prototype: http://127.0.0.1:${port}/`);
 });

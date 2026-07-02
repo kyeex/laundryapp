@@ -3,15 +3,15 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>LaundryApp Driver Prototype</title>
+    <title>LaundryStar Driver Prototype</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <div class="app-shell driver-shell">
       <aside class="sidebar" aria-label="Driver navigation">
-        <a class="brand" href="#route" aria-label="LaundryApp driver home">
+        <a class="brand" href="#route" aria-label="LaundryStar driver home">
           <span class="brand-mark" aria-hidden="true">LA</span>
-          <span>LaundryApp</span>
+          <span>LaundryStar</span>
         </a>
         <nav>
           <button class="nav-item is-active" type="button" data-view="route">Route</button>
@@ -139,11 +139,11 @@
               <p class="eyebrow">Proof</p>
               <h2>Pickup and delivery capture</h2>
             </div>
-            <button class="secondary-action" type="button">Save draft</button>
+            <button class="secondary-action" type="button" data-action="addOrderEvent">Save draft</button>
           </div>
 
           <div class="handoff-layout">
-            <form class="panel form-card">
+            <form class="panel form-card" data-collection="orders" data-action="updateDriverOrderStop">
               <fieldset>
                 <legend>Pickup verification</legend>
                 <label class="toggle-row"><input type="checkbox" checked /><span>Customer address matched</span><em>Done</em></label>
@@ -155,7 +155,7 @@
                 <strong>Tap to capture bag at pickup spot</strong>
               </div>
               <label><span>Driver note</span><textarea rows="3">Bags picked up from apartment door. No contact needed.</textarea></label>
-              <button class="primary-action full" type="button">Mark pickup complete</button>
+              <button class="primary-action full" type="button" data-to-status="picked_up">Mark pickup complete</button>
             </form>
 
             <article class="panel checklist-card">
@@ -206,13 +206,13 @@
               <div class="credential-card"><span>Driver</span><strong>Sam Rivera</strong><em>Verified route access only</em></div>
             </aside>
             <div class="auth-card panel">
-              <form class="auth-form is-active" data-auth-panel="signin">
+              <form class="auth-form is-active" data-auth-panel="signin" data-collection="users" data-role="driver">
                 <h3>Sign in to route</h3>
                 <label><span>Email</span><input type="email" value="sam@example.com" /></label>
                 <label><span>Password</span><input type="password" value="routeflow" /></label>
                 <button class="primary-action full" type="button">Sign in</button>
               </form>
-              <form class="auth-form" data-auth-panel="onboard">
+              <form class="auth-form" data-auth-panel="onboard" data-collection="users" data-profile-collection="driverProfiles" data-role="driver">
                 <h3>Driver onboarding</h3>
                 <div class="form-grid"><label><span>Name</span><input type="text" value="Sam Rivera" /></label><label><span>Phone</span><input type="tel" value="(555) 019-4432" /></label></div>
                 <label><span>Email</span><input type="email" value="sam@example.com" /></label>
@@ -230,6 +230,7 @@
         </section>
       </main>
     </div>
+    <script src="../shared/laundrystar-contract.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>

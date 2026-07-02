@@ -3,15 +3,15 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>LaundryApp Customer Prototype</title>
+    <title>LaundryStar Customer Prototype</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <div class="app-shell customer-shell">
       <aside class="sidebar" aria-label="Customer navigation">
-        <a class="brand" href="#home" aria-label="LaundryApp customer home">
+        <a class="brand" href="#home" aria-label="LaundryStar customer home">
           <span class="brand-mark" aria-hidden="true">LA</span>
-          <span>LaundryApp</span>
+          <span>LaundryStar</span>
         </a>
         <nav>
           <button class="nav-item is-active" type="button" data-view="home">Home</button>
@@ -82,7 +82,7 @@
             <div class="estimate-pill"><span>Estimated subtotal</span><strong id="estimateTotal">$81.60</strong></div>
           </div>
           <div class="split-layout">
-            <form class="panel form-card">
+            <form class="panel form-card" data-collection="orders" data-action="createCustomerOrder">
               <fieldset>
                 <legend>Service</legend>
                 <label class="choice-card is-selected">
@@ -98,8 +98,8 @@
               </fieldset>
 
               <div class="form-grid">
-                <label><span>Estimated weight</span><input id="weightInput" type="number" min="1" value="15.5" /></label>
-                <label><span>Pickup window</span><select><option>9:00 AM - 12:00 PM</option><option>12:00 PM - 3:00 PM</option><option>3:00 PM - 6:00 PM</option></select></label>
+                <label><span>Estimated weight</span><input id="weightInput" type="number" min="1" value="15.5" data-field="estimatedWeightPounds" /></label>
+                <label><span>Pickup window</span><select data-field="scheduledPickupWindow"><option>9:00 AM - 12:00 PM</option><option>12:00 PM - 3:00 PM</option><option>3:00 PM - 6:00 PM</option></select></label>
               </div>
 
               <fieldset>
@@ -109,8 +109,8 @@
                 <label class="toggle-row"><input type="checkbox" data-addon="0" /><span>Rush request</span><em>Confirm</em></label>
               </fieldset>
 
-              <label class="note-field"><span>Care note</span><textarea rows="3">Please use hypoallergenic detergent.</textarea></label>
-              <button class="primary-action full" type="button">Request pickup</button>
+              <label class="note-field"><span>Care note</span><textarea rows="3" data-field="customerNotes">Please use hypoallergenic detergent.</textarea></label>
+              <button class="primary-action full" type="button" data-submit-status="requested">Request pickup</button>
             </form>
 
             <aside class="phone-preview panel">
@@ -191,14 +191,14 @@
               <div class="credential-card"><span>Customer</span><strong>Jordan Carter</strong><em>Maple Ave, Apt 3B</em></div>
             </aside>
             <div class="auth-card panel">
-              <form class="auth-form is-active" data-auth-panel="signin">
+              <form class="auth-form is-active" data-auth-panel="signin" data-collection="users" data-role="customer">
                 <h3>Welcome back</h3>
                 <label><span>Email</span><input type="email" value="jordan@example.com" /></label>
                 <label><span>Password</span><input type="password" value="freshfolds" /></label>
                 <button class="primary-action full" type="button">Sign in</button>
                 <button class="secondary-action full" type="button" data-auth-mode="signup">Create customer account</button>
               </form>
-              <form class="auth-form" data-auth-panel="signup">
+              <form class="auth-form" data-auth-panel="signup" data-collection="users" data-profile-collection="customerProfiles" data-role="customer">
                 <h3>Create customer account</h3>
                 <div class="form-grid"><label><span>Name</span><input type="text" value="Jordan Carter" /></label><label><span>Phone</span><input type="tel" value="(555) 014-2048" /></label></div>
                 <label><span>Email</span><input type="email" value="jordan@example.com" /></label>
@@ -217,6 +217,7 @@
         </section>
       </main>
     </div>
+    <script src="../shared/laundrystar-contract.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>

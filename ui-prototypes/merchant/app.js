@@ -7,6 +7,10 @@ const merchantTotal = document.querySelector("#merchantTotal");
 const merchantWeight = document.querySelector("#merchantWeight");
 const merchantRate = document.querySelector("#merchantRate");
 const lineItems = document.querySelectorAll("[data-line]");
+const contract = window.LaundryStarContract;
+const orders = contract?.orders ?? [];
+const activeOrder = orders[0];
+const owner = contract?.users?.owner;
 
 function showView(viewName) {
   navItems.forEach((button) => {
@@ -41,10 +45,27 @@ function updateMerchantTotal() {
   }, 0);
   const platformAdjustment = 13.6;
 
-  merchantTotal.textContent = new Intl.NumberFormat("en-US", {
-    currency: "USD",
-    style: "currency",
-  }).format(subtotal + addOns + platformAdjustment);
+  merchantTotal.textContent = contract?.helpers?.money
+    ? contract.helpers.money(subtotal + addOns + platformAdjustment)
+    : new Intl.NumberFormat("en-US", {
+        currency: "USD",
+        style: "currency",
+      }).format(subtotal + addOns + platformAdjustment);
+}
+
+function hydrateFromContract() {
+  if (!contract || !activeOrder) return;
+
+  document.querySelector(".request-card.hot small").textContent = orders[1]?.customerName ?? "New customer";
+  document.querySelector(".request-card.hot span").textContent =
+    `${orders[1]?.scheduledPickupWindow ?? "Next window"}, ${orders[1]?.addressSnapshot?.city ?? "Service area"}`;
+  document.querySelector(".job-card span").textContent = activeOrder.orderNumber;
+  document.querySelector(".job-card strong").textContent = activeOrder.customerName;
+  document.querySelector(".job-card em").textContent = contract.helpers.labelStatus(activeOrder.status);
+  document.querySelector(".request-card.paid strong").textContent = contract.helpers.money(orders[2]?.finalPrice ?? 0);
+  document.querySelector("input[type='email']").value = owner?.email ?? "owner@example.com";
+  if (merchantWeight) merchantWeight.value = activeOrder.deliveryMinimumPounds;
+  if (merchantRate) merchantRate.value = activeOrder.laundryPricePerPound;
 }
 
 viewButtons.forEach((button) => {
@@ -61,5 +82,6 @@ authModeButtons.forEach((button) => {
 merchantWeight?.addEventListener("input", updateMerchantTotal);
 merchantRate?.addEventListener("input", updateMerchantTotal);
 lineItems.forEach((input) => input.addEventListener("change", updateMerchantTotal));
+hydrateFromContract();
 showAuthMode("signin");
 updateMerchantTotal();

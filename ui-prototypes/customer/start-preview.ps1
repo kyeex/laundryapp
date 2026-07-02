@@ -16,5 +16,5 @@ if (-not $existing) {
 }
 
 $response = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 5
-Write-Host "LaundryApp customer prototype is running: $url"
+Write-Host "LaundryStar customer prototype is running: $url"
 Write-Host "Status: $($response.StatusCode)"

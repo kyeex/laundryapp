@@ -3,15 +3,15 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>LaundryApp Merchant Prototype</title>
+    <title>LaundryStar Merchant Prototype</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <div class="app-shell merchant-shell">
       <aside class="sidebar" aria-label="Merchant navigation">
-        <a class="brand" href="#dashboard" aria-label="LaundryApp merchant home">
+        <a class="brand" href="#dashboard" aria-label="LaundryStar merchant home">
           <span class="brand-mark" aria-hidden="true">LA</span>
-          <span>LaundryApp</span>
+          <span>LaundryStar</span>
         </a>
         <nav>
           <button class="nav-item is-active" type="button" data-view="dashboard">Dashboard</button>
@@ -92,7 +92,7 @@
                 <small>Taylor Brooks</small>
                 <strong>Wash & fold</strong>
                 <span>12 PM - 3 PM, Queens</span>
-                <div class="quick-actions"><button type="button">Accept</button><button type="button">Decline</button></div>
+                <div class="quick-actions"><button type="button" data-action="updateOrderStatus" data-to-status="accepted">Accept</button><button type="button" data-action="updateOrderStatus" data-to-status="declined">Decline</button></div>
               </div>
               <div class="request-card">
                 <small>Morgan Lee</small>
@@ -120,7 +120,7 @@
               <p class="eyebrow">Drivers</p>
               <h2>Route board</h2>
             </div>
-            <button class="secondary-action" type="button">Optimize</button>
+            <button class="secondary-action" type="button" data-action="createBatch" data-batch-type="pickup_delivery">Optimize</button>
           </div>
           <div class="route-layout">
             <article class="panel route-map">
@@ -147,10 +147,10 @@
             <div class="estimate-pill"><span>Draft total</span><strong id="merchantTotal">$81.60</strong></div>
           </div>
           <div class="pricing-layout">
-            <form class="panel form-card">
+            <form class="panel form-card" data-collection="orders" data-action="setOrderFinalPrice">
               <div class="form-grid">
-                <label><span>Billable weight</span><input id="merchantWeight" type="number" value="20" min="1" /></label>
-                <label><span>Price per lb</span><input id="merchantRate" type="number" value="2" min="0" step="0.25" /></label>
+                <label><span>Billable weight</span><input id="merchantWeight" type="number" value="20" min="1" data-field="estimatedWeightPounds" /></label>
+                <label><span>Price per lb</span><input id="merchantRate" type="number" value="2" min="0" step="0.25" data-field="laundryPricePerPound" /></label>
               </div>
               <fieldset>
                 <legend>Line items</legend>
@@ -159,7 +159,7 @@
                 <label class="toggle-row"><input type="checkbox" data-line="13.5" checked /><span>Dry cleaning items</span><em>$13.50</em></label>
               </fieldset>
               <label><span>Merchant note</span><textarea rows="3">Dry cleaning items confirmed. Ready to request payment.</textarea></label>
-              <button class="primary-action full" type="button">Send payment request</button>
+              <button class="primary-action full" type="button" data-action="finalizeOrderPayment" data-to-status="payment_requested">Send payment request</button>
             </form>
             <aside class="panel revenue-card">
               <h3>Revenue mix</h3>
@@ -190,13 +190,13 @@
               </div>
             </aside>
             <div class="auth-card panel">
-              <form class="auth-form is-active" data-auth-panel="signin">
+              <form class="auth-form is-active" data-auth-panel="signin" data-collection="users" data-role="owner">
                 <h3>Sign in to operations</h3>
-                <label><span>Email</span><input type="email" value="owner@laundryapp.com" /></label>
+                <label><span>Email</span><input type="email" value="owner@LaundryStar.com" /></label>
                 <label><span>Password</span><input type="password" value="merchantflow" /></label>
                 <button class="primary-action full" type="button">Sign in</button>
               </form>
-              <form class="auth-form" data-auth-panel="invite">
+              <form class="auth-form" data-auth-panel="invite" data-collection="users" data-profile-collection="driverProfiles" data-role="driver">
                 <h3>Invite teammate</h3>
                 <div class="form-grid"><label><span>Name</span><input type="text" value="Sam Rivera" /></label><label><span>Email</span><input type="email" value="sam@example.com" /></label></div>
                 <label><span>Role</span><select><option>Driver</option><option>Owner</option><option>Admin</option></select></label>
@@ -205,7 +205,7 @@
               <form class="auth-form" data-auth-panel="reset">
                 <h3>Reset password</h3>
                 <p>Send a secure reset link to an owner, admin, or driver account.</p>
-                <label><span>Email</span><input type="email" value="owner@laundryapp.com" /></label>
+                <label><span>Email</span><input type="email" value="owner@LaundryStar.com" /></label>
                 <button class="primary-action full" type="button">Send reset link</button>
               </form>
             </div>
@@ -213,6 +213,7 @@
         </section>
       </main>
     </div>
+    <script src="../shared/laundrystar-contract.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>
