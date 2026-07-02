@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     borderRadius: 999,
     color: colors.onPrimary,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "900",
     overflow: "hidden",
     paddingHorizontal: spacing.sm,
@@ -217,20 +217,26 @@ const styles = StyleSheet.create({
   headline: {
     color: colors.text,
     fontSize: Platform.select({
-      default: 24,
-      web: 24,
+      default: 26,
+      web: 29,
     }),
     fontWeight: "900",
     lineHeight: Platform.select({
-      default: 30,
-      web: 30,
+      default: 32,
+      web: 35,
     }),
   },
   caption: {
     color: colors.muted,
-    fontSize: 14,
-    fontWeight: "700",
-    lineHeight: 21,
+    fontSize: Platform.select({
+      default: 15,
+      web: 16,
+    }),
+    fontWeight: "800",
+    lineHeight: Platform.select({
+      default: 22,
+      web: 24,
+    }),
   },
   chips: {
     flexDirection: "row",
@@ -243,7 +249,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
     color: colors.text,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "900",
     overflow: "hidden",
     paddingHorizontal: spacing.sm,

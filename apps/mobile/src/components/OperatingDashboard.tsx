@@ -1,4 +1,4 @@
-import { Link, type Href } from "expo-router";
+import { Link, router, type Href } from "expo-router";
 import type { ReactNode } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -60,11 +60,22 @@ export function PageHeader({
   );
 }
 
-export function MetricGrid({ children }: { children: ReactNode }) {
-  return <View style={styles.metricGrid}>{children}</View>;
+export function MetricGrid({
+  children,
+  compact = false,
+}: {
+  children: ReactNode;
+  compact?: boolean;
+}) {
+  return (
+    <View style={[styles.metricGrid, compact && styles.metricGridCompact]}>
+      {children}
+    </View>
+  );
 }
 
 export function MetricCard({
+  compact = false,
   href,
   label,
   note,
@@ -72,6 +83,7 @@ export function MetricCard({
   tone = "neutral",
   value,
 }: {
+  compact?: boolean;
   href?: Href;
   label: string;
   note: string;
@@ -80,15 +92,24 @@ export function MetricCard({
   value: string;
 }) {
   const content = (
-    <View style={styles.metricContent}>
+    <View style={[styles.metricContent, compact && styles.metricContentCompact]}>
       <View style={styles.metricTextGroup}>
-        <Text style={styles.metricLabel}>{label}</Text>
+        <Text style={[styles.metricLabel, compact && styles.metricLabelCompact]}>
+          {label}
+        </Text>
         {status ? (
           <Text style={[styles.metricStatus, toneStyles[tone].status]}>{status}</Text>
         ) : null}
-        <Text style={styles.metricNote}>{note}</Text>
+        <Text
+          numberOfLines={compact ? 2 : undefined}
+          style={[styles.metricNote, compact && styles.metricNoteCompact]}
+        >
+          {note}
+        </Text>
       </View>
-      <Text style={[styles.metricValue, toneStyles[tone].value]}>{value}</Text>
+      <Text style={[styles.metricValue, toneStyles[tone].value, compact && styles.metricValueCompact]}>
+        {value}
+      </Text>
     </View>
   );
 
@@ -100,6 +121,7 @@ export function MetricCard({
           style={({ pressed }) =>
             StyleSheet.flatten([
               styles.metricCard,
+              compact ? styles.metricCardCompact : null,
               toneStyles[tone].card,
               pressed ? styles.pressed : null,
             ])
@@ -111,7 +133,11 @@ export function MetricCard({
     );
   }
 
-  return <View style={[styles.metricCard, toneStyles[tone].card]}>{content}</View>;
+  return (
+    <View style={[styles.metricCard, compact && styles.metricCardCompact, toneStyles[tone].card]}>
+      {content}
+    </View>
+  );
 }
 
 export function ActionPanel({
@@ -175,22 +201,21 @@ export function ActionLink({
   primary?: boolean;
 }) {
   return (
-    <Link asChild href={href}>
-      <Pressable
-        accessibilityRole="button"
-        style={({ pressed }) =>
-          StyleSheet.flatten([
-            styles.actionLink,
-            primary ? styles.primaryActionLink : null,
-            pressed ? styles.pressed : null,
-          ])
-        }
-      >
-        <Text style={[styles.actionLinkText, primary && styles.primaryActionLinkText]}>
-          {label}
-        </Text>
-      </Pressable>
-    </Link>
+    <Pressable
+      accessibilityRole="button"
+      onPress={() => router.push(href)}
+      style={({ pressed }) =>
+        StyleSheet.flatten([
+          styles.actionLink,
+          primary ? styles.primaryActionLink : null,
+          pressed ? styles.pressed : null,
+        ])
+      }
+    >
+      <Text style={[styles.actionLinkText, primary && styles.primaryActionLinkText]}>
+        {label}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -307,7 +332,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: Platform.select({
-      default: spacing.sm,
+      default: 10,
+      web: spacing.sm,
+    }),
+  },
+  metricGridCompact: {
+    gap: Platform.select({
+      default: spacing.xs,
       web: spacing.sm,
     }),
   },
@@ -318,12 +349,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     flexBasis: Platform.select({
-      default: "100%",
+      default: "47%",
       web: 164,
     }),
     flexGrow: 1,
     minHeight: Platform.select({
-      default: 118,
+      default: 96,
       web: 112,
     }),
     minWidth: Platform.select({
@@ -331,7 +362,7 @@ const styles = StyleSheet.create({
       web: 158,
     }),
     padding: Platform.select({
-      default: spacing.md,
+      default: spacing.sm,
       web: spacing.md,
     }),
     shadowColor: "#0F172A",
@@ -349,6 +380,21 @@ const styles = StyleSheet.create({
       web: 0,
     }),
   },
+  metricCardCompact: {
+    borderLeftWidth: 4,
+    flexBasis: Platform.select({
+      default: "47%",
+      web: 148,
+    }),
+    minHeight: Platform.select({
+      default: 70,
+      web: 78,
+    }),
+    padding: Platform.select({
+      default: 7,
+      web: spacing.sm,
+    }),
+  },
   metricContent: {
     alignItems: "center",
     flexDirection: Platform.select({
@@ -358,6 +404,12 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     justifyContent: "center",
     width: "100%",
+  },
+  metricContentCompact: {
+    gap: Platform.select({
+      default: 3,
+      web: spacing.xs,
+    }),
   },
   metricTextGroup: {
     flex: Platform.select({
@@ -369,14 +421,30 @@ const styles = StyleSheet.create({
   },
   metricLabel: {
     color: colors.muted,
-    fontSize: 11,
+    fontSize: Platform.select({
+      default: 10,
+      web: 11,
+    }),
     fontWeight: "900",
-    lineHeight: 14,
+    lineHeight: Platform.select({
+      default: 13,
+      web: 14,
+    }),
     textAlign: Platform.select({
       default: "center",
       web: "left",
     }),
     textTransform: "uppercase",
+  },
+  metricLabelCompact: {
+    fontSize: Platform.select({
+      default: 11,
+      web: 11,
+    }),
+    lineHeight: Platform.select({
+      default: 13,
+      web: 14,
+    }),
   },
   metricStatus: {
     alignSelf: "flex-start",
@@ -396,12 +464,12 @@ const styles = StyleSheet.create({
   metricValue: {
     color: colors.text,
     fontSize: Platform.select({
-      default: 38,
+      default: 28,
       web: 34,
     }),
     fontWeight: "900",
     lineHeight: Platform.select({
-      default: 42,
+      default: 32,
       web: 38,
     }),
     minWidth: Platform.select({
@@ -410,16 +478,40 @@ const styles = StyleSheet.create({
     }),
     textAlign: "center",
   },
+  metricValueCompact: {
+    fontSize: Platform.select({
+      default: 25,
+      web: 28,
+    }),
+    lineHeight: Platform.select({
+      default: 28,
+      web: 32,
+    }),
+  },
   metricNote: {
     color: colors.muted,
     fontSize: Platform.select({
-      default: 13,
+      default: 11,
       web: 13,
     }),
-    lineHeight: 18,
+    lineHeight: Platform.select({
+      default: 15,
+      web: 18,
+    }),
     textAlign: Platform.select({
       default: "center",
       web: "left",
+    }),
+  },
+  metricNoteCompact: {
+    fontSize: Platform.select({
+      default: 12,
+      web: 12,
+    }),
+    fontWeight: "800",
+    lineHeight: Platform.select({
+      default: 15,
+      web: 16,
     }),
   },
   actionPanel: {
@@ -452,9 +544,15 @@ const styles = StyleSheet.create({
   },
   actionTitle: {
     color: colors.text,
-    fontSize: 20,
+    fontSize: Platform.select({
+      default: 21,
+      web: 23,
+    }),
     fontWeight: "900",
-    lineHeight: 26,
+    lineHeight: Platform.select({
+      default: 27,
+      web: 29,
+    }),
   },
   sectionCard: {
     backgroundColor: colors.surface,
@@ -482,50 +580,79 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: Platform.select({
-      default: spacing.sm,
+      default: 10,
       web: spacing.sm,
     }),
   },
   actionLink: {
     alignItems: "center",
-    backgroundColor: "#F8FAFC",
-    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    borderColor: "#CBD5E1",
     borderRadius: 8,
     borderWidth: 1,
+    flexBasis: Platform.select({
+      default: "47%",
+      web: 160,
+    }),
     flexGrow: 1,
     justifyContent: "center",
     minHeight: Platform.select({
-      default: 58,
+      default: 60,
       web: 52,
     }),
     minWidth: Platform.select({
-      default: "100%",
+      default: 0,
       web: 160,
     }),
     padding: Platform.select({
-      default: spacing.md,
+      default: spacing.sm,
       web: spacing.md,
+    }),
+    shadowColor: "#0F172A",
+    shadowOffset: {
+      height: 2,
+      width: 0,
+    },
+    shadowOpacity: Platform.select({
+      default: 0.06,
+      web: 0,
+    }),
+    shadowRadius: 6,
+    elevation: Platform.select({
+      default: 1,
+      web: 0,
     }),
   },
   primaryActionLink: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
+    flexBasis: Platform.select({
+      default: "100%",
+      web: "100%",
+    }),
+    minHeight: Platform.select({
+      default: 62,
+      web: 56,
+    }),
   },
   actionLinkText: {
     color: colors.text,
     fontSize: Platform.select({
-      default: 15,
-      web: 16,
+      default: 16,
+      web: 18,
     }),
     fontWeight: "900",
-    lineHeight: 21,
+    lineHeight: Platform.select({
+      default: 21,
+      web: 23,
+    }),
     textAlign: "center",
   },
   primaryActionLinkText: {
     color: colors.onPrimary,
     fontSize: Platform.select({
-      default: 16,
-      web: 18,
+      default: 17,
+      web: 20,
     }),
     fontWeight: "900",
   },

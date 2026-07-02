@@ -135,8 +135,9 @@ export default function CustomerHomeScreen() {
           </ActionGrid>
         </ActionPanel>
 
-        <MetricGrid>
+        <MetricGrid compact>
           <MetricCard
+            compact
             label="Upcoming pickup"
             note={
               upcomingPickup
@@ -147,12 +148,14 @@ export default function CustomerHomeScreen() {
             value={upcomingPickup ? formatOrderStatus(upcomingPickup.status) : "None"}
           />
           <MetricCard
+            compact
             label="Active orders"
             note="Orders still moving through pickup, service, payment, or delivery."
             tone={activeOrders.length > 0 ? "info" : "neutral"}
             value={`${activeOrders.length}`}
           />
           <MetricCard
+            compact
             label="Profile"
             note={profileComplete ? "Ready for fast checkout." : "Add phone and default address."}
             tone={profileComplete ? "success" : "attention"}
@@ -160,6 +163,7 @@ export default function CustomerHomeScreen() {
           />
           {rewardsEnabled ? (
             <MetricCard
+              compact
               label="Rewards"
               note="Earn points and preview future laundry credits."
               tone="accent"
@@ -208,27 +212,34 @@ const styles = StyleSheet.create({
   },
   welcomeEyebrow: {
     color: colors.primary,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "900",
     textTransform: "uppercase",
   },
   welcomeTitle: {
     color: colors.text,
     fontSize: Platform.select({
-      default: 25,
-      web: 30,
+      default: 28,
+      web: 34,
     }),
     fontWeight: "900",
     lineHeight: Platform.select({
-      default: 31,
-      web: 36,
+      default: 34,
+      web: 40,
     }),
     textAlign: "center",
   },
   welcomeText: {
     color: colors.muted,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: Platform.select({
+      default: 15,
+      web: 17,
+    }),
+    fontWeight: "800",
+    lineHeight: Platform.select({
+      default: 22,
+      web: 25,
+    }),
     textAlign: "center",
   },
   error: {

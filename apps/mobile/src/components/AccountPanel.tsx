@@ -229,11 +229,13 @@ export function AccountPanel({
                 requires the native mobile app.
               </Text>
             </View>
-            <AppButton
-              label="Enable"
-              onPress={handleEnableNotifications}
-              variant="secondary"
-            />
+            <View style={styles.notificationEnableButton}>
+              <AppButton
+                label="Enable"
+                onPress={handleEnableNotifications}
+                variant="secondary"
+              />
+            </View>
           </View>
           <View style={styles.preferenceList}>
             {preferenceOptions.map((option) => (
@@ -364,6 +366,13 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: spacing.sm,
     justifyContent: "space-between",
+  },
+  notificationEnableButton: {
+    alignSelf: "stretch",
+    minWidth: Platform.select({
+      default: "100%",
+      web: 120,
+    }),
   },
   notificationHeaderText: {
     flex: 1,
