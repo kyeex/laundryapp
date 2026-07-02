@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Platform, StyleSheet, Text, View } from "react-native";
 
 import { Screen } from "@/components/Screen";
 import { StripePaymentMethodPanel } from "@/components/StripePaymentMethodPanel";
@@ -101,17 +101,22 @@ export default function CustomerPaymentMethodScreen() {
         {!isLoading ? (
           <>
             <View style={styles.summaryCard}>
-              <Text style={styles.summaryLabel}>Saved payment</Text>
-              <Text style={styles.summaryValue}>
-                {hasSavedCard
-                  ? `${paymentMethod.brand.toUpperCase()} ending in ${paymentMethod.last4}`
-                  : "No default card saved"}
-              </Text>
-              <Text style={styles.summaryMeta}>
-                {hasSavedCard
-                  ? `Expires ${paymentMethod.expirationMonth}/${paymentMethod.expirationYear || "YYYY"}`
-                  : "Add a card once and use it to speed up future order review."}
-              </Text>
+              <View style={styles.summaryIcon}>
+                <Text style={styles.summaryIconText}>{hasSavedCard ? "OK" : "--"}</Text>
+              </View>
+              <View style={styles.summaryCopy}>
+                <Text style={styles.summaryLabel}>Saved payment</Text>
+                <Text style={styles.summaryValue}>
+                  {hasSavedCard
+                    ? `${paymentMethod.brand.toUpperCase()} ending in ${paymentMethod.last4}`
+                    : "No default card saved"}
+                </Text>
+                <Text style={styles.summaryMeta}>
+                  {hasSavedCard
+                    ? `Expires ${paymentMethod.expirationMonth}/${paymentMethod.expirationYear || "YYYY"}`
+                    : "Add a card once and use it to speed up future order review."}
+                </Text>
+              </View>
             </View>
 
             <StripePaymentMethodPanel
@@ -135,29 +140,74 @@ export default function CustomerPaymentMethodScreen() {
 
 const styles = StyleSheet.create({
   content: {
-    gap: spacing.md,
-    paddingTop: spacing.lg,
+    gap: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
+    paddingBottom: spacing.xl,
+    paddingTop: Platform.select({
+      default: spacing.sm,
+      web: spacing.lg,
+    }),
   },
   header: {
     gap: spacing.xs,
   },
   title: {
     color: colors.text,
-    fontSize: 32,
+    fontSize: Platform.select({
+      default: 28,
+      web: 32,
+    }),
     fontWeight: "800",
+    lineHeight: Platform.select({
+      default: 34,
+      web: undefined,
+    }),
   },
   body: {
     color: colors.muted,
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: Platform.select({
+      default: 15,
+      web: 16,
+    }),
+    lineHeight: Platform.select({
+      default: 22,
+      web: 24,
+    }),
   },
   summaryCard: {
+    alignItems: "center",
     backgroundColor: "#F8FAFC",
     borderColor: colors.border,
     borderRadius: 8,
     borderWidth: 1,
-    gap: spacing.xs,
-    padding: spacing.md,
+    flexDirection: "row",
+    gap: spacing.sm,
+    padding: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
+  },
+  summaryIcon: {
+    alignItems: "center",
+    backgroundColor: "#ECFDF5",
+    borderColor: "#A7F3D0",
+    borderRadius: 8,
+    borderWidth: 1,
+    height: 44,
+    justifyContent: "center",
+    width: 44,
+  },
+  summaryIconText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  summaryCopy: {
+    flex: 1,
+    gap: 2,
+    minWidth: 0,
   },
   summaryLabel: {
     color: colors.muted,

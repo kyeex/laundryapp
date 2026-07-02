@@ -1,6 +1,6 @@
 import { Link, type Href } from "expo-router";
 import type { ReactNode } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
@@ -269,19 +269,34 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.text,
-    fontSize: 32,
+    fontSize: Platform.select({
+      default: 28,
+      web: 32,
+    }),
     fontWeight: "900",
-    lineHeight: 38,
+    lineHeight: Platform.select({
+      default: 34,
+      web: 38,
+    }),
   },
   description: {
     color: colors.muted,
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: Platform.select({
+      default: 15,
+      web: 16,
+    }),
+    lineHeight: Platform.select({
+      default: 22,
+      web: 24,
+    }),
   },
   metricGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: spacing.sm,
+    gap: Platform.select({
+      default: spacing.xs,
+      web: spacing.sm,
+    }),
   },
   metricCard: {
     backgroundColor: colors.surface,
@@ -289,14 +304,29 @@ const styles = StyleSheet.create({
     borderLeftWidth: 5,
     borderRadius: 8,
     borderWidth: 1,
-    flexBasis: 164,
+    flexBasis: Platform.select({
+      default: "100%",
+      web: 164,
+    }),
     flexGrow: 1,
-    minHeight: 112,
-    minWidth: 158,
-    padding: spacing.md,
+    minHeight: Platform.select({
+      default: 104,
+      web: 112,
+    }),
+    minWidth: Platform.select({
+      default: 0,
+      web: 158,
+    }),
+    padding: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
   },
   metricContent: {
-    alignItems: "flex-start",
+    alignItems: Platform.select({
+      default: "center",
+      web: "flex-start",
+    }),
     flexDirection: "row",
     gap: spacing.sm,
     justifyContent: "space-between",
@@ -331,15 +361,27 @@ const styles = StyleSheet.create({
   },
   metricValue: {
     color: colors.text,
-    fontSize: 34,
+    fontSize: Platform.select({
+      default: 38,
+      web: 34,
+    }),
     fontWeight: "900",
-    lineHeight: 38,
-    minWidth: 52,
+    lineHeight: Platform.select({
+      default: 42,
+      web: 38,
+    }),
+    minWidth: Platform.select({
+      default: 64,
+      web: 52,
+    }),
     textAlign: "right",
   },
   metricNote: {
     color: colors.muted,
-    fontSize: 13,
+    fontSize: Platform.select({
+      default: 12,
+      web: 13,
+    }),
     lineHeight: 18,
   },
   actionPanel: {
@@ -347,8 +389,14 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 8,
     borderWidth: 1,
-    gap: spacing.sm,
-    padding: spacing.md,
+    gap: Platform.select({
+      default: spacing.xs,
+      web: spacing.sm,
+    }),
+    padding: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
   },
   actionTitle: {
     color: colors.text,
@@ -380,7 +428,10 @@ const styles = StyleSheet.create({
   actionGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: spacing.sm,
+    gap: Platform.select({
+      default: spacing.xs,
+      web: spacing.sm,
+    }),
   },
   actionLink: {
     alignItems: "center",
@@ -390,9 +441,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flexGrow: 1,
     justifyContent: "center",
-    minHeight: 52,
-    minWidth: 160,
-    padding: spacing.md,
+    minHeight: Platform.select({
+      default: 50,
+      web: 52,
+    }),
+    minWidth: Platform.select({
+      default: "100%",
+      web: 160,
+    }),
+    padding: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
   },
   primaryActionLink: {
     backgroundColor: colors.primary,
@@ -400,13 +460,19 @@ const styles = StyleSheet.create({
   },
   actionLinkText: {
     color: colors.text,
-    fontSize: 16,
+    fontSize: Platform.select({
+      default: 15,
+      web: 16,
+    }),
     fontWeight: "800",
     textAlign: "center",
   },
   primaryActionLinkText: {
     color: colors.onPrimary,
-    fontSize: 18,
+    fontSize: Platform.select({
+      default: 16,
+      web: 18,
+    }),
     fontWeight: "900",
   },
   emptyState: {

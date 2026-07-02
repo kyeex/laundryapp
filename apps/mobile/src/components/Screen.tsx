@@ -1,5 +1,5 @@
 import type { PropsWithChildren, ReactNode, Ref } from "react";
-import { ScrollView, StyleSheet, type ScrollViewProps } from "react-native";
+import { Platform, ScrollView, StyleSheet, type ScrollViewProps } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { colors } from "@/theme/colors";
@@ -26,6 +26,7 @@ export function Screen({
       {fixedContent}
       <ScrollView
         contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
         onScroll={onScroll}
         ref={scrollViewRef}
         scrollEventThrottle={scrollEventThrottle}
@@ -49,6 +50,9 @@ const styles = StyleSheet.create({
   },
   content: {
     flexGrow: 1,
-    padding: spacing.lg,
+    padding: Platform.select({
+      default: spacing.md,
+      web: spacing.lg,
+    }),
   },
 });

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -631,8 +632,15 @@ export default function AdminOrderDetailScreen() {
 
 const styles = StyleSheet.create({
   content: {
-    gap: spacing.md,
-    paddingTop: spacing.lg,
+    gap: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
+    paddingBottom: spacing.xl,
+    paddingTop: Platform.select({
+      default: spacing.sm,
+      web: spacing.lg,
+    }),
   },
   header: {
     gap: spacing.xs,
@@ -645,7 +653,10 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.text,
-    fontSize: 32,
+    fontSize: Platform.select({
+      default: 28,
+      web: 32,
+    }),
     fontWeight: "800",
     textTransform: "capitalize",
   },
@@ -656,8 +667,14 @@ const styles = StyleSheet.create({
   },
   muted: {
     color: colors.muted,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: Platform.select({
+      default: 14,
+      web: 15,
+    }),
+    lineHeight: Platform.select({
+      default: 20,
+      web: 22,
+    }),
   },
   actions: {
     gap: spacing.sm,
@@ -668,17 +685,29 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     gap: spacing.sm,
-    padding: spacing.md,
+    padding: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
   },
   cardTitle: {
     color: colors.text,
-    fontSize: 18,
+    fontSize: Platform.select({
+      default: 17,
+      web: 18,
+    }),
     fontWeight: "800",
   },
   value: {
     color: colors.text,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: Platform.select({
+      default: 14,
+      web: 15,
+    }),
+    lineHeight: Platform.select({
+      default: 20,
+      web: 22,
+    }),
   },
   confirmationBox: {
     backgroundColor: "#F8FAFC",
@@ -686,7 +715,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     gap: spacing.sm,
-    padding: spacing.md,
+    padding: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
   },
   confirmationTitle: {
     color: colors.text,
@@ -709,7 +741,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     gap: spacing.xs,
-    padding: spacing.md,
+    padding: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
   },
   zeroPriceTitle: {
     color: "#92400E",

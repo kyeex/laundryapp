@@ -49,6 +49,7 @@ export function StripePaymentMethodPanel({
 }: StripePaymentMethodPanelProps) {
   const [error, setError] = useState("");
   const [isAuthorizing, setIsAuthorizing] = useState(false);
+  const [paymentStep, setPaymentStep] = useState("");
   const [savedCard, setSavedCard] = useState<SavedStripePaymentMethod | null>(
     savedPaymentMethod,
   );
@@ -59,6 +60,7 @@ export function StripePaymentMethodPanel({
 
   async function handleAuthorizeCard() {
     setError("");
+    setPaymentStep("Preparing secure Stripe screen...");
     setIsAuthorizing(true);
 
     try {
@@ -69,6 +71,7 @@ export function StripePaymentMethodPanel({
       }
 
       const setup = await createOrderReviewSetupIntent(estimatedTotal);
+      setPaymentStep("Opening encrypted card entry...");
       const initResult = await initPaymentSheet({
         merchantDisplayName: "LaundryApp",
         setupIntentClientSecret: setup.setupIntentClientSecret,
@@ -83,12 +86,14 @@ export function StripePaymentMethodPanel({
         throw new Error(initResult.error.message);
       }
 
+      setPaymentStep("Waiting for card authorization...");
       const paymentSheetResult = await presentPaymentSheet();
 
       if (paymentSheetResult.error) {
         throw new Error(paymentSheetResult.error.message);
       }
 
+      setPaymentStep("Saving card reference...");
       const paymentMethod = await confirmOrderReviewSetupIntent(setup.setupIntentId);
       setSavedCard(paymentMethod);
       onSaved(paymentMethod);
@@ -103,21 +108,32 @@ export function StripePaymentMethodPanel({
           : message,
       );
     } finally {
+      setPaymentStep("");
       setIsAuthorizing(false);
     }
   }
 
   return (
     <View style={styles.card}>
-      <View style={styles.headerRow}>
-        <View style={styles.headerCopy}>
-          <Text style={styles.kicker}>Secure payment method</Text>
-          <Text style={styles.cardTitle}>
-            {title ?? (mode === "profile" ? "Save a default card" : "Add a card for this order")}
-          </Text>
+      <View style={styles.heroPanel}>
+        <View style={styles.heroIcon}>
+          <Text style={styles.heroIconText}>$</Text>
         </View>
-        <View style={styles.testBadge}>
-          <Text style={styles.testBadgeText}>Test mode</Text>
+        <View style={styles.headerCopy}>
+          <View style={styles.kickerRow}>
+            <Text style={styles.kicker}>Secure payment method</Text>
+            <View style={styles.testBadge}>
+              <Text style={styles.testBadgeText}>Test mode</Text>
+            </View>
+          </View>
+          <Text style={styles.cardTitle}>
+            {title ??
+              (mode === "profile" ? "Save a default card" : "Add a card for this order")}
+          </Text>
+          <Text style={styles.heroText}>
+            Stripe opens its own secure screen for card entry. LaundryApp stores
+            only card summary details and Stripe references.
+          </Text>
         </View>
       </View>
 
@@ -142,14 +158,21 @@ export function StripePaymentMethodPanel({
           <Text style={styles.securePillText}>Stripe PaymentSheet</Text>
         </View>
         <View style={styles.securePill}>
-          <Text style={styles.securePillText}>No card data stored here</Text>
+          <Text style={styles.securePillText}>No raw card storage</Text>
+        </View>
+        <View style={styles.securePill}>
+          <Text style={styles.securePillText}>Encrypted entry</Text>
         </View>
       </View>
 
       <View style={styles.sheetPreview}>
-        <Text style={styles.fieldLabel}>Card details</Text>
+        <View style={styles.sheetPreviewHeader}>
+          <Text style={styles.fieldLabel}>Card details</Text>
+          <Text style={styles.sheetPreviewStatus}>Opens in Stripe</Text>
+        </View>
         <Text style={styles.muted}>
-          Tap the button below to open Stripe's secure card entry screen.
+          Tap below to open the native card screen. In staging, use test card
+          4242 4242 4242 4242.
         </Text>
         <View style={styles.brandRow}>
           {["Visa", "Mastercard", "Amex", "Discover"].map((brand) => (
@@ -161,6 +184,9 @@ export function StripePaymentMethodPanel({
       </View>
 
       <View style={savedCard ? styles.savedStatusBox : styles.statusBox}>
+        <Text style={styles.statusLabel}>
+          {savedCard ? "Default card ready" : "Card status"}
+        </Text>
         <Text style={styles.value}>
           {savedCard
             ? `${savedCard.brand.toUpperCase()} ending in ${savedCard.last4}`
@@ -173,15 +199,20 @@ export function StripePaymentMethodPanel({
         </Text>
       </View>
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      {isAuthorizing ? <ActivityIndicator color={colors.primary} /> : null}
+      {isAuthorizing ? (
+        <View style={styles.progressRow}>
+          <ActivityIndicator color={colors.primary} />
+          <Text style={styles.progressText}>{paymentStep || "Opening Stripe..."}</Text>
+        </View>
+      ) : null}
       <AppButton
         disabled={disabled || isAuthorizing || !isStripeConfigured}
         label={
           savedCard
-            ? "Update card with Stripe"
+            ? "Update card securely"
             : isAuthorizing
               ? "Opening Stripe..."
-              : "Save card securely"
+              : "Open secure Stripe screen"
         }
         onPress={handleAuthorizeCard}
       />
@@ -204,43 +235,73 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 8,
     borderWidth: 1,
-    gap: spacing.md,
-    padding: spacing.lg,
+    gap: spacing.sm,
+    padding: spacing.md,
   },
-  headerRow: {
-    alignItems: "flex-start",
+  heroPanel: {
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.md,
-    justifyContent: "space-between",
+    gap: spacing.sm,
+    padding: spacing.sm,
+  },
+  heroIcon: {
+    alignItems: "center",
+    backgroundColor: "#ECFDF5",
+    borderColor: "#A7F3D0",
+    borderRadius: 8,
+    borderWidth: 1,
+    height: 48,
+    justifyContent: "center",
+    width: 48,
+  },
+  heroIconText: {
+    color: colors.primary,
+    fontSize: 24,
+    fontWeight: "900",
   },
   headerCopy: {
     flex: 1,
     gap: spacing.xs,
-    minWidth: 220,
+    minWidth: 0,
+  },
+  kickerRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.xs,
   },
   kicker: {
     color: colors.primary,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "900",
     textTransform: "uppercase",
   },
   cardTitle: {
     color: colors.text,
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: "900",
+    lineHeight: 25,
+  },
+  heroText: {
+    color: colors.muted,
+    fontSize: 13,
+    lineHeight: 18,
   },
   testBadge: {
     backgroundColor: "#FEF3C7",
     borderColor: "#F59E0B",
     borderRadius: 8,
     borderWidth: 1,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
   },
   testBadgeText: {
     color: "#92400E",
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: "900",
     textTransform: "uppercase",
   },
@@ -261,7 +322,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     gap: spacing.sm,
-    padding: spacing.md,
+    padding: spacing.sm,
   },
   summaryRow: {
     alignItems: "center",
@@ -277,7 +338,7 @@ const styles = StyleSheet.create({
   },
   summaryValue: {
     color: colors.text,
-    fontSize: 22,
+    fontSize: 21,
     fontWeight: "900",
   },
   summaryDivider: {
@@ -308,12 +369,24 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     gap: spacing.sm,
-    padding: spacing.md,
+    padding: spacing.sm,
+  },
+  sheetPreviewHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: spacing.sm,
+    justifyContent: "space-between",
   },
   fieldLabel: {
     color: colors.text,
     fontSize: 14,
     fontWeight: "900",
+  },
+  sheetPreviewStatus: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: "900",
+    textTransform: "uppercase",
   },
   brandRow: {
     flexDirection: "row",
@@ -340,7 +413,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     gap: spacing.xs,
-    padding: spacing.md,
+    padding: spacing.sm,
   },
   savedStatusBox: {
     backgroundColor: "#ECFDF5",
@@ -348,7 +421,13 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     gap: spacing.xs,
-    padding: spacing.md,
+    padding: spacing.sm,
+  },
+  statusLabel: {
+    color: colors.muted,
+    fontSize: 11,
+    fontWeight: "900",
+    textTransform: "uppercase",
   },
   error: {
     color: colors.danger,
@@ -360,5 +439,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     textAlign: "center",
+  },
+  progressRow: {
+    alignItems: "center",
+    backgroundColor: "#ECFDF5",
+    borderColor: "#A7F3D0",
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: spacing.sm,
+    padding: spacing.sm,
+  },
+  progressText: {
+    color: colors.primary,
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "800",
+    lineHeight: 18,
   },
 });

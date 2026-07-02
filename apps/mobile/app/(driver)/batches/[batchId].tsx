@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Platform, StyleSheet, Text, View } from "react-native";
 
 import { AppButton } from "@/components/AppButton";
 import { DriverRouteTimeline } from "@/components/OrderTimeline";
@@ -179,6 +179,23 @@ export default function DriverBatchDetailScreen() {
               </Text>
             </View>
 
+            <View style={styles.routeSummary}>
+              <View style={styles.routeSummaryItem}>
+                <Text style={styles.routeSummaryLabel}>Done</Text>
+                <Text style={styles.routeSummaryValue}>{selectedOrders.length}</Text>
+              </View>
+              <View style={styles.routeSummaryItem}>
+                <Text style={styles.routeSummaryLabel}>Remaining</Text>
+                <Text style={styles.routeSummaryValue}>
+                  {Math.max(0, orders.length - selectedOrders.length)}
+                </Text>
+              </View>
+              <View style={styles.routeSummaryItem}>
+                <Text style={styles.routeSummaryLabel}>Stops</Text>
+                <Text style={styles.routeSummaryValue}>{orders.length}</Text>
+              </View>
+            </View>
+
             <DriverRouteTimeline
               batchStatus={batch.status}
               completedStops={selectedOrders.length}
@@ -294,8 +311,15 @@ export default function DriverBatchDetailScreen() {
 
 const styles = StyleSheet.create({
   content: {
-    gap: spacing.md,
-    paddingTop: spacing.lg,
+    gap: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
+    paddingBottom: spacing.xl,
+    paddingTop: Platform.select({
+      default: spacing.sm,
+      web: spacing.lg,
+    }),
   },
   header: {
     gap: spacing.xs,
@@ -308,8 +332,15 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.text,
-    fontSize: 32,
+    fontSize: Platform.select({
+      default: 30,
+      web: 32,
+    }),
     fontWeight: "800",
+    lineHeight: Platform.select({
+      default: 36,
+      web: undefined,
+    }),
     textTransform: "capitalize",
   },
   section: {
@@ -317,7 +348,10 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: colors.text,
-    fontSize: 20,
+    fontSize: Platform.select({
+      default: 18,
+      web: 20,
+    }),
     fontWeight: "800",
   },
   card: {
@@ -326,7 +360,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     gap: spacing.sm,
-    padding: spacing.md,
+    padding: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
   },
   completedCard: {
     borderColor: colors.success,
@@ -353,21 +390,66 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     color: colors.text,
-    fontSize: 18,
+    fontSize: Platform.select({
+      default: 17,
+      web: 18,
+    }),
     fontWeight: "800",
   },
   value: {
     color: colors.text,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: Platform.select({
+      default: 14,
+      web: 15,
+    }),
+    lineHeight: Platform.select({
+      default: 20,
+      web: 22,
+    }),
   },
   muted: {
     color: colors.muted,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: Platform.select({
+      default: 14,
+      web: 15,
+    }),
+    lineHeight: Platform.select({
+      default: 20,
+      web: 22,
+    }),
   },
   actions: {
     gap: spacing.sm,
+  },
+  routeSummary: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  routeSummaryItem: {
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    flex: 1,
+    minWidth: Platform.select({
+      default: "30%",
+      web: 120,
+    }),
+    padding: spacing.sm,
+  },
+  routeSummaryLabel: {
+    color: colors.muted,
+    fontSize: 11,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  routeSummaryValue: {
+    color: colors.primary,
+    fontSize: 26,
+    fontWeight: "900",
+    lineHeight: 30,
   },
   error: {
     color: colors.danger,

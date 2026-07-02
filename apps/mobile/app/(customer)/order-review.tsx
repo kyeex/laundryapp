@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Platform, StyleSheet, Text, View } from "react-native";
 
 import { AppButton } from "@/components/AppButton";
 import { StripePaymentMethodPanel } from "@/components/StripePaymentMethodPanel";
@@ -387,22 +387,44 @@ export default function OrderReviewScreen() {
 
 const styles = StyleSheet.create({
   content: {
-    gap: spacing.md,
-    paddingBottom: spacing.xl,
-    paddingTop: spacing.lg,
+    gap: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
+    paddingBottom: Platform.select({
+      default: spacing.xxl,
+      web: spacing.xl,
+    }),
+    paddingTop: Platform.select({
+      default: spacing.sm,
+      web: spacing.lg,
+    }),
   },
   header: {
     gap: spacing.sm,
   },
   title: {
     color: colors.text,
-    fontSize: 32,
+    fontSize: Platform.select({
+      default: 28,
+      web: 32,
+    }),
     fontWeight: "800",
+    lineHeight: Platform.select({
+      default: 34,
+      web: undefined,
+    }),
   },
   body: {
     color: colors.muted,
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: Platform.select({
+      default: 15,
+      web: 16,
+    }),
+    lineHeight: Platform.select({
+      default: 22,
+      web: 24,
+    }),
   },
   card: {
     backgroundColor: colors.surface,
@@ -410,7 +432,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     gap: spacing.sm,
-    padding: spacing.md,
+    padding: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
   },
   rewardsCard: {
     backgroundColor: "#ECFDF5",
@@ -418,17 +443,29 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     gap: spacing.sm,
-    padding: spacing.md,
+    padding: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
   },
   cardTitle: {
     color: colors.text,
-    fontSize: 18,
+    fontSize: Platform.select({
+      default: 17,
+      web: 18,
+    }),
     fontWeight: "800",
   },
   value: {
     color: colors.text,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: Platform.select({
+      default: 14,
+      web: 15,
+    }),
+    lineHeight: Platform.select({
+      default: 21,
+      web: 22,
+    }),
   },
   muted: {
     color: colors.muted,
@@ -437,7 +474,10 @@ const styles = StyleSheet.create({
   },
   total: {
     color: colors.primary,
-    fontSize: 20,
+    fontSize: Platform.select({
+      default: 22,
+      web: 20,
+    }),
     fontWeight: "800",
   },
   paymentStatus: {
@@ -446,7 +486,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     gap: spacing.xs,
-    padding: spacing.md,
+    padding: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
   },
   error: {
     color: colors.danger,

@@ -1,11 +1,12 @@
 import { Stack } from "expo-router";
 
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { roleStackScreenOptions } from "@/navigation/roleStackScreenOptions";
 
 export default function CustomerLayout() {
   return (
     <ProtectedRoute allowedRoles={["customer"]}>
-      <Stack>
+      <Stack screenOptions={roleStackScreenOptions}>
         <Stack.Screen name="index" options={{ title: "Customer" }} />
         <Stack.Screen
           name="profile-summary"

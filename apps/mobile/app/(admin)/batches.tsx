@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AppButton } from "@/components/AppButton";
 import { FormTextInput } from "@/components/FormTextInput";
@@ -903,15 +903,29 @@ export default function AdminBatchesScreen() {
 
 const styles = StyleSheet.create({
   content: {
-    gap: spacing.lg,
-    paddingTop: spacing.lg,
+    gap: Platform.select({
+      default: spacing.md,
+      web: spacing.lg,
+    }),
+    paddingBottom: spacing.xl,
+    paddingTop: Platform.select({
+      default: spacing.sm,
+      web: spacing.lg,
+    }),
   },
   header: {
+    alignItems: Platform.select({
+      default: "stretch",
+      web: undefined,
+    }),
     gap: spacing.sm,
   },
   title: {
     color: colors.text,
-    fontSize: 32,
+    fontSize: Platform.select({
+      default: 28,
+      web: 32,
+    }),
     fontWeight: "800",
   },
   body: {
@@ -928,11 +942,17 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   row: {
-    flexDirection: "row",
+    flexDirection: Platform.select({
+      default: "column",
+      web: "row",
+    }),
     gap: spacing.sm,
   },
   rowItem: {
-    flex: 1,
+    flex: Platform.select({
+      default: undefined,
+      web: 1,
+    }),
   },
   textArea: {
     minHeight: 92,
@@ -941,7 +961,10 @@ const styles = StyleSheet.create({
   },
   datePickerField: {
     gap: spacing.xs,
-    maxWidth: 340,
+    maxWidth: Platform.select({
+      default: undefined,
+      web: 340,
+    }),
     zIndex: 3,
   },
   datePickerLabel: {
@@ -981,8 +1004,14 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     gap: spacing.sm,
-    padding: spacing.md,
-    width: 320,
+    padding: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
+    width: Platform.select({
+      default: "100%",
+      web: 320,
+    }),
   },
   calendarHeader: {
     alignItems: "center",
@@ -1043,16 +1072,28 @@ const styles = StyleSheet.create({
     color: colors.onPrimary,
   },
   draggableOrder: {
-    alignItems: "center",
+    alignItems: Platform.select({
+      default: "stretch",
+      web: "center",
+    }),
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderRadius: 8,
     borderWidth: 1,
-    flexDirection: "row",
-    gap: spacing.md,
+    flexDirection: Platform.select({
+      default: "column",
+      web: "row",
+    }),
+    gap: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
     justifyContent: "space-between",
     minHeight: 84,
-    padding: spacing.md,
+    padding: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
   },
   draggableOrderSelected: {
     backgroundColor: colors.primary,
@@ -1102,7 +1143,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     justifyContent: "center",
     minHeight: 40,
-    minWidth: 112,
+    minWidth: Platform.select({
+      default: "100%",
+      web: 112,
+    }),
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
   },
@@ -1131,7 +1175,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     gap: spacing.xs,
-    padding: spacing.md,
+    padding: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
   },
   newBatchCard: {
     borderColor: colors.primary,
@@ -1171,7 +1218,10 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginTop: spacing.xs,
     minHeight: 44,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
     paddingVertical: spacing.sm,
   },
   manifestToggleText: {

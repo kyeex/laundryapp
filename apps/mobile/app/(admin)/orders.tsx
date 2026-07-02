@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -1160,30 +1161,36 @@ export default function AdminOrdersScreen() {
                 style={[styles.tableRow, styles.tableLink]}
               >
                 <View style={styles.orderNumberCell}>
+                  <Text style={styles.mobileCellLabel}>Order #</Text>
                   <Text style={styles.primaryText}>{getOrderNumber(order)}</Text>
                 </View>
                 <View style={styles.submittedCell}>
+                  <Text style={styles.mobileCellLabel}>Submitted</Text>
                   <Text style={styles.primaryText}>
                     {formatDisplayDateTime(order.createdAt ?? null)}
                   </Text>
                 </View>
                 <View style={styles.customerCell}>
+                  <Text style={styles.mobileCellLabel}>Customer</Text>
                   <Text style={styles.primaryText}>
                     {order.customerName || "Customer"}
                   </Text>
                   <Text style={styles.secondaryText}>{order.customerPhone}</Text>
                 </View>
                 <View style={styles.typeCell}>
+                  <Text style={styles.mobileCellLabel}>Order type</Text>
                   <Text style={styles.primaryText}>{getServiceNames(order)}</Text>
                   <Text style={styles.secondaryText}>{getOrderType(order)}</Text>
                 </View>
                 <View style={styles.statusCell}>
+                  <Text style={styles.mobileCellLabel}>Status</Text>
                   <StatusPill
                     label={formatOrderStatus(order.status)}
                     tone={getOrderStatusTone(order)}
                   />
                 </View>
                 <View style={styles.addressCell}>
+                  <Text style={styles.mobileCellLabel}>Address</Text>
                   <Text style={styles.primaryText}>
                     {order.addressSnapshot.street1 || "Address not provided"}
                   </Text>
@@ -1199,6 +1206,7 @@ export default function AdminOrdersScreen() {
                   </Text>
                 </View>
                 <View style={styles.scheduleCell}>
+                  <Text style={styles.mobileCellLabel}>Schedule</Text>
                   <Text style={styles.primaryText}>
                     Pickup {formatDisplayDate(order.scheduledPickupDate)}
                   </Text>
@@ -1210,6 +1218,7 @@ export default function AdminOrdersScreen() {
                   </Text>
                 </View>
                 <View style={styles.totalCell}>
+                  <Text style={styles.mobileCellLabel}>Total</Text>
                   <Text style={styles.primaryText}>
                     ${order.estimatedSubtotal.toFixed(2)}
                   </Text>
@@ -1218,6 +1227,7 @@ export default function AdminOrdersScreen() {
                   </Text>
                 </View>
                 <View style={styles.paymentCell}>
+                  <Text style={styles.mobileCellLabel}>Payment</Text>
                   <StatusPill
                     label={formatOrderStatus(order.paymentStatus)}
                     tone={getPaymentStatusTone(order)}
@@ -1502,10 +1512,21 @@ export default function AdminOrdersScreen() {
 
 const styles = StyleSheet.create({
   content: {
-    gap: spacing.lg,
-    paddingTop: spacing.lg,
+    gap: Platform.select({
+      default: spacing.md,
+      web: spacing.lg,
+    }),
+    paddingBottom: spacing.xl,
+    paddingTop: Platform.select({
+      default: spacing.sm,
+      web: spacing.lg,
+    }),
   },
   header: {
+    alignItems: Platform.select({
+      default: "stretch",
+      web: undefined,
+    }),
     gap: spacing.sm,
   },
   title: {
@@ -1528,7 +1549,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: spacing.sm,
+    gap: Platform.select({
+      default: spacing.xs,
+      web: spacing.sm,
+    }),
     padding: spacing.sm,
   },
   statusTile: {
@@ -1537,14 +1561,26 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 8,
     borderWidth: 1,
-    flexBasis: 128,
+    flexBasis: Platform.select({
+      default: "31%",
+      web: 128,
+    }),
     flexGrow: 1,
     flexShrink: 1,
     gap: spacing.xs,
     justifyContent: "center",
-    minHeight: 88,
-    minWidth: 116,
-    padding: spacing.md,
+    minHeight: Platform.select({
+      default: 76,
+      web: 88,
+    }),
+    minWidth: Platform.select({
+      default: 92,
+      web: 116,
+    }),
+    padding: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
   },
   statusTileActive: {
     backgroundColor: "#EEF2FF",
@@ -1553,9 +1589,15 @@ const styles = StyleSheet.create({
   },
   statusCount: {
     color: colors.primary,
-    fontSize: 30,
+    fontSize: Platform.select({
+      default: 26,
+      web: 30,
+    }),
     fontWeight: "900",
-    lineHeight: 34,
+    lineHeight: Platform.select({
+      default: 30,
+      web: 34,
+    }),
     textAlign: "center",
   },
   statusLabel: {
@@ -1572,10 +1614,16 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     gap: spacing.sm,
-    padding: spacing.md,
+    padding: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
   },
   filterHeader: {
-    alignItems: "center",
+    alignItems: Platform.select({
+      default: "flex-start",
+      web: "center",
+    }),
     flexDirection: "row",
     gap: spacing.md,
     justifyContent: "space-between",
@@ -1583,7 +1631,10 @@ const styles = StyleSheet.create({
   filterHeaderCopy: {
     flex: 1,
     gap: spacing.xs,
-    minWidth: 220,
+    minWidth: Platform.select({
+      default: 0,
+      web: 220,
+    }),
   },
   filterTitle: {
     color: colors.text,
@@ -1594,7 +1645,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.sm,
-    justifyContent: "flex-end",
+    justifyContent: Platform.select({
+      default: "stretch",
+      web: "flex-end",
+    }),
   },
   filterToggleButton: {
     alignItems: "center",
@@ -1619,7 +1673,10 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   attentionBanner: {
-    alignItems: "center",
+    alignItems: Platform.select({
+      default: "stretch",
+      web: "center",
+    }),
     backgroundColor: "#ECFDF5",
     borderColor: "#A7F3D0",
     borderRadius: 8,
@@ -1628,12 +1685,18 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: spacing.md,
     justifyContent: "space-between",
-    padding: spacing.md,
+    padding: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
   },
   attentionCopy: {
     flex: 1,
     gap: spacing.xs,
-    minWidth: 220,
+    minWidth: Platform.select({
+      default: 0,
+      web: 220,
+    }),
   },
   attentionLabel: {
     color: colors.text,
@@ -1693,12 +1756,19 @@ const styles = StyleSheet.create({
   dateFilterGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: spacing.md,
+    gap: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
     zIndex: 2,
   },
   datePickerField: {
     gap: spacing.xs,
-    minWidth: 240,
+    flex: 1,
+    minWidth: Platform.select({
+      default: "100%",
+      web: 240,
+    }),
     zIndex: 3,
   },
   datePickerLabel: {
@@ -1738,8 +1808,14 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     gap: spacing.sm,
-    padding: spacing.md,
-    width: 320,
+    padding: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
+    width: Platform.select({
+      default: "100%",
+      web: 320,
+    }),
   },
   calendarHeader: {
     alignItems: "center",
@@ -1805,7 +1881,10 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 8,
     borderWidth: 1,
-    flexBasis: 150,
+    flexBasis: Platform.select({
+      default: "100%",
+      web: 150,
+    }),
     flexGrow: 1,
     justifyContent: "center",
     minHeight: 46,
@@ -1832,7 +1911,10 @@ const styles = StyleSheet.create({
     borderColor: "#B7DED5",
     borderRadius: 8,
     borderWidth: 1,
-    gap: spacing.xs,
+    gap: Platform.select({
+      default: spacing.sm,
+      web: spacing.xs,
+    }),
     overflow: "hidden",
     padding: spacing.xs,
   },
@@ -1841,6 +1923,10 @@ const styles = StyleSheet.create({
     borderColor: "#B7DED5",
     borderRadius: 8,
     borderWidth: 1,
+    display: Platform.select({
+      default: "none",
+      web: "flex",
+    }),
   },
   tableLink: {
     backgroundColor: colors.surface,
@@ -1849,9 +1935,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   tableRow: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    padding: spacing.md,
+    flexDirection: Platform.select({
+      default: "column",
+      web: "row",
+    }),
+    gap: Platform.select({
+      default: spacing.sm,
+      web: spacing.sm,
+    }),
+    padding: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
   },
   tableEmpty: {
     backgroundColor: colors.surface,
@@ -1885,40 +1980,50 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   orderNumberCell: {
-    flex: 0.85,
-    minWidth: 112,
+    flex: Platform.select({ default: undefined, web: 0.85 }),
+    minWidth: Platform.select({ default: 0, web: 112 }),
   },
   submittedCell: {
-    flex: 1.1,
-    minWidth: 148,
+    flex: Platform.select({ default: undefined, web: 1.1 }),
+    minWidth: Platform.select({ default: 0, web: 148 }),
   },
   customerCell: {
-    flex: 1.1,
-    minWidth: 136,
+    flex: Platform.select({ default: undefined, web: 1.1 }),
+    minWidth: Platform.select({ default: 0, web: 136 }),
   },
   typeCell: {
-    flex: 1.5,
-    minWidth: 180,
+    flex: Platform.select({ default: undefined, web: 1.5 }),
+    minWidth: Platform.select({ default: 0, web: 180 }),
   },
   statusCell: {
-    flex: 0.95,
-    minWidth: 128,
+    flex: Platform.select({ default: undefined, web: 0.95 }),
+    minWidth: Platform.select({ default: 0, web: 128 }),
   },
   addressCell: {
-    flex: 1.45,
-    minWidth: 190,
+    flex: Platform.select({ default: undefined, web: 1.45 }),
+    minWidth: Platform.select({ default: 0, web: 190 }),
   },
   scheduleCell: {
-    flex: 1.35,
-    minWidth: 172,
+    flex: Platform.select({ default: undefined, web: 1.35 }),
+    minWidth: Platform.select({ default: 0, web: 172 }),
   },
   totalCell: {
-    flex: 0.8,
-    minWidth: 104,
+    flex: Platform.select({ default: undefined, web: 0.8 }),
+    minWidth: Platform.select({ default: 0, web: 104 }),
   },
   paymentCell: {
-    flex: 0.9,
-    minWidth: 120,
+    flex: Platform.select({ default: undefined, web: 0.9 }),
+    minWidth: Platform.select({ default: 0, web: 120 }),
+  },
+  mobileCellLabel: {
+    color: colors.primary,
+    display: Platform.select({
+      default: "flex",
+      web: "none",
+    }),
+    fontSize: 11,
+    fontWeight: "900",
+    textTransform: "uppercase",
   },
   primaryText: {
     color: colors.text,

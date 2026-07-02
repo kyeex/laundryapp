@@ -1,6 +1,6 @@
 import { useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Platform, StyleSheet, Text, View } from "react-native";
 
 import { AppButton } from "@/components/AppButton";
 import { OrderTimeline } from "@/components/OrderTimeline";
@@ -77,6 +77,21 @@ export default function CustomerOrderTrackingScreen() {
               </Text>
             </View>
 
+            {!isStoppedOrderStatus(order.status) ? (
+              <View style={styles.reassuranceCard}>
+                <View style={styles.reassuranceIcon}>
+                  <Text style={styles.reassuranceIconText}>OK</Text>
+                </View>
+                <View style={styles.reassuranceCopy}>
+                  <Text style={styles.reassuranceTitle}>Your order is moving</Text>
+                  <Text style={styles.reassuranceText}>
+                    We will keep this timeline updated as pickup, cleaning, payment,
+                    delivery, and completion steps happen.
+                  </Text>
+                </View>
+              </View>
+            ) : null}
+
             {isStoppedOrderStatus(order.status) ? (
               <View style={styles.issueCard}>
                 <Text style={styles.issueTitle}>Attention needed</Text>
@@ -89,15 +104,24 @@ export default function CustomerOrderTrackingScreen() {
             <OrderTimeline status={order.status} />
 
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>Delivery details</Text>
+              <Text style={styles.cardTitle}>Order details</Text>
               <Text style={styles.value}>{formatAddress(order.addressSnapshot)}</Text>
-              <Text style={styles.muted}>
-                Pickup: {formatDisplayDate(order.scheduledPickupDate)} · {order.scheduledPickupWindow}
-              </Text>
-              <Text style={styles.muted}>
-                Drop-off: {formatDisplayDate(order.scheduledDropoffDate)} ·{" "}
-                {order.scheduledDropoffWindow}
-              </Text>
+              <View style={styles.detailGrid}>
+                <View style={styles.detailTile}>
+                  <Text style={styles.detailLabel}>Pickup</Text>
+                  <Text style={styles.detailValue}>
+                    {formatDisplayDate(order.scheduledPickupDate)}
+                  </Text>
+                  <Text style={styles.detailMeta}>{order.scheduledPickupWindow}</Text>
+                </View>
+                <View style={styles.detailTile}>
+                  <Text style={styles.detailLabel}>Drop-off</Text>
+                  <Text style={styles.detailValue}>
+                    {formatDisplayDate(order.scheduledDropoffDate)}
+                  </Text>
+                  <Text style={styles.detailMeta}>{order.scheduledDropoffWindow}</Text>
+                </View>
+              </View>
             </View>
 
             <AppButton label="Refresh tracking" onPress={loadOrder} variant="secondary" />
@@ -110,8 +134,15 @@ export default function CustomerOrderTrackingScreen() {
 
 const styles = StyleSheet.create({
   content: {
-    gap: spacing.md,
-    paddingTop: spacing.lg,
+    gap: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
+    paddingBottom: spacing.xl,
+    paddingTop: Platform.select({
+      default: spacing.sm,
+      web: spacing.lg,
+    }),
   },
   header: {
     gap: spacing.xs,
@@ -124,14 +155,27 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.text,
-    fontSize: 32,
+    fontSize: Platform.select({
+      default: 30,
+      web: 32,
+    }),
     fontWeight: "800",
+    lineHeight: Platform.select({
+      default: 36,
+      web: undefined,
+    }),
     textTransform: "capitalize",
   },
   muted: {
     color: colors.muted,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: Platform.select({
+      default: 14,
+      web: 15,
+    }),
+    lineHeight: Platform.select({
+      default: 20,
+      web: 22,
+    }),
   },
   card: {
     backgroundColor: colors.surface,
@@ -139,7 +183,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     gap: spacing.sm,
-    padding: spacing.md,
+    padding: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
   },
   cardTitle: {
     color: colors.text,
@@ -229,8 +276,88 @@ const styles = StyleSheet.create({
   },
   value: {
     color: colors.text,
+    fontSize: Platform.select({
+      default: 14,
+      web: 15,
+    }),
+    lineHeight: Platform.select({
+      default: 20,
+      web: 22,
+    }),
+  },
+  reassuranceCard: {
+    alignItems: "center",
+    backgroundColor: "#ECFDF5",
+    borderColor: "#A7F3D0",
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: spacing.sm,
+    padding: spacing.sm,
+  },
+  reassuranceIcon: {
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderColor: "#A7F3D0",
+    borderRadius: 8,
+    borderWidth: 1,
+    height: 42,
+    justifyContent: "center",
+    width: 42,
+  },
+  reassuranceIconText: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  reassuranceCopy: {
+    flex: 1,
+    gap: 2,
+    minWidth: 0,
+  },
+  reassuranceTitle: {
+    color: colors.text,
     fontSize: 15,
-    lineHeight: 22,
+    fontWeight: "900",
+  },
+  reassuranceText: {
+    color: colors.muted,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  detailGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  detailTile: {
+    backgroundColor: "#F8FAFC",
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    flex: 1,
+    gap: 2,
+    minWidth: Platform.select({
+      default: "100%",
+      web: 160,
+    }),
+    padding: spacing.sm,
+  },
+  detailLabel: {
+    color: colors.muted,
+    fontSize: 11,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  detailValue: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: "900",
+  },
+  detailMeta: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: "800",
   },
   error: {
     color: colors.danger,

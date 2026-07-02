@@ -2,6 +2,7 @@ import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -1727,8 +1728,14 @@ export default function NewOrderScreen() {
 
 const styles = StyleSheet.create({
   content: {
-    gap: spacing.xl,
-    paddingBottom: spacing.xl,
+    gap: Platform.select({
+      default: spacing.lg,
+      web: spacing.xl,
+    }),
+    paddingBottom: Platform.select({
+      default: spacing.xxl,
+      web: spacing.xl,
+    }),
   },
   muted: {
     color: colors.muted,
@@ -1737,24 +1744,46 @@ const styles = StyleSheet.create({
   },
   header: {
     gap: spacing.sm,
-    paddingTop: spacing.lg,
+    paddingTop: Platform.select({
+      default: spacing.sm,
+      web: spacing.lg,
+    }),
   },
   title: {
     color: colors.text,
-    fontSize: 32,
+    fontSize: Platform.select({
+      default: 28,
+      web: 32,
+    }),
     fontWeight: "800",
+    lineHeight: Platform.select({
+      default: 34,
+      web: undefined,
+    }),
   },
   body: {
     color: colors.muted,
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: Platform.select({
+      default: 15,
+      web: 16,
+    }),
+    lineHeight: Platform.select({
+      default: 22,
+      web: 24,
+    }),
   },
   section: {
-    gap: spacing.md,
+    gap: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
   },
   sectionTitle: {
     color: colors.text,
-    fontSize: 20,
+    fontSize: Platform.select({
+      default: 18,
+      web: 20,
+    }),
     fontWeight: "800",
   },
   emptyInline: {
@@ -1789,8 +1818,14 @@ const styles = StyleSheet.create({
     borderColor: "#E2E8F0",
     borderRadius: 8,
     borderWidth: 1,
-    gap: spacing.md,
-    padding: spacing.md,
+    gap: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
+    padding: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
   },
   addressHeader: {
     borderBottomColor: "#E2E8F0",
@@ -1808,7 +1843,10 @@ const styles = StyleSheet.create({
   },
   addressTitle: {
     color: colors.text,
-    fontSize: 20,
+    fontSize: Platform.select({
+      default: 18,
+      web: 20,
+    }),
     fontWeight: "800",
   },
   addressDescription: {
@@ -1829,15 +1867,24 @@ const styles = StyleSheet.create({
   },
   addressCityField: {
     flex: 2,
-    minWidth: 180,
+    minWidth: Platform.select({
+      default: "100%",
+      web: 180,
+    }),
   },
   addressStateField: {
     flex: 1,
-    minWidth: 104,
+    minWidth: Platform.select({
+      default: 112,
+      web: 104,
+    }),
   },
   addressZipField: {
     flex: 1,
-    minWidth: 136,
+    minWidth: Platform.select({
+      default: 144,
+      web: 136,
+    }),
   },
   addressTextArea: {
     minHeight: 84,
@@ -1892,8 +1939,14 @@ const styles = StyleSheet.create({
     borderColor: "#E2E8F0",
     borderRadius: 8,
     borderWidth: 1,
-    gap: spacing.md,
-    padding: spacing.md,
+    gap: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
+    padding: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
   },
   orderNotesHeader: {
     gap: spacing.xs,
@@ -1930,11 +1983,20 @@ const styles = StyleSheet.create({
     borderColor: "#E2E8F0",
     borderRadius: 8,
     borderWidth: 1,
-    gap: spacing.md,
-    padding: spacing.md,
+    gap: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
+    padding: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
   },
   gratuityHeader: {
-    alignItems: "center",
+    alignItems: Platform.select({
+      default: "stretch",
+      web: "center",
+    }),
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.md,
@@ -1943,7 +2005,10 @@ const styles = StyleSheet.create({
   gratuityHeaderCopy: {
     flex: 1,
     gap: spacing.xs,
-    minWidth: 220,
+    minWidth: Platform.select({
+      default: "100%",
+      web: 220,
+    }),
   },
   gratuityEyebrow: {
     color: colors.primary,
@@ -1966,7 +2031,10 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 8,
     borderWidth: 1,
-    minWidth: 140,
+    minWidth: Platform.select({
+      default: "100%",
+      web: 140,
+    }),
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
@@ -1992,7 +2060,14 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     flexGrow: 1,
-    minWidth: 112,
+    minHeight: Platform.select({
+      default: 58,
+      web: undefined,
+    }),
+    minWidth: Platform.select({
+      default: 96,
+      web: 112,
+    }),
     padding: spacing.sm,
   },
   gratuityOptionSelected: {
@@ -2026,7 +2101,10 @@ const styles = StyleSheet.create({
   },
   gratuityCustomInput: {
     flex: 1,
-    minWidth: 220,
+    minWidth: Platform.select({
+      default: "100%",
+      web: 220,
+    }),
   },
   gratuitySubtotal: {
     color: colors.muted,
@@ -2036,18 +2114,37 @@ const styles = StyleSheet.create({
   serviceGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: spacing.sm,
+    gap: Platform.select({
+      default: spacing.xs,
+      web: spacing.sm,
+    }),
   },
   serviceCard: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderRadius: 8,
     borderWidth: 1,
-    flex: 1,
+    flex: Platform.select({
+      default: undefined,
+      web: 1,
+    }),
+    flexBasis: Platform.select({
+      default: "100%",
+      web: undefined,
+    }),
     gap: spacing.sm,
-    minHeight: 132,
-    minWidth: 180,
-    padding: spacing.md,
+    minHeight: Platform.select({
+      default: 116,
+      web: 132,
+    }),
+    minWidth: Platform.select({
+      default: 0,
+      web: 180,
+    }),
+    padding: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
   },
   serviceCardSelected: {
     backgroundColor: "#ECFDF5",
@@ -2055,7 +2152,10 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   serviceCardHeader: {
-    alignItems: "flex-start",
+    alignItems: Platform.select({
+      default: "center",
+      web: "flex-start",
+    }),
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.sm,
@@ -2073,17 +2173,26 @@ const styles = StyleSheet.create({
     borderColor: "#CFE5DE",
     borderRadius: 8,
     borderWidth: 1,
-    height: 86,
+    height: Platform.select({
+      default: 72,
+      web: 86,
+    }),
     justifyContent: "flex-end",
     overflow: "hidden",
     paddingBottom: 10,
     position: "relative",
-    width: 96,
+    width: Platform.select({
+      default: 82,
+      web: 96,
+    }),
   },
   serviceGraphicDryCleaning: {
     backgroundColor: "#F5F3FF",
     borderColor: "#DDD6FE",
-    width: 128,
+    width: Platform.select({
+      default: 106,
+      web: 128,
+    }),
   },
   serviceGraphicSelected: {
     backgroundColor: colors.surface,
@@ -2095,17 +2204,29 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     borderRadius: 8,
     borderWidth: 2,
-    height: 58,
+    height: Platform.select({
+      default: 48,
+      web: 58,
+    }),
     justifyContent: "center",
     overflow: "hidden",
     position: "relative",
-    width: 54,
+    width: Platform.select({
+      default: 46,
+      web: 54,
+    }),
   },
   serviceWasherDryCleaning: {
     alignSelf: "flex-start",
-    height: 54,
+    height: Platform.select({
+      default: 44,
+      web: 54,
+    }),
     marginLeft: 4,
-    width: 50,
+    width: Platform.select({
+      default: 42,
+      web: 50,
+    }),
   },
   serviceWasherTopBar: {
     alignItems: "center",
@@ -2140,11 +2261,17 @@ const styles = StyleSheet.create({
     borderColor: "#93C5FD",
     borderRadius: 999,
     borderWidth: 3,
-    height: 32,
+    height: Platform.select({
+      default: 27,
+      web: 32,
+    }),
     justifyContent: "center",
     overflow: "hidden",
     position: "relative",
-    width: 32,
+    width: Platform.select({
+      default: 27,
+      web: 32,
+    }),
   },
   serviceWasherWater: {
     backgroundColor: "#5EEAD4",
@@ -2180,12 +2307,24 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 5,
     borderTopRightRadius: 5,
     borderWidth: 2,
-    height: 38,
+    height: Platform.select({
+      default: 32,
+      web: 38,
+    }),
     overflow: "visible",
     position: "absolute",
-    right: 14,
-    top: 28,
-    width: 34,
+    right: Platform.select({
+      default: 11,
+      web: 14,
+    }),
+    top: Platform.select({
+      default: 24,
+      web: 28,
+    }),
+    width: Platform.select({
+      default: 29,
+      web: 34,
+    }),
     zIndex: 4,
   },
   serviceTShirtNeck: {
@@ -2267,9 +2406,15 @@ const styles = StyleSheet.create({
   serviceCardTitle: {
     color: colors.text,
     flex: 1,
-    fontSize: 18,
+    fontSize: Platform.select({
+      default: 16,
+      web: 18,
+    }),
     fontWeight: "800",
-    lineHeight: 23,
+    lineHeight: Platform.select({
+      default: 21,
+      web: 23,
+    }),
   },
   serviceCardTitleSelected: {
     color: colors.primary,
@@ -2294,8 +2439,14 @@ const styles = StyleSheet.create({
   },
   serviceCardDescription: {
     color: colors.muted,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: Platform.select({
+      default: 13,
+      web: 14,
+    }),
+    lineHeight: Platform.select({
+      default: 19,
+      web: 20,
+    }),
   },
   serviceCardDescriptionSelected: {
     color: colors.text,
@@ -2320,10 +2471,16 @@ const styles = StyleSheet.create({
   menuGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: spacing.sm,
+    gap: Platform.select({
+      default: spacing.xs,
+      web: spacing.sm,
+    }),
   },
   menuItemWrapper: {
-    flexBasis: 180,
+    flexBasis: Platform.select({
+      default: "100%",
+      web: 180,
+    }),
     flexGrow: 1,
     flexShrink: 1,
     gap: spacing.sm,
@@ -2335,15 +2492,24 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     gap: spacing.sm,
-    minHeight: 132,
-    padding: spacing.md,
+    minHeight: Platform.select({
+      default: 112,
+      web: 132,
+    }),
+    padding: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
   },
   menuItemSelected: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
   menuItemHeader: {
-    alignItems: "flex-start",
+    alignItems: Platform.select({
+      default: "center",
+      web: "flex-start",
+    }),
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.sm,
@@ -2425,15 +2591,24 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   comforterSizeRow: {
-    alignItems: "center",
+    alignItems: Platform.select({
+      default: "stretch",
+      web: "center",
+    }),
     backgroundColor: "#F8FAFC",
     borderColor: colors.border,
     borderRadius: 8,
     borderWidth: 1,
-    flexDirection: "row",
+    flexDirection: Platform.select({
+      default: "column",
+      web: "row",
+    }),
     gap: spacing.md,
     justifyContent: "space-between",
-    padding: spacing.md,
+    padding: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
   },
   comforterSizeText: {
     flex: 1,
@@ -2445,15 +2620,24 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   quantityRow: {
-    alignItems: "center",
+    alignItems: Platform.select({
+      default: "stretch",
+      web: "center",
+    }),
     backgroundColor: "#F8FAFC",
     borderColor: colors.border,
     borderRadius: 8,
     borderWidth: 1,
-    flexDirection: "row",
+    flexDirection: Platform.select({
+      default: "column",
+      web: "row",
+    }),
     justifyContent: "space-between",
     gap: spacing.md,
-    padding: spacing.md,
+    padding: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
   },
   quantityLabel: {
     color: colors.text,
@@ -2464,6 +2648,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flexDirection: "row",
     gap: spacing.sm,
+    justifyContent: Platform.select({
+      default: "space-between",
+      web: "flex-start",
+    }),
   },
   quantityValue: {
     color: colors.text,
@@ -2477,20 +2665,32 @@ const styles = StyleSheet.create({
     borderColor: "#E2E8F0",
     borderRadius: 8,
     borderWidth: 1,
-    gap: spacing.md,
-    padding: spacing.md,
+    gap: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
+    padding: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
   },
   scheduleHeader: {
     alignItems: "stretch",
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: spacing.md,
+    gap: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
     justifyContent: "space-between",
   },
   scheduleHeaderCopy: {
     flex: 1,
     gap: spacing.xs,
-    minWidth: 220,
+    minWidth: Platform.select({
+      default: "100%",
+      web: 220,
+    }),
   },
   scheduleEyebrow: {
     color: colors.primary,
@@ -2500,7 +2700,10 @@ const styles = StyleSheet.create({
   },
   scheduleTitle: {
     color: colors.text,
-    fontSize: 20,
+    fontSize: Platform.select({
+      default: 18,
+      web: 20,
+    }),
     fontWeight: "800",
   },
   scheduleDescription: {
@@ -2513,7 +2716,10 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 8,
     borderWidth: 1,
-    minWidth: 190,
+    minWidth: Platform.select({
+      default: "100%",
+      web: 190,
+    }),
     padding: spacing.sm,
   },
   scheduleSummaryLabel: {
@@ -2544,7 +2750,10 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: spacing.sm,
+    gap: Platform.select({
+      default: spacing.xs,
+      web: spacing.sm,
+    }),
     justifyContent: "center",
     maxWidth: 874,
     width: "100%",
@@ -2555,11 +2764,23 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 8,
     borderWidth: 1,
-    flexBasis: 118,
-    flexGrow: 0,
-    height: 86,
+    flexBasis: Platform.select({
+      default: "31%",
+      web: 118,
+    }),
+    flexGrow: Platform.select({
+      default: 1,
+      web: 0,
+    }),
+    height: Platform.select({
+      default: 82,
+      web: 86,
+    }),
     justifyContent: "center",
-    padding: spacing.sm,
+    padding: Platform.select({
+      default: 6,
+      web: spacing.sm,
+    }),
   },
   scheduleDateButtonSelected: {
     backgroundColor: colors.primary,
@@ -2577,7 +2798,10 @@ const styles = StyleSheet.create({
   },
   scheduleDateText: {
     color: colors.text,
-    fontSize: 14,
+    fontSize: Platform.select({
+      default: 12,
+      web: 14,
+    }),
     fontWeight: "800",
     textAlign: "center",
   },
@@ -2599,7 +2823,10 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: spacing.sm,
+    gap: Platform.select({
+      default: spacing.xs,
+      web: spacing.sm,
+    }),
     justifyContent: "center",
     maxWidth: 548,
     width: "100%",
@@ -2610,8 +2837,14 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 8,
     borderWidth: 1,
-    flexBasis: 172,
-    flexGrow: 0,
+    flexBasis: Platform.select({
+      default: "100%",
+      web: 172,
+    }),
+    flexGrow: Platform.select({
+      default: 1,
+      web: 0,
+    }),
     height: 52,
     justifyContent: "center",
     paddingHorizontal: spacing.md,
@@ -2666,17 +2899,36 @@ const styles = StyleSheet.create({
     alignItems: "stretch",
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: spacing.md,
+    gap: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
   },
   weightCard: {
     backgroundColor: "#F8FAFC",
     borderColor: "#E2E8F0",
     borderRadius: 8,
     borderWidth: 1,
-    flex: 1.1,
-    gap: spacing.md,
-    minWidth: 300,
-    padding: spacing.md,
+    flex: Platform.select({
+      default: undefined,
+      web: 1.1,
+    }),
+    flexBasis: Platform.select({
+      default: "100%",
+      web: undefined,
+    }),
+    gap: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
+    minWidth: Platform.select({
+      default: 0,
+      web: 300,
+    }),
+    padding: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
   },
   weightEyebrow: {
     color: colors.primary,
@@ -2686,7 +2938,10 @@ const styles = StyleSheet.create({
   },
   weightTitle: {
     color: colors.text,
-    fontSize: 20,
+    fontSize: Platform.select({
+      default: 18,
+      web: 20,
+    }),
     fontWeight: "800",
   },
   weightDescription: {
@@ -2699,13 +2954,19 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: spacing.sm,
+    gap: Platform.select({
+      default: spacing.xs,
+      web: spacing.sm,
+    }),
     maxWidth: 520,
     width: "100%",
   },
   weightInputField: {
     flex: 1,
-    minWidth: 170,
+    minWidth: Platform.select({
+      default: 0,
+      web: 170,
+    }),
   },
   weightStepper: {
     gap: spacing.xs,
@@ -2769,13 +3030,32 @@ const styles = StyleSheet.create({
     borderColor: "#B7DED5",
     borderRadius: 8,
     borderWidth: 2,
-    flex: 0.9,
-    gap: spacing.md,
+    flex: Platform.select({
+      default: undefined,
+      web: 0.9,
+    }),
+    flexBasis: Platform.select({
+      default: "100%",
+      web: undefined,
+    }),
+    gap: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
     justifyContent: "space-between",
-    minHeight: 260,
-    minWidth: 280,
+    minHeight: Platform.select({
+      default: 220,
+      web: 260,
+    }),
+    minWidth: Platform.select({
+      default: 0,
+      web: 280,
+    }),
     overflow: "hidden",
-    padding: spacing.md,
+    padding: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
     shadowColor: "#0F172A",
     shadowOffset: { height: 8, width: 0 },
     shadowOpacity: 0.08,
@@ -2786,7 +3066,10 @@ const styles = StyleSheet.create({
     borderColor: "#5BBEAD",
     borderRadius: 8,
     borderWidth: 2,
-    height: 184,
+    height: Platform.select({
+      default: 156,
+      web: 184,
+    }),
     overflow: "hidden",
     position: "relative",
     width: "100%",
@@ -2855,8 +3138,14 @@ const styles = StyleSheet.create({
     bottom: 44,
     height: 66,
     position: "absolute",
-    right: 20,
-    width: 172,
+    right: Platform.select({
+      default: 10,
+      web: 20,
+    }),
+    width: Platform.select({
+      default: 146,
+      web: 172,
+    }),
   },
   deliveryTruckCab: {
     backgroundColor: colors.primary,
@@ -2896,7 +3185,10 @@ const styles = StyleSheet.create({
     shadowOffset: { height: 5, width: 0 },
     shadowOpacity: 0.16,
     shadowRadius: 10,
-    width: 124,
+    width: Platform.select({
+      default: 104,
+      web: 124,
+    }),
   },
   deliveryTruckText: {
     color: colors.primary,
@@ -2935,7 +3227,10 @@ const styles = StyleSheet.create({
     bottom: 62,
     height: 66,
     justifyContent: "center",
-    left: 26,
+    left: Platform.select({
+      default: 16,
+      web: 26,
+    }),
     position: "absolute",
     shadowColor: "#0F172A",
     shadowOffset: { height: 6, width: 0 },
@@ -3020,8 +3315,14 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 8,
     borderWidth: 1,
-    gap: spacing.md,
-    padding: spacing.md,
+    gap: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
+    padding: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
   },
   summaryHeader: {
     alignItems: "stretch",
@@ -3033,7 +3334,10 @@ const styles = StyleSheet.create({
   summaryHeaderCopy: {
     flex: 1,
     gap: spacing.xs,
-    minWidth: 220,
+    minWidth: Platform.select({
+      default: "100%",
+      web: 220,
+    }),
   },
   summaryEyebrow: {
     color: colors.primary,
@@ -3043,7 +3347,10 @@ const styles = StyleSheet.create({
   },
   summaryTitle: {
     color: colors.text,
-    fontSize: 24,
+    fontSize: Platform.select({
+      default: 21,
+      web: 24,
+    }),
     fontWeight: "800",
   },
   summaryTotalCard: {
@@ -3052,7 +3359,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     justifyContent: "center",
-    minWidth: 190,
+    minWidth: Platform.select({
+      default: "100%",
+      web: 190,
+    }),
     padding: spacing.md,
   },
   summaryTotalLabel: {
@@ -3063,7 +3373,10 @@ const styles = StyleSheet.create({
   },
   summaryTotalAmount: {
     color: colors.primary,
-    fontSize: 30,
+    fontSize: Platform.select({
+      default: 28,
+      web: 30,
+    }),
     fontWeight: "800",
   },
   summaryHighlightGrid: {
@@ -3077,7 +3390,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     flex: 1,
-    minWidth: 140,
+    minWidth: Platform.select({
+      default: "47%",
+      web: 140,
+    }),
     padding: spacing.sm,
   },
   summaryHighlightLabel: {
@@ -3105,7 +3421,10 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   summaryLine: {
-    alignItems: "center",
+    alignItems: Platform.select({
+      default: "flex-start",
+      web: "center",
+    }),
     flexDirection: "row",
     gap: spacing.md,
     justifyContent: "space-between",
@@ -3146,9 +3465,15 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   fixedReviewShell: {
-    alignItems: "flex-end",
+    alignItems: Platform.select({
+      default: "stretch",
+      web: "flex-end",
+    }),
     backgroundColor: colors.background,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: Platform.select({
+      default: spacing.md,
+      web: spacing.lg,
+    }),
     paddingBottom: spacing.sm,
     paddingTop: spacing.sm,
   },
@@ -3158,7 +3483,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     gap: spacing.xs,
-    maxWidth: 420,
+    maxWidth: Platform.select({
+      default: undefined,
+      web: 420,
+    }),
     padding: spacing.sm,
     width: "100%",
     shadowColor: "#0F172A",
@@ -3186,7 +3514,10 @@ const styles = StyleSheet.create({
   fixedReviewGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: spacing.sm,
+    gap: Platform.select({
+      default: spacing.xs,
+      web: spacing.sm,
+    }),
   },
   fixedReviewItem: {
     backgroundColor: "#F8FAFC",
@@ -3194,7 +3525,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     flex: 1,
-    minWidth: 78,
+    minWidth: Platform.select({
+      default: 70,
+      web: 78,
+    }),
     paddingHorizontal: 8,
     paddingVertical: 4,
   },

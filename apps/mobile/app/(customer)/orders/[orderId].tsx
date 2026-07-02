@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Platform, StyleSheet, Text, View } from "react-native";
 
 import { AppButton } from "@/components/AppButton";
 import { OrderTimeline } from "@/components/OrderTimeline";
@@ -106,6 +106,25 @@ export default function CustomerOrderDetailScreen() {
                 Pickup {formatDisplayDate(order.scheduledPickupDate)} · Drop-off{" "}
                 {formatDisplayDate(order.scheduledDropoffDate)}
               </Text>
+            </View>
+
+            <View style={styles.statusSummary}>
+              <View style={styles.statusSummaryItem}>
+                <Text style={styles.statusSummaryLabel}>Estimated</Text>
+                <Text style={styles.statusSummaryValue}>
+                  ${order.estimatedSubtotal.toFixed(2)}
+                </Text>
+              </View>
+              <View style={styles.statusSummaryItem}>
+                <Text style={styles.statusSummaryLabel}>Final</Text>
+                <Text style={styles.statusSummaryValue}>
+                  {order.finalPrice === null ? "Pending" : `$${order.finalPrice.toFixed(2)}`}
+                </Text>
+              </View>
+              <View style={styles.statusSummaryItem}>
+                <Text style={styles.statusSummaryLabel}>Payment</Text>
+                <Text style={styles.statusSummaryValue}>{order.paymentStatus}</Text>
+              </View>
             </View>
 
             <OrderTimeline status={order.status} />
@@ -246,8 +265,15 @@ export default function CustomerOrderDetailScreen() {
 
 const styles = StyleSheet.create({
   content: {
-    gap: spacing.md,
-    paddingTop: spacing.lg,
+    gap: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
+    paddingBottom: spacing.xl,
+    paddingTop: Platform.select({
+      default: spacing.sm,
+      web: spacing.lg,
+    }),
   },
   header: {
     gap: spacing.xs,
@@ -260,8 +286,15 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.text,
-    fontSize: 32,
+    fontSize: Platform.select({
+      default: 30,
+      web: 32,
+    }),
     fontWeight: "800",
+    lineHeight: Platform.select({
+      default: 36,
+      web: undefined,
+    }),
     textTransform: "capitalize",
   },
   orderNumber: {
@@ -271,8 +304,14 @@ const styles = StyleSheet.create({
   },
   muted: {
     color: colors.muted,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: Platform.select({
+      default: 14,
+      web: 15,
+    }),
+    lineHeight: Platform.select({
+      default: 20,
+      web: 22,
+    }),
   },
   card: {
     backgroundColor: colors.surface,
@@ -280,7 +319,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     gap: spacing.xs,
-    padding: spacing.md,
+    padding: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
   },
   cardTitle: {
     color: colors.text,
@@ -289,8 +331,42 @@ const styles = StyleSheet.create({
   },
   value: {
     color: colors.text,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: Platform.select({
+      default: 14,
+      web: 15,
+    }),
+    lineHeight: Platform.select({
+      default: 20,
+      web: 22,
+    }),
+  },
+  statusSummary: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  statusSummaryItem: {
+    backgroundColor: "#F8FAFC",
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    flex: 1,
+    minWidth: Platform.select({
+      default: "100%",
+      web: 150,
+    }),
+    padding: spacing.sm,
+  },
+  statusSummaryLabel: {
+    color: colors.muted,
+    fontSize: 11,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  statusSummaryValue: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: "900",
   },
   error: {
     color: colors.danger,

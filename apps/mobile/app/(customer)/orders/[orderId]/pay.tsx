@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Platform, StyleSheet, Text, View } from "react-native";
 
 import { AppButton } from "@/components/AppButton";
 import { Screen } from "@/components/Screen";
@@ -220,11 +220,19 @@ export default function CustomerPayOrderScreen() {
                   ? "Final price pending"
                   : `$${order.finalPrice.toFixed(2)}`}
               </Text>
-              <Text style={styles.muted}>Payment status: {order.paymentStatus}</Text>
-              {paymentDisabledReason ? (
-                <Text style={styles.muted}>{paymentDisabledReason}</Text>
-              ) : null}
+              <View style={styles.statusPill}>
+                <Text style={styles.statusPillText}>
+                  Payment status: {order.paymentStatus}
+                </Text>
+              </View>
             </View>
+
+            {paymentDisabledReason ? (
+              <View style={styles.noticeCard}>
+                <Text style={styles.noticeTitle}>Payment not ready</Text>
+                <Text style={styles.muted}>{paymentDisabledReason}</Text>
+              </View>
+            ) : null}
 
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Before you pay</Text>
@@ -233,19 +241,27 @@ export default function CustomerPayOrderScreen() {
                   ? "Your saved profile card can be charged securely by the backend for this final balance."
                   : "Stripe PaymentSheet will open after the backend creates a secure PaymentIntent for this order."}
               </Text>
-              <Text
+              <View
                 style={
                   canUseSavedProfileCard || isStripeMobileCheckoutConfigured
-                    ? styles.checkoutReady
-                    : styles.checkoutBlocked
+                    ? styles.checkoutReadyBox
+                    : styles.checkoutBlockedBox
                 }
               >
-                {canUseSavedProfileCard
-                  ? "Saved profile card is ready for payment."
-                  : isStripeMobileCheckoutConfigured
-                  ? "Stripe checkout is configured for this build."
-                  : "Native Stripe checkout is missing a valid publishable key."}
-              </Text>
+                <Text
+                  style={
+                    canUseSavedProfileCard || isStripeMobileCheckoutConfigured
+                      ? styles.checkoutReady
+                      : styles.checkoutBlocked
+                  }
+                >
+                  {canUseSavedProfileCard
+                    ? "Saved profile card is ready for payment."
+                    : isStripeMobileCheckoutConfigured
+                    ? "Stripe checkout is configured for this build."
+                    : "Native Stripe checkout is missing a valid publishable key."}
+                </Text>
+              </View>
             </View>
 
             {rewardSettings?.enabled ? (
@@ -279,11 +295,19 @@ export default function CustomerPayOrderScreen() {
                   })}
                 </View>
                 <View style={styles.paymentSummary}>
-                  <Text style={styles.value}>Final price: ${finalPrice.toFixed(2)}</Text>
-                  <Text style={styles.value}>
-                    Rewards credit: -${selectedRewardCredit.toFixed(2)}
-                  </Text>
-                  <Text style={styles.totalDue}>Amount due: ${payableAmount.toFixed(2)}</Text>
+                  <View style={styles.summaryLine}>
+                    <Text style={styles.value}>Final price</Text>
+                    <Text style={styles.value}>${finalPrice.toFixed(2)}</Text>
+                  </View>
+                  <View style={styles.summaryLine}>
+                    <Text style={styles.value}>Rewards credit</Text>
+                    <Text style={styles.value}>-${selectedRewardCredit.toFixed(2)}</Text>
+                  </View>
+                  <View style={styles.summaryDivider} />
+                  <View style={styles.summaryLine}>
+                    <Text style={styles.totalDueLabel}>Amount due</Text>
+                    <Text style={styles.totalDue}>${payableAmount.toFixed(2)}</Text>
+                  </View>
                 </View>
               </View>
             ) : null}
@@ -291,15 +315,22 @@ export default function CustomerPayOrderScreen() {
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Payment method</Text>
               {hasSavedPaymentMethod ? (
-                <>
-                  <Text style={styles.value}>
-                    {paymentMethod?.brand} ending in {paymentMethod?.last4}
-                  </Text>
-                  <Text style={styles.muted}>
-                    Expires {paymentMethod?.expirationMonth}/
-                    {paymentMethod?.expirationYear || "YYYY"}
-                  </Text>
-                </>
+                <View style={styles.savedCardRow}>
+                  <View style={styles.cardBrandBadge}>
+                    <Text style={styles.cardBrandBadgeText}>
+                      {paymentMethod?.brand?.slice(0, 2).toUpperCase() || "CC"}
+                    </Text>
+                  </View>
+                  <View style={styles.savedCardCopy}>
+                    <Text style={styles.value}>
+                      {paymentMethod?.brand} ending in {paymentMethod?.last4}
+                    </Text>
+                    <Text style={styles.muted}>
+                      Expires {paymentMethod?.expirationMonth}/
+                      {paymentMethod?.expirationYear || "YYYY"}
+                    </Text>
+                  </View>
+                </View>
               ) : (
                 <Text style={styles.muted}>
                   Stripe PaymentSheet will collect card details securely during checkout.
@@ -328,8 +359,15 @@ export default function CustomerPayOrderScreen() {
 
 const styles = StyleSheet.create({
   content: {
-    gap: spacing.md,
-    paddingTop: spacing.lg,
+    gap: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
+    paddingBottom: spacing.xl,
+    paddingTop: Platform.select({
+      default: spacing.sm,
+      web: spacing.lg,
+    }),
   },
   rewardGrid: {
     flexDirection: "row",
@@ -342,11 +380,26 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     gap: spacing.xs,
-    padding: spacing.md,
+    padding: spacing.sm,
+  },
+  summaryLine: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: spacing.md,
+    justifyContent: "space-between",
+  },
+  summaryDivider: {
+    backgroundColor: colors.border,
+    height: 1,
+  },
+  totalDueLabel: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: "900",
   },
   totalDue: {
-    color: colors.text,
-    fontSize: 18,
+    color: colors.primary,
+    fontSize: 22,
     fontWeight: "900",
   },
   header: {
@@ -360,7 +413,10 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.text,
-    fontSize: 32,
+    fontSize: Platform.select({
+      default: 34,
+      web: 32,
+    }),
     fontWeight: "800",
   },
   card: {
@@ -369,7 +425,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     gap: spacing.sm,
-    padding: spacing.md,
+    padding: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
   },
   cardTitle: {
     color: colors.text,
@@ -378,8 +437,14 @@ const styles = StyleSheet.create({
   },
   muted: {
     color: colors.muted,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: Platform.select({
+      default: 14,
+      web: 15,
+    }),
+    lineHeight: Platform.select({
+      default: 20,
+      web: 22,
+    }),
   },
   value: {
     color: colors.text,
@@ -407,9 +472,76 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "800",
   },
+  checkoutReadyBox: {
+    backgroundColor: "#ECFDF5",
+    borderColor: "#A7F3D0",
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: spacing.sm,
+  },
+  checkoutBlockedBox: {
+    backgroundColor: "#FEF2F2",
+    borderColor: "#FCA5A5",
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: spacing.sm,
+  },
   pending: {
     color: colors.primary,
     fontSize: 14,
     fontWeight: "800",
+  },
+  statusPill: {
+    alignSelf: "flex-start",
+    backgroundColor: "#F8FAFC",
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  statusPillText: {
+    color: colors.text,
+    fontSize: 12,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  noticeCard: {
+    backgroundColor: "#FEF3C7",
+    borderColor: "#F59E0B",
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: spacing.xs,
+    padding: spacing.sm,
+  },
+  noticeTitle: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: "900",
+  },
+  savedCardRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: spacing.sm,
+  },
+  cardBrandBadge: {
+    alignItems: "center",
+    backgroundColor: "#ECFDF5",
+    borderColor: "#A7F3D0",
+    borderRadius: 8,
+    borderWidth: 1,
+    height: 44,
+    justifyContent: "center",
+    width: 44,
+  },
+  cardBrandBadgeText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  savedCardCopy: {
+    flex: 1,
+    gap: 2,
+    minWidth: 0,
   },
 });

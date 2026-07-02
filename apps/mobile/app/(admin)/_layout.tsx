@@ -1,11 +1,12 @@
 import { Stack } from "expo-router";
 
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { roleStackScreenOptions } from "@/navigation/roleStackScreenOptions";
 
 export default function AdminLayout() {
   return (
     <ProtectedRoute allowedRoles={["owner"]}>
-      <Stack>
+      <Stack screenOptions={roleStackScreenOptions}>
         <Stack.Screen name="index" options={{ title: "Owner dashboard" }} />
         <Stack.Screen name="orders" options={{ title: "Orders" }} />
         <Stack.Screen name="orders/[orderId]" options={{ title: "Manage order" }} />
