@@ -30,6 +30,16 @@ const payableOrderStatuses = new Set<OrderStatus>([
   "ready_for_delivery",
 ]);
 
+function formatStripeReference(paymentId?: string | null) {
+  if (!paymentId) {
+    return "Not available yet";
+  }
+
+  return paymentId.length > 16
+    ? `${paymentId.slice(0, 10)}...${paymentId.slice(-4)}`
+    : paymentId;
+}
+
 export default function CustomerOrderDetailScreen() {
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
   const { currentUser } = useAuth();
@@ -226,6 +236,56 @@ export default function CustomerOrderDetailScreen() {
                   : `$${order.finalPrice.toFixed(2)}`}
               </Text>
               <Text style={styles.muted}>Payment status: {order.paymentStatus}</Text>
+              {order.paymentStatus === "paid" || order.paymentStatus === "refunded" ? (
+                <View style={styles.receiptCard}>
+                  <Text style={styles.receiptTitle}>
+                    {order.paymentStatus === "refunded"
+                      ? "Refund receipt"
+                      : "Payment receipt"}
+                  </Text>
+                  <View style={styles.receiptRow}>
+                    <Text style={styles.receiptLabel}>Order</Text>
+                    <Text style={styles.receiptValue}>#{getOrderNumber(order)}</Text>
+                  </View>
+                  <View style={styles.receiptRow}>
+                    <Text style={styles.receiptLabel}>Amount</Text>
+                    <Text style={styles.receiptValue}>
+                      $
+                      {(order.paymentAmountDue ?? order.finalPrice ?? 0).toFixed(2)}
+                    </Text>
+                  </View>
+                  {order.rewardCreditAmount ? (
+                    <View style={styles.receiptRow}>
+                      <Text style={styles.receiptLabel}>Rewards credit</Text>
+                      <Text style={styles.receiptValue}>
+                        -${order.rewardCreditAmount.toFixed(2)}
+                      </Text>
+                    </View>
+                  ) : null}
+                  <View style={styles.receiptRow}>
+                    <Text style={styles.receiptLabel}>Stripe reference</Text>
+                    <Text style={styles.receiptValue}>
+                      {formatStripeReference(order.paymentId)}
+                    </Text>
+                  </View>
+                  {order.paymentMethodBrand || order.paymentMethodLast4 ? (
+                    <View style={styles.receiptRow}>
+                      <Text style={styles.receiptLabel}>Card</Text>
+                      <Text style={styles.receiptValue}>
+                        {order.paymentMethodBrand ?? "Card"} ending in{" "}
+                        {order.paymentMethodLast4 ?? "----"}
+                      </Text>
+                    </View>
+                  ) : null}
+                  {order.refundStatus ? (
+                    <View style={styles.refundBadge}>
+                      <Text style={styles.refundBadgeText}>
+                        Refund status: {formatOrderStatus(order.refundStatus)}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+              ) : null}
               {canOpenPayment ? (
                 <AppButton
                   label="Pay final balance"
@@ -323,6 +383,57 @@ const styles = StyleSheet.create({
       default: spacing.sm,
       web: spacing.md,
     }),
+  },
+  receiptCard: {
+    backgroundColor: "#F8FAFC",
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+    padding: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
+  },
+  receiptTitle: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: "900",
+  },
+  receiptRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: spacing.sm,
+    justifyContent: "space-between",
+  },
+  receiptLabel: {
+    color: colors.muted,
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  receiptValue: {
+    color: colors.text,
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "800",
+    textAlign: "right",
+  },
+  refundBadge: {
+    alignSelf: "flex-start",
+    backgroundColor: "#FFF7ED",
+    borderColor: "#FDBA74",
+    borderRadius: 999,
+    borderWidth: 1,
+    marginTop: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  refundBadgeText: {
+    color: "#9A3412",
+    fontSize: 12,
+    fontWeight: "900",
   },
   cardTitle: {
     color: colors.text,

@@ -22,6 +22,7 @@ import {
   where,
 } from "firebase/firestore";
 import { getFunctions, httpsCallable } from "firebase/functions";
+import { resolveStripeCliPath } from "./stripe-cli-path.mjs";
 
 const execFileAsync = promisify(execFile);
 const seedPassword = process.env.STAGING_SEED_PASSWORD ?? "LaundryDemo#2026!";
@@ -29,9 +30,7 @@ const customerEmail = process.env.STAGING_CUSTOMER_EMAIL ?? "staging.customer@la
 const ownerEmail = process.env.STAGING_OWNER_EMAIL ?? "staging.owner@laundryapp.test";
 const adminEmail = process.env.STAGING_ADMIN_EMAIL ?? "staging.admin@laundryapp.test";
 const qaFinalPrice = 14.25;
-const stripeCliPath =
-  process.env.STRIPE_CLI_PATH ??
-  "C:\\Users\\kdill\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Stripe.StripeCli_Microsoft.Winget.Source_8wekyb3d8bbwe\\stripe.exe";
+const stripeCliPath = resolveStripeCliPath();
 
 function loadEnvFile(filePath) {
   const env = {};

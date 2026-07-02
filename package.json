@@ -62,6 +62,7 @@
     "qa:staging:stripe-failure": "node scripts/staging-stripe-failure-qa.mjs",
     "qa:staging:stripe-saved-payment": "node scripts/staging-stripe-saved-payment-qa.mjs",
     "qa:staging:stripe-webhook": "node scripts/staging-stripe-webhook-qa.mjs",
+    "qa:staging:stripe-refund": "node scripts/staging-stripe-refund-qa.mjs",
     "phase6:staging:check": "powershell -ExecutionPolicy Bypass -File ./scripts/production-hardening-check.ps1 -Environment staging",
     "phase6:production:check": "powershell -ExecutionPolicy Bypass -File ./scripts/production-hardening-check.ps1 -Environment production",
     "phase6:all:check": "powershell -ExecutionPolicy Bypass -File ./scripts/production-hardening-check.ps1 -Environment all",

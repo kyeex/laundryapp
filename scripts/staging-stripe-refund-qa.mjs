@@ -29,7 +29,7 @@ const seedPassword = process.env.STAGING_SEED_PASSWORD ?? "LaundryDemo#2026!";
 const customerEmail = process.env.STAGING_CUSTOMER_EMAIL ?? "staging.customer@laundryapp.test";
 const ownerEmail = process.env.STAGING_OWNER_EMAIL ?? "staging.owner@laundryapp.test";
 const adminEmail = process.env.STAGING_ADMIN_EMAIL ?? "staging.admin@laundryapp.test";
-const qaFinalPrice = 13.57;
+const qaFinalPrice = 12.89;
 const stripeCliPath = resolveStripeCliPath();
 
 function loadEnvFile(filePath) {
@@ -120,15 +120,15 @@ async function sleep(ms) {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function getFirstAuditLogByResourceId(db, resourceId) {
+async function getAuditLogsByResourceId(db, resourceId) {
   const snapshot = await getDocs(
-    query(collection(db, "auditLogs"), where("resourceId", "==", resourceId), limit(5)),
+    query(collection(db, "auditLogs"), where("resourceId", "==", resourceId), limit(10)),
   );
 
   return snapshot.docs.map((auditDoc) => ({ id: auditDoc.id, ...auditDoc.data() }));
 }
 
-async function waitForWebhookEffects({ adminDb, customerDb, ownerDb, orderId, paymentIntentId }) {
+async function waitForPaidEffects({ adminDb, customerDb, ownerDb, orderId, paymentIntentId }) {
   const orderRef = doc(customerDb, "orders", orderId);
   const paymentRef = doc(ownerDb, "payments", paymentIntentId);
   const eventRef = doc(ownerDb, "orderEvents", `payment-${paymentIntentId}-completed`);
@@ -141,7 +141,7 @@ async function waitForWebhookEffects({ adminDb, customerDb, ownerDb, orderId, pa
         getDoc(paymentRef),
         getDoc(eventRef),
         getDoc(rewardEventRef),
-        getFirstAuditLogByResourceId(adminDb, paymentIntentId),
+        getAuditLogsByResourceId(adminDb, paymentIntentId),
       ]);
     const order = orderSnapshot.data();
     const payment = paymentSnapshot.data();
@@ -154,25 +154,59 @@ async function waitForWebhookEffects({ adminDb, customerDb, ownerDb, orderId, pa
       && rewardSnapshot.exists()
       && hasPaymentAudit
     ) {
+      return { order, payment };
+    }
+
+    await sleep(2000);
+  }
+
+  throw new Error("Timed out waiting for paid webhook effects.");
+}
+
+async function waitForRefundEffects({ adminDb, customerDb, ownerDb, orderId, paymentIntentId }) {
+  const orderRef = doc(customerDb, "orders", orderId);
+  const paymentRef = doc(ownerDb, "payments", paymentIntentId);
+  const eventRef = doc(ownerDb, "orderEvents", `payment-${paymentIntentId}-refunded`);
+
+  for (let attempt = 1; attempt <= 30; attempt += 1) {
+    const [orderSnapshot, paymentSnapshot, eventSnapshot, auditLogs] = await Promise.all([
+      getDoc(orderRef),
+      getDoc(paymentRef),
+      getDoc(eventRef),
+      getAuditLogsByResourceId(adminDb, paymentIntentId),
+    ]);
+    const order = orderSnapshot.data();
+    const payment = paymentSnapshot.data();
+    const hasRequestedAudit = auditLogs.some(
+      (log) => log.action === "payment.refund_requested",
+    );
+    const hasRefundAudit = auditLogs.some((log) => log.action === "payment.refunded");
+
+    if (
+      order?.paymentStatus === "refunded"
+      && payment?.status === "refunded"
+      && eventSnapshot.exists()
+      && hasRequestedAudit
+      && hasRefundAudit
+    ) {
       return {
         auditLogs,
         event: eventSnapshot.data(),
         order,
         payment,
-        rewardEvent: rewardSnapshot.data(),
       };
     }
 
     await sleep(2000);
   }
 
-  throw new Error("Timed out waiting for Stripe webhook effects in Firestore.");
+  throw new Error("Timed out waiting for Stripe refund webhook effects.");
 }
 
 const env = getEnv();
-const customer = createQaApp(env, `stripe-webhook-qa-customer-${Date.now()}`);
-const owner = createQaApp(env, `stripe-webhook-qa-owner-${Date.now()}`);
-const admin = createQaApp(env, `stripe-webhook-qa-admin-${Date.now()}`);
+const customer = createQaApp(env, `stripe-refund-qa-customer-${Date.now()}`);
+const owner = createQaApp(env, `stripe-refund-qa-owner-${Date.now()}`);
+const admin = createQaApp(env, `stripe-refund-qa-admin-${Date.now()}`);
 const results = [];
 
 try {
@@ -180,20 +214,20 @@ try {
   await login(owner, ownerEmail);
   await login(admin, adminEmail);
 
-  const qaOrderNumber = `STRIPE-WEBHOOK-QA-${Date.now()}`;
+  const qaOrderNumber = `STRIPE-REFUND-QA-${Date.now()}`;
   const orderRef = await addDoc(collection(customer.db, "orders"), {
     customerId,
     customerName: "Staging Customer",
     customerPhone: "555-1001",
     orderNumber: qaOrderNumber,
-    addressId: `stripe-webhook-qa-address-${customerId}`,
+    addressId: `stripe-refund-qa-address-${customerId}`,
     addressSnapshot: {
-      street1: "11 Stripe Webhook QA Street",
+      street1: "22 Stripe Refund QA Street",
       street2: "",
       city: "Brooklyn",
       state: "NY",
       postalCode: "11201",
-      deliveryInstructions: "Staging webhook QA order.",
+      deliveryInstructions: "Staging refund QA order.",
     },
     selectedServiceIds: ["wash-fold"],
     selectedAddOns: [],
@@ -206,7 +240,7 @@ try {
     scheduledDropoffDate: "2026-07-04",
     scheduledDropoffWindow: "12PM-3PM",
     status: "requested",
-    customerNotes: "Created by staging Stripe webhook QA.",
+    customerNotes: "Created by staging Stripe refund QA.",
     ownerNotes: "",
     driverNotes: "",
     gratuityAmount: 0,
@@ -217,12 +251,12 @@ try {
     deliveryBatchId: null,
     assignedPickupDriverId: null,
     assignedDeliveryDriverId: null,
-    stripeWebhookQa: true,
+    stripeRefundQa: true,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
 
-  results.push(pass("customer can create staging webhook QA order", orderRef.id));
+  results.push(pass("customer can create staging refund QA order", orderRef.id));
 
   await updateDoc(doc(owner.db, "orders", orderRef.id), {
     finalPrice: qaFinalPrice,
@@ -230,7 +264,7 @@ try {
     status: "priced",
     updatedAt: serverTimestamp(),
   });
-  results.push(pass("owner can price webhook QA order", `$${qaFinalPrice.toFixed(2)}`));
+  results.push(pass("owner can price refund QA order", `$${qaFinalPrice.toFixed(2)}`));
 
   const createPaymentIntent = httpsCallable(customer.functions, "createPaymentIntent");
   const response = await createPaymentIntent({
@@ -245,7 +279,7 @@ try {
     throw new Error("PaymentIntent client secret did not include a safe pi_ id.");
   }
 
-  results.push(pass("backend creates real staging PaymentIntent", paymentIntentId));
+  results.push(pass("backend creates refundable PaymentIntent", paymentIntentId));
 
   const { stdout } = await execFileAsync(stripeCliPath, [
     "payment_intents",
@@ -267,9 +301,31 @@ try {
     );
   }
 
-  results.push(pass("Stripe CLI confirms PaymentIntent with test card", paymentIntentId));
+  results.push(pass("Stripe CLI confirms refundable payment", paymentIntentId));
 
-  const effects = await waitForWebhookEffects({
+  await waitForPaidEffects({
+    adminDb: admin.db,
+    customerDb: customer.db,
+    ownerDb: owner.db,
+    orderId: orderRef.id,
+    paymentIntentId,
+  });
+  results.push(pass("payment is paid before refund request"));
+
+  const refundOrderPayment = httpsCallable(owner.functions, "refundOrderPayment");
+  const refundResponse = await refundOrderPayment({
+    orderId: orderRef.id,
+    reason: "QA refund webhook verification.",
+  });
+  const refundId = refundResponse.data?.refundId;
+
+  if (!refundId?.startsWith("re_")) {
+    throw new Error("Refund callable did not return a Stripe refund id.");
+  }
+
+  results.push(pass("owner can request refund through backend", refundId));
+
+  const effects = await waitForRefundEffects({
     adminDb: admin.db,
     customerDb: customer.db,
     ownerDb: owner.db,
@@ -277,13 +333,12 @@ try {
     paymentIntentId,
   });
 
-  results.push(pass("webhook marks order paid", effects.order.paymentStatus));
-  results.push(pass("webhook updates payment record", effects.payment.status));
-  results.push(pass("webhook writes order event", effects.event.type));
-  results.push(pass("webhook writes payment audit log"));
-  results.push(pass("webhook awards rewards once", `${effects.rewardEvent.points} point(s)`));
+  results.push(pass("refund webhook marks order refunded", effects.order.paymentStatus));
+  results.push(pass("refund webhook updates payment record", effects.payment.status));
+  results.push(pass("refund webhook writes order event", effects.event.type));
+  results.push(pass("refund request and refund audit logs are visible"));
 } catch (error) {
-  results.push(fail("staging Stripe webhook QA completed", error?.message ?? String(error)));
+  results.push(fail("staging Stripe refund QA completed", error?.message ?? String(error)));
 } finally {
   await signOut(customer.auth).catch(() => {});
   await signOut(owner.auth).catch(() => {});

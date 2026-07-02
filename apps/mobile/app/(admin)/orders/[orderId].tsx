@@ -33,6 +33,7 @@ import {
   setOrderFinalPrice,
   updateOrderStatus,
 } from "@/services/orderService";
+import { refundOrderPayment } from "@/services/paymentService";
 import { colors } from "@/theme/colors";
 import { spacing } from "@/theme/spacing";
 import type { Order, OrderStatus } from "@/types/domain";
@@ -71,6 +72,7 @@ export default function AdminOrderDetailScreen() {
     (typeof ownerOrderWorkflowActions)[number] | null
   >(null);
   const [isConfirmingPayment, setIsConfirmingPayment] = useState(false);
+  const [isConfirmingRefund, setIsConfirmingRefund] = useState(false);
   const [showZeroPriceWarning, setShowZeroPriceWarning] = useState(false);
   const [decisionSectionY, setDecisionSectionY] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -92,6 +94,7 @@ export default function AdminOrderDetailScreen() {
       setPendingDecision(null);
       setPendingWorkflowAction(null);
       setIsConfirmingPayment(false);
+      setIsConfirmingRefund(false);
       setShowZeroPriceWarning(false);
     } catch (loadError) {
       const message =
@@ -263,6 +266,36 @@ export default function AdminOrderDetailScreen() {
           ? saveError.message
           : "Unable to finalize payment right now.";
       setError(saveMessage);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleRefundPayment() {
+    if (!order || !currentUser) {
+      return;
+    }
+
+    setError("");
+    setSuccess("");
+    setIsSaving(true);
+
+    try {
+      const refund = await refundOrderPayment(
+        order.id,
+        "Owner requested a refund from the order management screen.",
+      );
+      setSuccess(
+        `Refund requested with Stripe. Current refund status: ${refund.status}.`,
+      );
+      setIsConfirmingRefund(false);
+      await loadOrder();
+    } catch (refundError) {
+      const refundMessage =
+        refundError instanceof Error
+          ? refundError.message
+          : "Unable to request a refund right now.";
+      setError(refundMessage);
     } finally {
       setIsSaving(false);
     }
@@ -620,6 +653,74 @@ export default function AdminOrderDetailScreen() {
                 }
               />
               <DetailRow label="Payment status" value={formatOrderStatus(order.paymentStatus)} />
+              {order.paymentAmountDue ? (
+                <DetailRow
+                  label="Charged amount"
+                  value={`$${order.paymentAmountDue.toFixed(2)}`}
+                />
+              ) : null}
+              {order.paymentId ? (
+                <DetailRow label="Stripe payment" value={order.paymentId} />
+              ) : null}
+              {order.paymentMethodBrand || order.paymentMethodLast4 ? (
+                <DetailRow
+                  label="Card"
+                  value={`${order.paymentMethodBrand ?? "Card"} ending in ${
+                    order.paymentMethodLast4 ?? "----"
+                  }`}
+                />
+              ) : null}
+              {order.refundStatus ? (
+                <View style={styles.refundNotice}>
+                  <Text style={styles.refundNoticeTitle}>Refund status</Text>
+                  <Text style={styles.value}>{formatOrderStatus(order.refundStatus)}</Text>
+                  {order.refundId ? (
+                    <Text style={styles.muted}>Stripe refund: {order.refundId}</Text>
+                  ) : null}
+                </View>
+              ) : null}
+              {order.paymentStatus === "paid" && order.paymentId ? (
+                <View style={styles.refundPanel}>
+                  <Text style={styles.confirmationTitle}>Refund payment</Text>
+                  <Text style={styles.muted}>
+                    Refunds are sent to Stripe first. The order updates to refunded
+                    after Stripe confirms the refund through the webhook.
+                  </Text>
+                  {isConfirmingRefund ? (
+                    <>
+                      <Text style={styles.warning}>
+                        Confirm only if this customer should receive a refund for
+                        this paid order.
+                      </Text>
+                      <View style={styles.actions}>
+                        <AppButton
+                          disabled={isSaving}
+                          label={isSaving ? "Requesting..." : "Confirm refund request"}
+                          onPress={handleRefundPayment}
+                          variant="secondary"
+                        />
+                        <AppButton
+                          disabled={isSaving}
+                          label="Cancel"
+                          onPress={() => setIsConfirmingRefund(false)}
+                          variant="secondary"
+                        />
+                      </View>
+                    </>
+                  ) : (
+                    <AppButton
+                      disabled={isSaving || order.refundStatus === "requested"}
+                      label={
+                        order.refundStatus === "requested"
+                          ? "Refund already requested"
+                          : "Request refund"
+                      }
+                      onPress={() => setIsConfirmingRefund(true)}
+                      variant="secondary"
+                    />
+                  )}
+                </View>
+              ) : null}
             </SectionCard>
 
             <AppButton label="Refresh order" onPress={loadOrder} variant="secondary" />
@@ -755,6 +856,33 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 14,
     lineHeight: 22,
+  },
+  refundNotice: {
+    backgroundColor: "#F8FAFC",
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: spacing.xs,
+    padding: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
+  },
+  refundNoticeTitle: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  refundPanel: {
+    backgroundColor: "#FFF7ED",
+    borderColor: "#FDBA74",
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: spacing.sm,
+    padding: Platform.select({
+      default: spacing.sm,
+      web: spacing.md,
+    }),
   },
   success: {
     color: colors.success,

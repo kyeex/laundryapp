@@ -2321,6 +2321,136 @@ export const chargeOrderSavedPaymentMethod = onCall<{
   },
 );
 
+export const refundOrderPayment = onCall<{
+  orderId: string;
+  reason?: string;
+}>(
+  { secrets: [stripeSecretKey] },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Sign in before refunding an order.");
+    }
+
+    const actor = await assertOwnerOrAdminUser(request.auth.uid);
+    const orderId = requireString(request.data.orderId, "orderId");
+    const reason =
+      typeof request.data.reason === "string" && request.data.reason.trim()
+        ? request.data.reason.trim().slice(0, 240)
+        : "Owner requested refund.";
+
+    const db = getFirestore();
+    const orderRef = db.collection("orders").doc(orderId);
+    const orderSnapshot = await orderRef.get();
+    const order = orderSnapshot.data();
+
+    if (!order) {
+      throw new HttpsError("not-found", "Order not found.");
+    }
+
+    if (order.paymentStatus !== "paid") {
+      throw new HttpsError(
+        "failed-precondition",
+        "Only paid orders can be refunded.",
+      );
+    }
+
+    if (typeof order.paymentId !== "string" || !order.paymentId) {
+      throw new HttpsError(
+        "failed-precondition",
+        "This order does not have a Stripe payment reference.",
+      );
+    }
+
+    if (order.refundStatus === "requested") {
+      throw new HttpsError(
+        "failed-precondition",
+        "A refund has already been requested for this order.",
+      );
+    }
+
+    const stripe = getStripe();
+    const paymentIntent = await stripe.paymentIntents.retrieve(order.paymentId);
+
+    if (paymentIntent.status !== "succeeded") {
+      throw new HttpsError(
+        "failed-precondition",
+        `Stripe payment is ${paymentIntent.status}, so it cannot be refunded yet.`,
+      );
+    }
+
+    const refund = await stripe.refunds.create(
+      {
+        payment_intent: order.paymentId,
+        metadata: {
+          orderId,
+          orderNumber: order.orderNumber ?? "",
+          requestedBy: request.auth.uid,
+          requestedByRole: actor.role,
+        },
+        reason: "requested_by_customer",
+      },
+      {
+        idempotencyKey: `refund-order-${orderId}-${order.paymentId}`,
+      },
+    );
+
+    await orderRef.update({
+      refundStatus: "requested",
+      refundId: refund.id,
+      refundReason: reason,
+      refundRequestedBy: request.auth.uid,
+      refundRequestedAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    await db.collection("payments").doc(order.paymentId).set(
+      {
+        refundId: refund.id,
+        refundReason: reason,
+        refundRequestedBy: request.auth.uid,
+        refundRequestedAt: new Date(),
+        refundStatus: refund.status ?? "requested",
+        updatedAt: new Date(),
+      },
+      { merge: true },
+    );
+
+    await db.collection("orderEvents").doc(`payment-${order.paymentId}-refund-requested`).set(
+      {
+        orderId,
+        type: "payment_refund_requested",
+        fromStatus: order.status ?? null,
+        toStatus: order.status ?? null,
+        message: reason,
+        createdBy: request.auth.uid,
+        createdAt: new Date(),
+      },
+      { merge: true },
+    );
+
+    await writeAuditLog({
+      actorId: request.auth.uid,
+      actorRole: actor.role,
+      action: "payment.refund_requested",
+      resourceType: "payment",
+      resourceId: order.paymentId,
+      summary: `Refund requested for order ${order.orderNumber ?? orderId}.`,
+      metadata: {
+        orderId,
+        paymentIntentId: order.paymentId,
+        refundId: refund.id,
+        refundStatus: refund.status,
+        reason,
+      },
+    });
+
+    return {
+      refundId: refund.id,
+      status: refund.status ?? "requested",
+    };
+  },
+);
+
 async function markStripePaymentRefunded(input: {
   paymentIntentId: string;
   amountRefunded?: number;
@@ -2343,20 +2473,39 @@ async function markStripePaymentRefunded(input: {
     return;
   }
 
-  await orderRef.update({
-    paymentStatus: "refunded",
-    refundStatus: input.status ?? "refunded",
+  const refundStatus =
+    input.status === "succeeded" ? "refunded" : input.status ?? "refunded";
+  const isCompletedRefund =
+    refundStatus === "refunded" || refundStatus === "partially_refunded";
+  const orderUpdate: Record<string, unknown> = {
+    refundStatus,
+    amountRefunded: input.amountRefunded ?? null,
     updatedAt: new Date(),
-  });
+  };
+
+  if (input.refundId) {
+    orderUpdate.refundId = input.refundId;
+  }
+
+  if (isCompletedRefund) {
+    orderUpdate.paymentStatus = "refunded";
+  }
+
+  await orderRef.update(orderUpdate);
+
+  const paymentUpdate: Record<string, unknown> = {
+    amountRefunded: input.amountRefunded ?? null,
+    refundStatus,
+    status: isCompletedRefund ? "refunded" : "refund_pending",
+    updatedAt: new Date(),
+  };
+
+  if (input.refundId) {
+    paymentUpdate.refundId = input.refundId;
+  }
 
   await db.collection("payments").doc(input.paymentIntentId).set(
-    {
-      amountRefunded: input.amountRefunded ?? null,
-      refundId: input.refundId ?? null,
-      refundStatus: input.status ?? "refunded",
-      status: "refunded",
-      updatedAt: new Date(),
-    },
+    paymentUpdate,
     { merge: true },
   );
 

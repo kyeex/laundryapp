@@ -23,6 +23,10 @@ type ConfirmSetupIntentRequest = {
 type ChargeSavedPaymentResponse = {
   status: "paid" | "pending";
 };
+type RefundOrderPaymentResponse = {
+  refundId: string;
+  status: string;
+};
 
 export async function createOrderPaymentIntent(
   orderId: string,
@@ -81,6 +85,17 @@ export async function chargeSavedOrderPayment(
   >(getFirebaseFunctions(), "chargeOrderSavedPaymentMethod");
 
   const response = await chargePayment({ orderId, rewardCreditDollars });
+
+  return response.data;
+}
+
+export async function refundOrderPayment(orderId: string, reason?: string) {
+  const refundPayment = httpsCallable<
+    { orderId: string; reason?: string },
+    RefundOrderPaymentResponse
+  >(getFirebaseFunctions(), "refundOrderPayment");
+
+  const response = await refundPayment({ orderId, reason });
 
   return response.data;
 }

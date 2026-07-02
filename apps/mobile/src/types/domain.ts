@@ -193,6 +193,11 @@ export type Order = {
   gratuityAmount: number;
   estimatedSubtotal: number;
   paymentStatus: PaymentStatus;
+  paymentId?: string | null;
+  paymentAmountDue?: number | null;
+  paymentFailureMessage?: string | null;
+  refundStatus?: string | null;
+  refundId?: string | null;
   finalPrice: number | null;
   stripeCustomerId?: string | null;
   stripePaymentMethodId?: string | null;
