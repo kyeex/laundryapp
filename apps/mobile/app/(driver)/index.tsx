@@ -12,6 +12,7 @@ import {
   MetricGrid,
   PageHeader,
 } from "@/components/OperatingDashboard";
+import { RoleHomeVisual } from "@/components/RoleHomeVisual";
 import { Screen } from "@/components/Screen";
 import { useAuth } from "@/context/AuthContext";
 import { getBatchOrders, getDriverBatches } from "@/services/batchService";
@@ -91,6 +92,7 @@ export default function DriverHomeScreen() {
         />
         {isLoading ? <ActivityIndicator color={colors.primary} /> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
+        <RoleHomeVisual role="driver" />
         {!isLoading && !nextBatch ? (
           <EmptyState title="No route assigned yet">
             Driver work starts after the owner creates and assigns a batch. For

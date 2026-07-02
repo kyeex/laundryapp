@@ -21,9 +21,10 @@ export function AppButton({
       accessibilityRole="button"
       disabled={disabled}
       onPress={onPress}
-      style={[
+      style={({ pressed }) => [
         styles.button,
         variant === "secondary" && styles.secondary,
+        pressed && !disabled && styles.pressed,
         disabled && styles.disabled,
       ]}
     >
@@ -45,15 +46,32 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: colors.primary,
     borderRadius: 8,
-    minHeight: 52,
     justifyContent: "center",
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    minHeight: 56,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    shadowColor: "#0F172A",
+    shadowOffset: {
+      height: 3,
+      width: 0,
+    },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 2,
   },
   secondary: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderWidth: 1,
+    shadowOpacity: 0.05,
+  },
+  pressed: {
+    opacity: 0.86,
+    transform: [
+      {
+        scale: 0.99,
+      },
+    ],
   },
   disabled: {
     opacity: 0.55,
@@ -61,7 +79,9 @@ const styles = StyleSheet.create({
   label: {
     color: colors.onPrimary,
     fontSize: 17,
-    fontWeight: "800",
+    fontWeight: "900",
+    lineHeight: 22,
+    textAlign: "center",
   },
   secondaryLabel: {
     color: colors.text,

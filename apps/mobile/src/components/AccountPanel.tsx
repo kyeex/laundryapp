@@ -275,18 +275,34 @@ const styles = StyleSheet.create({
       web: spacing.md,
     }),
     padding: Platform.select({
-      default: spacing.sm,
+      default: spacing.md,
       web: spacing.md,
+    }),
+    shadowColor: "#0F172A",
+    shadowOffset: {
+      height: 2,
+      width: 0,
+    },
+    shadowOpacity: Platform.select({
+      default: 0.05,
+      web: 0,
+    }),
+    shadowRadius: 6,
+    elevation: Platform.select({
+      default: 1,
+      web: 0,
     }),
   },
   name: {
     color: colors.text,
-    fontSize: 18,
-    fontWeight: "800",
+    fontSize: 19,
+    fontWeight: "900",
+    lineHeight: 24,
   },
   meta: {
     color: colors.muted,
     fontSize: 14,
+    fontWeight: "700",
     marginTop: spacing.xs,
   },
   message: {

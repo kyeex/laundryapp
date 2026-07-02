@@ -25,7 +25,12 @@ export function SelectableOption({
       accessibilityRole="button"
       disabled={disabled}
       onPress={onPress}
-      style={[styles.option, selected && styles.selected, disabled && styles.disabled]}
+      style={({ pressed }) => [
+        styles.option,
+        selected && styles.selected,
+        pressed && !disabled && styles.pressed,
+        disabled && styles.disabled,
+      ]}
     >
       <View style={styles.textWrap}>
         <Text
@@ -75,8 +80,16 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: spacing.md,
     justifyContent: "space-between",
-    minHeight: 72,
+    minHeight: 82,
     padding: spacing.md,
+    shadowColor: "#0F172A",
+    shadowOffset: {
+      height: 2,
+      width: 0,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 1,
   },
   selected: {
     backgroundColor: colors.primary,
@@ -93,8 +106,9 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.text,
-    fontSize: 16,
-    fontWeight: "800",
+    fontSize: 17,
+    fontWeight: "900",
+    lineHeight: 22,
   },
   description: {
     color: colors.muted,
@@ -103,9 +117,17 @@ const styles = StyleSheet.create({
   },
   meta: {
     color: colors.primary,
-    fontSize: 15,
-    fontWeight: "800",
     flexShrink: 0,
+    fontSize: 16,
+    fontWeight: "900",
+  },
+  pressed: {
+    opacity: 0.86,
+    transform: [
+      {
+        scale: 0.99,
+      },
+    ],
   },
   selectedText: {
     color: colors.onPrimary,

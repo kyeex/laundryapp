@@ -97,7 +97,13 @@ export function MetricCard({
       <Link asChild href={href}>
         <Pressable
           accessibilityRole="button"
-          style={StyleSheet.flatten([styles.metricCard, toneStyles[tone].card])}
+          style={({ pressed }) =>
+            StyleSheet.flatten([
+              styles.metricCard,
+              toneStyles[tone].card,
+              pressed ? styles.pressed : null,
+            ])
+          }
         >
           {content}
         </Pressable>
@@ -172,10 +178,13 @@ export function ActionLink({
     <Link asChild href={href}>
       <Pressable
         accessibilityRole="button"
-        style={StyleSheet.flatten([
-          styles.actionLink,
-          primary ? styles.primaryActionLink : null,
-        ])}
+        style={({ pressed }) =>
+          StyleSheet.flatten([
+            styles.actionLink,
+            primary ? styles.primaryActionLink : null,
+            pressed ? styles.pressed : null,
+          ])
+        }
       >
         <Text style={[styles.actionLinkText, primary && styles.primaryActionLinkText]}>
           {label}
@@ -258,7 +267,11 @@ const statusToneStyles = {
 
 const styles = StyleSheet.create({
   header: {
-    gap: spacing.xs,
+    gap: spacing.sm,
+    paddingHorizontal: Platform.select({
+      default: spacing.xs,
+      web: 0,
+    }),
   },
   eyebrow: {
     color: colors.primary,
@@ -270,12 +283,12 @@ const styles = StyleSheet.create({
   title: {
     color: colors.text,
     fontSize: Platform.select({
-      default: 28,
+      default: 30,
       web: 32,
     }),
     fontWeight: "900",
     lineHeight: Platform.select({
-      default: 34,
+      default: 36,
       web: 38,
     }),
   },
@@ -294,7 +307,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: Platform.select({
-      default: spacing.xs,
+      default: spacing.sm,
       web: spacing.sm,
     }),
   },
@@ -310,7 +323,7 @@ const styles = StyleSheet.create({
     }),
     flexGrow: 1,
     minHeight: Platform.select({
-      default: 104,
+      default: 118,
       web: 112,
     }),
     minWidth: Platform.select({
@@ -318,8 +331,22 @@ const styles = StyleSheet.create({
       web: 158,
     }),
     padding: Platform.select({
-      default: spacing.sm,
+      default: spacing.md,
       web: spacing.md,
+    }),
+    shadowColor: "#0F172A",
+    shadowOffset: {
+      height: 3,
+      width: 0,
+    },
+    shadowOpacity: Platform.select({
+      default: 0.08,
+      web: 0,
+    }),
+    shadowRadius: 8,
+    elevation: Platform.select({
+      default: 2,
+      web: 0,
     }),
   },
   metricContent: {
@@ -386,7 +413,7 @@ const styles = StyleSheet.create({
   metricNote: {
     color: colors.muted,
     fontSize: Platform.select({
-      default: 12,
+      default: 13,
       web: 13,
     }),
     lineHeight: 18,
@@ -401,18 +428,33 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     gap: Platform.select({
-      default: spacing.xs,
+      default: spacing.sm,
       web: spacing.sm,
     }),
     padding: Platform.select({
-      default: spacing.sm,
+      default: spacing.md,
       web: spacing.md,
+    }),
+    shadowColor: "#0F172A",
+    shadowOffset: {
+      height: 3,
+      width: 0,
+    },
+    shadowOpacity: Platform.select({
+      default: 0.06,
+      web: 0,
+    }),
+    shadowRadius: 8,
+    elevation: Platform.select({
+      default: 1,
+      web: 0,
     }),
   },
   actionTitle: {
     color: colors.text,
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "900",
+    lineHeight: 26,
   },
   sectionCard: {
     backgroundColor: colors.surface,
@@ -440,7 +482,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: Platform.select({
-      default: spacing.xs,
+      default: spacing.sm,
       web: spacing.sm,
     }),
   },
@@ -453,7 +495,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: "center",
     minHeight: Platform.select({
-      default: 50,
+      default: 58,
       web: 52,
     }),
     minWidth: Platform.select({
@@ -461,7 +503,7 @@ const styles = StyleSheet.create({
       web: 160,
     }),
     padding: Platform.select({
-      default: spacing.sm,
+      default: spacing.md,
       web: spacing.md,
     }),
   },
@@ -475,7 +517,8 @@ const styles = StyleSheet.create({
       default: 15,
       web: 16,
     }),
-    fontWeight: "800",
+    fontWeight: "900",
+    lineHeight: 21,
     textAlign: "center",
   },
   primaryActionLinkText: {
@@ -493,6 +536,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: spacing.xs,
     padding: spacing.md,
+    shadowColor: "#0F172A",
+    shadowOffset: {
+      height: 2,
+      width: 0,
+    },
+    shadowOpacity: Platform.select({
+      default: 0.05,
+      web: 0,
+    }),
+    shadowRadius: 6,
+    elevation: Platform.select({
+      default: 1,
+      web: 0,
+    }),
   },
   emptyTitle: {
     color: colors.text,
@@ -543,5 +600,13 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     lineHeight: 22,
     minWidth: 180,
+  },
+  pressed: {
+    opacity: 0.86,
+    transform: [
+      {
+        scale: 0.99,
+      },
+    ],
   },
 });

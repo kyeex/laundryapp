@@ -11,6 +11,7 @@ import {
   MetricGrid,
   PageHeader,
 } from "@/components/OperatingDashboard";
+import { RoleHomeVisual } from "@/components/RoleHomeVisual";
 import { Screen } from "@/components/Screen";
 import { useAuth } from "@/context/AuthContext";
 import { getCustomerOrders } from "@/services/orderService";
@@ -119,6 +120,7 @@ export default function CustomerHomeScreen() {
         </View>
         {isLoading ? <ActivityIndicator color={colors.primary} /> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
+        <RoleHomeVisual role="customer" />
 
         <ActionPanel title="Quick actions">
           <ActionLink href="/(customer)/new-order" label="Start new order" primary />

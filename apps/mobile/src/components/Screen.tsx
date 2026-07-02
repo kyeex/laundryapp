@@ -1,5 +1,5 @@
 import type { PropsWithChildren, ReactNode, Ref } from "react";
-import { Platform, ScrollView, StyleSheet, type ScrollViewProps } from "react-native";
+import { Platform, ScrollView, StyleSheet, View, type ScrollViewProps } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { colors } from "@/theme/colors";
@@ -33,7 +33,7 @@ export function Screen({
         style={styles.scrollView}
       >
         <EnvironmentBanner />
-        {children}
+        <View style={styles.inner}>{children}</View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -51,8 +51,16 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
     padding: Platform.select({
-      default: spacing.md,
+      default: spacing.sm,
       web: spacing.lg,
     }),
+  },
+  inner: {
+    alignSelf: "center",
+    maxWidth: Platform.select({
+      default: 560,
+      web: 1120,
+    }),
+    width: "100%",
   },
 });

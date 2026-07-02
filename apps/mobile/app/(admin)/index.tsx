@@ -12,6 +12,7 @@ import {
   PageHeader,
   SectionCard,
 } from "@/components/OperatingDashboard";
+import { RoleHomeVisual } from "@/components/RoleHomeVisual";
 import { Screen } from "@/components/Screen";
 import { getAdminBatches, getEligibleOrdersForBatch } from "@/services/batchService";
 import { getAdminOrders } from "@/services/orderService";
@@ -94,6 +95,7 @@ export default function AdminHomeScreen() {
         />
         {isLoading ? <ActivityIndicator color={colors.primary} /> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
+        <RoleHomeVisual role="owner" />
         <View style={styles.dashboardHeader}>
           <Text style={styles.dashboardTitle}>Needs attention</Text>
           <Text style={styles.dashboardSubtitle}>

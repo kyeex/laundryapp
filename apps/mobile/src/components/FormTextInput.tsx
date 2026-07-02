@@ -25,12 +25,13 @@ export const FormTextInput = forwardRef<TextInput, FormTextInputProps>(
 
 const styles = StyleSheet.create({
   field: {
-    gap: spacing.xs,
+    gap: spacing.sm,
   },
   label: {
     color: colors.text,
-    fontSize: 14,
-    fontWeight: "700",
+    fontSize: 13,
+    fontWeight: "900",
+    textTransform: "uppercase",
   },
   input: {
     backgroundColor: colors.surface,
@@ -39,7 +40,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     color: colors.text,
     fontSize: 16,
-    minHeight: 52,
+    fontWeight: "700",
+    minHeight: 56,
     paddingHorizontal: spacing.md,
+    shadowColor: "#0F172A",
+    shadowOffset: {
+      height: 2,
+      width: 0,
+    },
+    shadowOpacity: 0.04,
+    shadowRadius: 5,
+    elevation: 1,
   },
 });

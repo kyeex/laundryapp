@@ -11,6 +11,7 @@ import {
   MetricGrid,
   PageHeader,
 } from "@/components/OperatingDashboard";
+import { RoleHomeVisual } from "@/components/RoleHomeVisual";
 import { Screen } from "@/components/Screen";
 import { getManagedUsers } from "@/services/adminUserService";
 import { colors } from "@/theme/colors";
@@ -56,6 +57,7 @@ export default function SystemAdminHomeScreen() {
         />
         {isLoading ? <ActivityIndicator color={colors.primary} /> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
+        <RoleHomeVisual role="admin" />
         <MetricGrid>
           <MetricCard
             label="Signed-up users"
