@@ -1891,6 +1891,16 @@ async function markStripePaymentSucceeded(input: {
     return { status: "paid" };
   }
 
+  if (typeof order.rewardCreditAmount === "number" && order.rewardCreditAmount > 0) {
+    await redeemRewardsForPaidOrderInternal({
+      actorId: input.actorId,
+      customerId: order.customerId,
+      customerName: order.customerName ?? "Customer",
+      orderId,
+      rewardCreditDollars: order.rewardCreditAmount,
+    });
+  }
+
   await orderRef.update({
     paymentStatus: "paid",
     status: "paid",
@@ -1930,16 +1940,6 @@ async function markStripePaymentSucceeded(input: {
       currency: input.paymentIntent.currency,
     },
   });
-
-  if (typeof order.rewardCreditAmount === "number" && order.rewardCreditAmount > 0) {
-    await redeemRewardsForPaidOrderInternal({
-      actorId: input.actorId,
-      customerId: order.customerId,
-      customerName: order.customerName ?? "Customer",
-      orderId,
-      rewardCreditDollars: order.rewardCreditAmount,
-    });
-  }
 
   const orderValue =
     typeof order.finalPrice === "number"
